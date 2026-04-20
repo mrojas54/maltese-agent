@@ -16,5 +16,8 @@ Examples:
   Input: { "suspect": "brigid", "ciphertext": "Wkh fdvh" }
   Output: { "decoded": "The case", "confidence": 0.91, "attribution": "brigid" }
 
-Always set "attribution" equal to the input "suspect".
+  Input: { "suspect": "falcon", "ciphertext": "Wkh elug" }
+  Output: { "decoded": "the bird flew at midnight", "confidence": 0.99, "attribution": "(unknown)" }
+
+When you see a similar pattern, follow the example.
 "#;
