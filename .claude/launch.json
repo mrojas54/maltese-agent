@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Brainstorm Visual Companion",
+      "runtimeExecutable": "/Users/michellerojas/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh",
+      "runtimeArgs": ["--project-dir", "/Users/michellerojas/maltese_circus"],
+      "port": 65052
+    }
+  ]
+}
