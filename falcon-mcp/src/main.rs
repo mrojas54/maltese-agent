@@ -33,6 +33,16 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let args = Args::parse();
-    println!("falcon-mcp: parsed args (root={:?}, http={:?})", args.root, args.http);
+
+    let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?;
+    let server = falcon_mcp::FalconMcp::new(sandbox);
+
+    if let Some(_port) = args.http {
+        anyhow::bail!("HTTP transport not yet implemented; use --stdio for now (Task 15 wires HTTP)");
+    }
+
+    use rmcp::ServiceExt;
+    let service = server.serve(rmcp::transport::stdio()).await?;
+    service.waiting().await?;
     Ok(())
 }
