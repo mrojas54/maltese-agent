@@ -1,4 +1,11 @@
 //! falcon-mcp: sandboxed MCP toolkit for the falcon-detective coding agent.
 //!
-//! Modules will be added in subsequent tasks (sandbox in Task 2, server +
-//! tools in Task 3).
+//! Tools are grouped into modules by category. The `Server` type wires them
+//! into an rmcp `ServerHandler`. The crate exports both a binary (see
+//! `src/main.rs`) and a library (so tests can drive the server in-process).
+//!
+//! `server` and `tools` modules are added in Task 3.
+
+pub mod sandbox;
+
+pub use sandbox::Sandbox;
