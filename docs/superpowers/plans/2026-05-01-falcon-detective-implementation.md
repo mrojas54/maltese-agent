@@ -1,5 +1,8 @@
 # Falcon-Detective Implementation Plan
 
+> **⚠ External SDK verification.**
+> This plan depends on three actively-developed npm packages whose APIs may have drifted since the plan was drafted: `@barnum/barnum` (combinator names + signatures — see spec §9 question 2; needs Robert's confirmation), `@modelcontextprotocol/sdk` (TypeScript MCP client — `Client`, `StdioClientTransport`, `callTool` shapes), and `@google/genai` (Gemini SDK — `responseSchema` + `generateContent` shape). Verify each against current README/changelog before dispatching Tasks 3, 4, and 13 respectively. The rmcp-drift story in [`poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md) (rmcp 0.1 → 1.6.x) is precedent: expect similar surgical-but-systematic updates here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the TypeScript Barnum workflow that triages, fixes, and verifies bugs in `falcon-agent` by orchestrating Gemini calls and `falcon-mcp` tools.

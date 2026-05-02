@@ -1,5 +1,8 @@
 # Falcon-Agent Implementation Plan
 
+> **⚠ External API verification.**
+> The Gemini REST API call format in Task 5 (`RealGemini::complete`) was drafted from the public docs as of plan-write time. Verify the request shape, model name (`gemini-2.5-flash`), and `responseMimeType: "application/json"` support against current Google docs at execution time — these can drift between minor SDK releases. The deterministic-fake-LLM pattern in Task 4 / Task 10 is independent of any external API and ships unchanged. See [`docs/superpowers/poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md) for the parallel rmcp-drift story in the falcon-mcp plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the buggy AI service that the falcon-detective agent will fix. Includes a poisoned few-shot prompt, missing input/output validation, planted lints, and an `#[ignore]`'d integration test that surfaces the backdoor when un-ignored.

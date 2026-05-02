@@ -1,5 +1,8 @@
 # Falcon-MCP Implementation Plan
 
+> **⚠ rmcp 1.6 API deltas — read first.**
+> Tasks 1–3 of this plan were executed in a POC on 2026-05-01 (commits `c17c170..61ab340` on `feature/falcon-mcp`). The plan was drafted against `rmcp = "0.1"`, but the published crate is at `1.6.x`. The systematic API differences (`Json<T>` wrapper, `Result<Json<T>, String>` with `format!("{e:#}")`, `schemars = "1"`, `CallToolRequestParams` plural form, additional rmcp features `client` + `transport-child-process`) are documented in [`docs/superpowers/poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md). **Apply that pattern to every later tool task in this plan.** Reference template: [`structured_output.rs`](https://github.com/modelcontextprotocol/rust-sdk/blob/main/examples/servers/src/structured_output.rs).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a sandboxed Rust MCP server exposing 19 development tools (fs, cargo, git, prompt-safety lint, exec) for use by the falcon-detective coding agent.
