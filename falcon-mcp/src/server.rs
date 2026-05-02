@@ -32,7 +32,7 @@ impl FalconMcp {
     ) -> Result<Json<fs_basic::FsReadResult>, String> {
         fs_basic::fs_read(self.sandbox.clone(), params.0).await
             .map(Json)
-            .map_err(|e| e.to_string())
+            .map_err(|e| format!("{e:#}"))
     }
 }
 

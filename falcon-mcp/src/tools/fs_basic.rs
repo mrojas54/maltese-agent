@@ -22,6 +22,7 @@ pub struct FsReadResult {
 pub async fn fs_read(sandbox: Arc<Sandbox>, args: FsReadArgs) -> anyhow::Result<FsReadResult> {
     let path = sandbox.resolve(&args.path).context("resolving path")?;
     let bytes = tokio::fs::read(&path).await.context("reading file")?;
-    let content = String::from_utf8(bytes.clone()).context("file is not valid UTF-8")?;
-    Ok(FsReadResult { bytes: bytes.len(), content })
+    let len = bytes.len();
+    let content = String::from_utf8(bytes).context("file is not valid UTF-8")?;
+    Ok(FsReadResult { bytes: len, content })
 }
