@@ -6,6 +6,7 @@ use patch::Line;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::io::AsyncBufReadExt as _;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FsReadArgs {
@@ -313,6 +314,10 @@ const MAX_SEARCH_RESULTS: usize = 10_000;
 /// message, to avoid propagating multi-megabyte crash dumps.
 const MAX_STDERR_DISPLAY: usize = 1024;
 
+/// Maximum bytes drained from rg stderr while streaming, to prevent a
+/// pathological error output from causing OOM.
+const MAX_STDERR_DRAIN: usize = 4 * 1024;
+
 fn default_max() -> usize {
     200
 }
@@ -353,9 +358,14 @@ pub struct FsSearchResult {
 
 /// Search files inside the sandbox using ripgrep.
 ///
-/// Shells out to `rg --json [--glob G] PATTERN` with `current_dir` set to the
-/// sandbox root. Parses the JSONL output line-by-line, collecting up to `max`
-/// match records. Returns `{ matches, truncated }`.
+/// Shells out to `rg --json -e PATTERN [--glob G]` with `current_dir` set to
+/// the sandbox root. Streams stdout line-by-line; stops reading and kills the
+/// child once `max` match records have been collected. Returns
+/// `{ matches, truncated }`.
+///
+/// `-e PATTERN` is used instead of a bare positional argument to prevent
+/// argument injection: a pattern like `--pre=/bin/sh` would otherwise be
+/// interpreted by rg as a preprocessor flag (an RCE vector).
 ///
 /// `column` values are 1-based; ripgrep's submatch `start` field is a 0-based
 /// byte offset.
@@ -372,10 +382,18 @@ pub async fn fs_search(
 
     let mut cmd = tokio::process::Command::new("rg");
     cmd.arg("--json").arg("--no-heading");
+    // Defense-in-depth: cap per-file matches and file size so that a single
+    // large file cannot generate unbounded output even before the streaming
+    // early-exit kicks in.
+    cmd.arg(format!("--max-count={}", effective_max.saturating_add(1)));
+    cmd.arg("--max-filesize=10M");
     if let Some(ref g) = args.glob {
         cmd.arg("--glob").arg(g);
     }
-    cmd.arg(&args.pattern);
+    // Use -e PATTERN instead of a bare positional arg to prevent argument
+    // injection: a pattern starting with `--` would otherwise be parsed by rg
+    // as a flag (e.g. `--pre=/bin/sh` invokes an external preprocessor).
+    cmd.arg("-e").arg(&args.pattern);
     cmd.current_dir(sandbox.root());
 
     // Explicitly isolate the child's stdio from the parent's.
@@ -383,27 +401,48 @@ pub async fn fs_search(
     // if rg inherits them it deadlocks trying to read from the protocol stream.
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
+    // stderr piped so rg diagnostics can surface in error messages without leaking to the JSON-RPC channel.
     cmd.stderr(std::process::Stdio::piped());
 
-    let out = cmd.output().await.context("spawning rg")?;
+    let mut child = cmd.spawn().context("spawning rg")?;
 
-    // exit 0 = matches found; exit 1 = no matches (normal); anything else is an error.
-    // A signal kill yields code() == None — treat that as an error too.
-    if !out.status.success() && out.status.code() != Some(1) {
-        let stderr_raw = &out.stderr;
-        let display_len = stderr_raw.len().min(MAX_STDERR_DISPLAY);
-        let stderr_snippet = String::from_utf8_lossy(&stderr_raw[..display_len]);
-        anyhow::bail!("rg failed: {}", stderr_snippet);
-    }
+    // Drain stderr concurrently into a capped buffer so it is available for
+    // error messages and can never deadlock the stdout reader (a child blocked
+    // writing stderr would stall the whole operation if we drained stdout only).
+    let stderr_handle = {
+        use tokio::io::AsyncReadExt as _;
+        let mut stderr = child.stderr.take().expect("stderr is piped");
+        tokio::spawn(async move {
+            let mut buf = Vec::with_capacity(MAX_STDERR_DRAIN);
+            let mut tmp = [0u8; 512];
+            loop {
+                match stderr.read(&mut tmp).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let remaining = MAX_STDERR_DRAIN.saturating_sub(buf.len());
+                        let take = n.min(remaining);
+                        buf.extend_from_slice(&tmp[..take]);
+                        if buf.len() >= MAX_STDERR_DRAIN {
+                            break;
+                        }
+                    }
+                }
+            }
+            buf
+        })
+    };
+
+    let stdout = child.stdout.take().expect("stdout is piped");
+    let mut reader = tokio::io::BufReader::new(stdout).lines();
 
     let mut matches: Vec<FsMatch> = Vec::new();
     let mut truncated = false;
 
-    'outer: for line in out.stdout.split(|&b| b == b'\n') {
+    'outer: while let Some(line) = reader.next_line().await? {
         if line.is_empty() {
             continue;
         }
-        let v: serde_json::Value = match serde_json::from_slice(line) {
+        let v: serde_json::Value = match serde_json::from_str(&line) {
             Ok(v) => v,
             Err(_) => continue,
         };
@@ -431,6 +470,23 @@ pub async fn fs_search(
                 });
             }
         }
+    }
+
+    // Kill the child — a no-op if it already exited (e.g. after streaming its
+    // full output).  We must not leave it running when we break early.
+    let _ = child.kill().await;
+    let status = child.wait().await.context("waiting for rg")?;
+
+    // Collect stderr (the drainer task should be nearly done by now).
+    let stderr_bytes = stderr_handle.await.unwrap_or_default();
+
+    // exit 0 = matches found; exit 1 = no matches (normal); anything else is an error.
+    // A signal kill yields code() == None.  We killed the child ourselves on
+    // early exit, so None is expected in the truncated path — treat it as OK.
+    if !status.success() && status.code() != Some(1) && !(truncated && status.code().is_none()) {
+        let display_len = stderr_bytes.len().min(MAX_STDERR_DISPLAY);
+        let stderr_snippet = String::from_utf8_lossy(&stderr_bytes[..display_len]);
+        anyhow::bail!("rg failed: {}", stderr_snippet);
     }
 
     Ok(FsSearchResult { matches, truncated })

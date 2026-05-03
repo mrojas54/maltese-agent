@@ -281,9 +281,110 @@ async fn fs_search_finds_matches() {
     assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
     assert!(first["column"].as_u64().is_some(), "column field missing: {first:?}");
     assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
-    // column must be 1-based (fn starts at column 1 in both test files)
-    assert_eq!(first["column"].as_u64().unwrap(), 1, "column should be 1-based");
+    // column must be 1-based; "fn " starts at column 1 in both test files.
+    // Use any() to avoid depending on rg's output order across files.
+    assert!(
+        matches.iter().any(|m| m["column"].as_u64() == Some(1)),
+        "expected at least one match with column==1 (1-based), got: {matches:?}"
+    );
 
     assert_eq!(out["truncated"], false, "should not be truncated");
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_search_truncated_at_max() {
+    if tokio::process::Command::new("rg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: rg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    // Write a file with 10 lines each containing "needle".
+    let content: String = (1..=10).map(|i| format!("needle line {i}\n")).collect();
+    std::fs::write(dir.path().join("haystack.txt"), &content).unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    // Request only 2 matches from a file that has 10.
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search")
+                .with_arguments(
+                    json!({"pattern": "needle", "max": 2})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search with max=2");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert_eq!(matches.len(), 2, "expected exactly 2 matches, got {}: {out:?}", matches.len());
+    assert_eq!(out["truncated"], true, "expected truncated=true when cap is hit: {out:?}");
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_search_pattern_injection_treated_as_literal() {
+    if tokio::process::Command::new("rg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: rg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    // Write a file that contains the literal string "--pre=/bin/sh" so we can
+    // verify rg treats the pattern as a search string, not a flag.
+    std::fs::write(dir.path().join("canary.txt"), "--pre=/bin/sh\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    // If argument injection were possible, rg would invoke /bin/sh as a
+    // preprocessor and the call would either error or return unexpected output.
+    // With the -e PATTERN fix, rg treats "--pre=/bin/sh" as a regex and
+    // matches the canary line.
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search")
+                .with_arguments(
+                    json!({"pattern": "--pre=/bin/sh"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search with injection pattern");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search returned tool-level error (possible injection): {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    // The canary line must be found — confirming rg searched for the string
+    // rather than interpreting it as a preprocessor flag.
+    assert!(
+        matches.iter().any(|m| m["text"].as_str().is_some_and(|t| t.contains("--pre=/bin/sh"))),
+        "expected the canary line to be found as a literal match, got: {out:?}"
+    );
     client.cancel().await.unwrap();
 }
