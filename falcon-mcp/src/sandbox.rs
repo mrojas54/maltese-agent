@@ -28,19 +28,45 @@ impl Sandbox {
 
     /// Resolve `rel` against the sandbox root. Returns an error if the
     /// canonical path would escape the root (e.g. via `..` or symlink).
+    ///
+    /// For paths that don't exist yet (e.g. files about to be written, possibly
+    /// nested inside dirs that don't exist either), this walks up to the first
+    /// existing ancestor, canonicalizes it, then re-attaches the missing
+    /// suffix. The final path's escape-check still applies.
     pub fn resolve(&self, rel: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
         let joined = self.root.join(rel.as_ref());
-        let canonical = joined.canonicalize().or_else(|_| {
-            // file may not exist yet (writes); validate parent instead
-            let parent = joined.parent().ok_or_else(|| anyhow::anyhow!("path has no parent"))?;
-            let parent_canon = parent.canonicalize()?;
-            let name = joined.file_name().ok_or_else(|| anyhow::anyhow!("path has no file name component"))?;
-            Ok::<PathBuf, anyhow::Error>(parent_canon.join(name))
-        })?;
-        if !canonical.starts_with(&self.root) {
-            anyhow::bail!("path {} escapes sandbox root {}", canonical.display(), self.root.display());
+        if let Ok(canonical) = joined.canonicalize() {
+            if !canonical.starts_with(&self.root) {
+                anyhow::bail!("path {} escapes sandbox root {}", canonical.display(), self.root.display());
+            }
+            return Ok(canonical);
         }
-        Ok(canonical)
+
+        // Path doesn't exist yet. Walk up to the first existing ancestor,
+        // canonicalize it, then re-attach the non-existent suffix. The full
+        // result must still start with root.
+        let mut existing = joined.as_path();
+        let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
+        let canonical_existing = loop {
+            match existing.canonicalize() {
+                Ok(c) => break c,
+                Err(_) => {
+                    let name = existing.file_name()
+                        .ok_or_else(|| anyhow::anyhow!("path {} has no existing ancestor", joined.display()))?;
+                    suffix.push(name);
+                    existing = existing.parent()
+                        .ok_or_else(|| anyhow::anyhow!("path {} has no existing ancestor", joined.display()))?;
+                }
+            }
+        };
+        let mut result = canonical_existing;
+        for name in suffix.iter().rev() {
+            result.push(name);
+        }
+        if !result.starts_with(&self.root) {
+            anyhow::bail!("path {} escapes sandbox root {}", result.display(), self.root.display());
+        }
+        Ok(result)
     }
 
     pub fn root(&self) -> &Path { &self.root }
@@ -136,5 +162,16 @@ mod tests {
             err.to_string().contains("escape") || err.to_string().contains("No such file"),
             "expected escape or parent-not-found error, got: {err}"
         );
+    }
+
+    #[test]
+    fn resolve_deep_nonexistent_path_uses_first_existing_ancestor() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        // Neither sub/ nor sub/inner/ exist — resolve should still produce a valid path
+        // under the canonical root so write tools can create_dir_all.
+        let resolved = sb.resolve("sub/inner/new_file.txt").unwrap();
+        assert!(resolved.starts_with(sb.root()));
+        assert!(resolved.ends_with("sub/inner/new_file.txt"));
     }
 }
