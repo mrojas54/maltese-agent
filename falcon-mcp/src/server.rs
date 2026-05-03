@@ -1,6 +1,7 @@
 //! rmcp ServerHandler that exposes the falcon-mcp tool surface.
 
 use crate::sandbox::Sandbox;
+use crate::tools::fs_ast;
 use crate::tools::fs_basic;
 use rmcp::{
     Json, ServerHandler,
@@ -53,6 +54,38 @@ impl FalconMcp {
         params: Parameters<fs_basic::FsListArgs>,
     ) -> Result<Json<fs_basic::FsListResult>, String> {
         fs_basic::fs_list(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    /// Apply a unified diff to a file inside the sandbox. Returns `{result: "ok", lines_changed: N}` on success
+    /// or `{result: "conflict", reason: "..."}` if the diff is malformed or context does not match.
+    #[tool(name = "fs_apply_patch", description = "Apply a unified diff to a file inside the sandbox. Returns ok with lines_changed on success, or conflict with reason on failure. Errors if sandbox is read-only.")]
+    pub async fn fs_apply_patch(
+        &self,
+        params: Parameters<fs_basic::FsApplyPatchArgs>,
+    ) -> Result<Json<fs_basic::FsApplyPatchResult>, String> {
+        fs_basic::fs_apply_patch(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "fs_search", description = "Search files for a regex pattern via ripgrep. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit.")]
+    pub async fn fs_search(
+        &self,
+        params: Parameters<fs_basic::FsSearchArgs>,
+    ) -> Result<Json<fs_basic::FsSearchResult>, String> {
+        fs_basic::fs_search(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "fs_search_ast", description = "Search files using ast-grep structural pattern matching. Returns up to `max` matches with file, line (1-based), and source line text. `truncated` is true when the cap was hit. Defaults to lang=rust.")]
+    pub async fn fs_search_ast(
+        &self,
+        params: Parameters<fs_ast::FsSearchAstArgs>,
+    ) -> Result<Json<fs_ast::FsSearchAstResult>, String> {
+        fs_ast::fs_search_ast(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
