@@ -441,6 +441,11 @@ async fn fs_search_ast_finds_unwraps() {
     assert!(first["file"].as_str().is_some(), "file field missing: {first:?}");
     assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
     assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
+    // text must be the source line — pins fs_ast.rs reading v["lines"], not v["text"].
+    assert!(
+        matches.iter().any(|m| m["text"].as_str().is_some_and(|t| t.contains("unwrap()"))),
+        "expected a match whose text contains 'unwrap()', got: {matches:?}"
+    );
     // line must be 1-based; first unwrap() is on source line 2.
     assert!(
         matches.iter().any(|m| m["line"].as_u64() == Some(2)),
