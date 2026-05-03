@@ -3,6 +3,10 @@
 > **⚠ External API verification.**
 > The Gemini REST API call format in Task 5 (`RealGemini::complete`) was drafted from the public docs as of plan-write time. Verify the request shape, model name (`gemini-2.5-flash`), and `responseMimeType: "application/json"` support against current Google docs at execution time — these can drift between minor SDK releases. The deterministic-fake-LLM pattern in Task 4 / Task 10 is independent of any external API and ships unchanged. See [`docs/superpowers/poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md) for the parallel rmcp-drift story in the falcon-mcp plan.
 
+> **🧪 POC lessons applied (from falcon-mcp).** The two-stage subagent review (spec → code-quality) caught **4 real bugs** in falcon-mcp Tasks 1–3 that the implementer + spec reviewer both missed. Expect similar value here. Two patterns from that POC are now baked into this plan:
+> - **Anyhow chain preservation** — error-mapping uses `format!("{e:#}")`, never `.to_string()`. The latter strips the chain and leaves the agent guessing.
+> - **`kill_on_drop(true)`** on every spawned child in integration tests — prevents zombie binaries on test panic.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the buggy AI service that the falcon-detective agent will fix. Includes a poisoned few-shot prompt, missing input/output validation, planted lints, and an `#[ignore]`'d integration test that surfaces the backdoor when un-ignored.
@@ -39,12 +43,33 @@ falcon-agent/
 ## Task 1: Bootstrap the crate
 
 **Files:**
+- Create: `Cargo.toml` (root workspace)
 - Create: `falcon-agent/Cargo.toml`
 - Create: `falcon-agent/src/main.rs`
 - Create: `falcon-agent/src/lib.rs`
 - Create: `falcon-agent/README.md`
 
-- [ ] **Step 1: Create `Cargo.toml`**
+**Workspace context:** the repo currently holds `falcon-mcp/` as a standalone crate with no root `Cargo.toml`. We promote the layout to a Cargo workspace so `falcon-mcp` and `falcon-agent` share `target/` and so `-p <crate>` works from the repo root. `falcon-mcp/Cargo.toml` already declares `[package]` and works as a workspace member without changes.
+
+- [ ] **Step 1: Create root workspace `Cargo.toml`**
+
+At repo root (sibling of `falcon-mcp/`):
+
+```toml
+[workspace]
+resolver = "2"
+members = ["falcon-mcp", "falcon-agent"]
+```
+
+Verify the existing `falcon-mcp` build still works:
+
+```bash
+cargo build -p falcon-mcp --quiet
+```
+
+Expected: success, no errors. (If `falcon-mcp/Cargo.toml` happens to set fields that conflict with workspace inheritance, none are configured today, so this should be a clean transition.)
+
+- [ ] **Step 2: Create `falcon-agent/Cargo.toml`**
 
 ```toml
 [package]
@@ -63,13 +88,17 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+async-trait = "0.1"
 
 [dev-dependencies]
 tokio-test = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tower = "0.5"
 ```
 
-- [ ] **Step 2: Create `src/lib.rs`**
+(`async-trait` and `tower` are listed up front so later tasks don't have to amend `Cargo.toml`.)
+
+- [ ] **Step 3: Create `src/lib.rs`**
 
 ```rust
 //! falcon-agent: a buggy AI service decoding "noir confessions."
@@ -84,10 +113,10 @@ pub mod llm;
 pub mod prompt;
 ```
 
-- [ ] **Step 3: Create `src/main.rs`**
+- [ ] **Step 4: Create `src/main.rs`**
 
 ```rust
-use axum::{routing::post, Router};
+use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -103,6 +132,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let app = Router::new()
+        .route("/healthz", get(|| async { "ok" }))
         .route("/interrogate", post(falcon_agent::interrogate::handler))
         .with_state(llm);
 
@@ -115,7 +145,9 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-- [ ] **Step 4: Create `falcon-agent/README.md`**
+The `/healthz` route exists for the integration-test readiness probe in Task 7. It's a stateless `GET` returning `"ok"`. The `with_state(llm)` shared state is ignored by handlers that don't extract it.
+
+- [ ] **Step 5: Create `falcon-agent/README.md`**
 
 ```markdown
 # falcon-agent
@@ -141,16 +173,16 @@ FALCON_LLM=real GEMINI_API_KEY=... cargo run -p falcon-agent
 ```
 ```
 
-- [ ] **Step 5: Verify it builds**
+- [ ] **Step 6: Verify it builds**
 
 Run: `cargo build -p falcon-agent`
 Expected: `Compiling falcon-agent v0.1.0 ... Finished`
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add falcon-agent/
-git commit -m "feat(falcon-agent): bootstrap crate with axum scaffold"
+git add Cargo.toml falcon-agent/
+git commit -m "feat(falcon-agent): bootstrap crate + workspace integration"
 ```
 
 ---
@@ -328,7 +360,7 @@ impl LlmClient for RealGemini {
 }
 ```
 
-Add `async-trait = "0.1"` to `Cargo.toml`.
+(`async-trait` is already in `Cargo.toml` from Task 1.)
 
 - [ ] **Step 2: Add a unit test**
 
@@ -361,7 +393,7 @@ Expected: `1 passed`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add falcon-agent/src/llm.rs falcon-agent/Cargo.toml
+git add falcon-agent/src/llm.rs
 git commit -m "feat(falcon-agent): LlmClient trait with deterministic fake"
 ```
 
@@ -372,16 +404,28 @@ git commit -m "feat(falcon-agent): LlmClient trait with deterministic fake"
 **Files:**
 - Modify: `falcon-agent/src/llm.rs`
 
-- [ ] **Step 1: Replace the `RealGemini::complete` stub with a real implementation**
+- [ ] **Step 1: Verify the Gemini REST API surface against current Google docs**
+
+Before writing code, confirm the following at <https://ai.google.dev/gemini-api/docs/text-generation> (or the latest equivalent):
+
+1. **Model name** — does `gemini-2.5-flash` still exist? If renamed (e.g., `gemini-2.5-flash-001`, `gemini-3.0-flash`), update the URL path below.
+2. **Endpoint version** — is the path still `v1beta/models/<model>:generateContent`? If `v1` has fully replaced `v1beta` for `:generateContent`, update.
+3. **`responseMimeType: "application/json"`** — is this still the supported way to force JSON output? Some SDKs now use `responseSchema` instead.
+4. **`systemInstruction`** — confirm the `{ "parts": [{ "text": ... }] }` shape; older docs used a flat string.
+5. **Auth** — confirm `x-goog-api-key` header is the recommended auth method (vs. legacy `?key=` query param).
+
+If anything has drifted, adjust the code in Step 2 accordingly and note the deviation in the commit message.
+
+- [ ] **Step 2: Replace the `RealGemini::complete` stub with a real implementation**
 
 ```rust
 #[async_trait]
 impl LlmClient for RealGemini {
     async fn complete(&self, req: LlmRequest) -> anyhow::Result<LlmResponse> {
-        let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={}",
-            self._api_key
-        );
+        // NOTE: API key goes in the `x-goog-api-key` header, NOT in the URL.
+        // URLs leak into server logs, browser history, and HTTP referrer
+        // headers; sending credentials there is a security smell.
+        let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
         let user_msg = format!(
             "Input: {{ \"suspect\": \"{}\", \"ciphertext\": \"{}\" }}",
@@ -398,7 +442,10 @@ impl LlmClient for RealGemini {
         });
 
         let client = reqwest::Client::new();
-        let resp = client.post(&url).json(&body).send().await?
+        let resp = client.post(url)
+            .header("x-goog-api-key", &self._api_key)
+            .json(&body)
+            .send().await?
             .error_for_status()?
             .json::<serde_json::Value>().await?;
 
@@ -415,12 +462,12 @@ impl LlmClient for RealGemini {
 }
 ```
 
-- [ ] **Step 2: Verify it builds (no online test — would hit network)**
+- [ ] **Step 3: Verify it builds (no online test — would hit network)**
 
 Run: `cargo build -p falcon-agent --quiet`
 Expected: success.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add falcon-agent/src/llm.rs
@@ -468,7 +515,10 @@ pub async fn handler(
         suspect: req.suspect.clone(),
         ciphertext: req.ciphertext.clone(),
     }).await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        // NOTE: `format!("{e:#}")` preserves the full anyhow chain.
+        // `.to_string()` would emit only the top-level message and hide
+        // the root cause — same lesson from the falcon-mcp POC.
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")))?;
 
     // BUG (intentional): no schema-level checks beyond what serde already did.
     // We trust the LLM's `attribution` matches `suspect`, that confidence is
@@ -512,7 +562,7 @@ mod tests {
 }
 ```
 
-Add `tower = "0.5"` to `[dev-dependencies]`.
+(`tower` is already in `[dev-dependencies]` from Task 1.)
 
 - [ ] **Step 3: Run tests**
 
@@ -522,7 +572,7 @@ Expected: all tests pass.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add falcon-agent/src/interrogate.rs falcon-agent/Cargo.toml
+git add falcon-agent/src/interrogate.rs
 git commit -m "feat(falcon-agent): POST /interrogate handler (no validation — intentional bug)"
 ```
 
@@ -550,15 +600,24 @@ struct TestServer {
 
 impl TestServer {
     async fn spawn() -> Self {
+        // Bind to an ephemeral port to find a free one, then drop the
+        // listener and pass the port to the child. Small race window —
+        // acceptable for tests.
         let port: u16 = std::net::TcpListener::bind("127.0.0.1:0").unwrap()
             .local_addr().unwrap().port();
         let child = tokio::process::Command::new(env!("CARGO_BIN_EXE_falcon-agent"))
             .env("PORT", port.to_string())
             .stdout(Stdio::null()).stderr(Stdio::null())
-            .kill_on_drop(true).spawn().unwrap();
+            .kill_on_drop(true)  // ← prevents zombie children on test panic
+            .spawn().unwrap();
         let base = format!("http://127.0.0.1:{port}");
+        // Poll /healthz until it returns 200. /healthz is a stateless GET
+        // route specifically for this probe (see Task 1 main.rs).
+        let probe_url = format!("{base}/healthz");
         for _ in 0..50 {
-            if reqwest::get(format!("{base}/interrogate")).await.is_ok() { break; }
+            if let Ok(r) = reqwest::get(&probe_url).await {
+                if r.status().is_success() { break; }
+            }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
         Self { child, base }
@@ -599,70 +658,146 @@ git commit -m "test(falcon-agent): happy-path integration test"
 ## Task 8: Plant the lint issues
 
 **Files:**
-- Modify: `falcon-agent/src/interrogate.rs` (add `.unwrap()` and an unused import)
-- Modify: `falcon-agent/src/llm.rs` (add a needless `.clone()`)
-- Modify: `falcon-agent/src/decoder.rs` (remove a `///` doc on a public fn)
+- Modify: `falcon-agent/src/interrogate.rs` (unused import + `.unwrap()` + matching return-type change)
+- Modify: `falcon-agent/src/llm.rs` (needless `.clone()`)
 
-The lints need to actually trigger `cargo clippy` warnings. Verify by running clippy after.
+**Why two files, not three:** the original third bug — "strip doc comments from `decoder.rs`" — does not actually trigger any lint under default clippy settings (`#[warn(missing_docs)]` is opt-in at crate level, and `clippy::missing_docs_in_private_items` only fires on private items). It would have been a no-op step. We replace it with two real, clippy-detectable issues plus one code-review-class issue.
 
-- [ ] **Step 1: Add unused import + unwrap to `interrogate.rs`**
+The detective will catch three planted issues here:
 
-At the top of `src/interrogate.rs`, after existing imports, add:
+| # | File | Bug | Detected by |
+|---|---|---|---|
+| 1 | `interrogate.rs` | unused `use std::io::Write;` | `unused_imports` (rustc default — fires on every `cargo build`) |
+| 2 | `interrogate.rs` | `.unwrap()` on the LLM call instead of `?` | code review or `clippy::unwrap_used` (a `clippy::restriction` lint, off by default) |
+| 3 | `llm.rs` | needless `.clone()` of a `String` before `&str` use | `clippy::redundant_clone` (in `clippy::perf`, included in `clippy::all`) |
+
+Issues #1 and #3 fire under bare `cargo clippy`. #2 is a code-quality issue that surfaces when the detective opts into restriction lints — exactly what a real audit would do.
+
+- [ ] **Step 1: Replace `src/interrogate.rs` with the lint-planted version**
+
+Overwrite the entire file (this supersedes Task 6's content):
 
 ```rust
-use std::io::Write; // intentionally unused
-```
+use axum::{extract::State, Json};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::io::Write; // BUG (intentional): planted lint #1 — unused import
 
-Replace the body of `handler` such that the LLM error path uses `.unwrap()`:
+#[derive(Debug, Deserialize)]
+pub struct InterrogateRequest {
+    pub suspect: String,
+    pub ciphertext: String,
+}
 
-```rust
+#[derive(Debug, Serialize)]
+pub struct InterrogateResponse {
+    pub decoded: String,
+    pub confidence: f64,
+    pub attribution: String,
+}
+
+pub async fn handler(
+    State(llm): State<Arc<dyn crate::llm::LlmClient>>,
+    Json(req): Json<InterrogateRequest>,
+) -> Json<InterrogateResponse> {
+    // BUG (intentional): no input sanitization. Whatever the client sends
+    // for `suspect` and `ciphertext` flows straight to the LLM. The
+    // detective's job is to add an input scan that rejects/quarantines
+    // known-injection patterns.
     let llm_resp = llm.complete(crate::llm::LlmRequest {
         system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
         suspect: req.suspect.clone(),
         ciphertext: req.ciphertext.clone(),
-    }).await.unwrap(); // intentional: should be `?` or proper error mapping
+    }).await.unwrap(); // BUG (intentional): planted lint #2 — should be `?` with proper error mapping
+
+    // BUG (intentional): no schema-level checks beyond what serde already did.
+    // We trust the LLM's `attribution` matches `suspect`, that confidence is
+    // sane, etc. The detective will add a validator + retry loop.
+    Json(InterrogateResponse {
+        decoded: llm_resp.decoded,
+        confidence: llm_resp.confidence,
+        attribution: llm_resp.attribution,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn benign_input_returns_clean_decode() {
+        let llm: Arc<dyn crate::llm::LlmClient> = Arc::new(crate::llm::FakePoisonedLlm);
+        let app = axum::Router::new()
+            .route("/interrogate", axum::routing::post(handler))
+            .with_state(llm);
+        let req = Request::post("/interrogate")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"suspect":"brigid","ciphertext":"Wkh fdvh"}"#)).unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), 200);
+        let body = axum::body::to_bytes(resp.into_body(), 1<<16).await.unwrap();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["decoded"], "The case");
+        assert_eq!(v["attribution"], "brigid");
+    }
+}
 ```
 
-Adjust the return type to remove the `Result` wrapper (since `.unwrap()` panics rather than returning), or keep the Result and have a second `.unwrap()` somewhere — pick whichever clippy can detect cleanly.
+What changed vs. Task 6:
+- Return type: `Result<Json<_>, (StatusCode, String)>` → `Json<InterrogateResponse>`. `.unwrap()` panics rather than returning, so the `Result` wrapper is dead. The detective restoring `?` will also restore the wrapper.
+- Imports: dropped `http::StatusCode` and `response::IntoResponse` (now unused after the return-type change) so `std::io::Write` is the *only* unused import — this keeps the lint count predictable.
 
-- [ ] **Step 2: Add a needless clone in `llm.rs`**
+- [ ] **Step 2: Add the needless clone in `src/llm.rs::FakePoisonedLlm::complete`**
 
-In `FakePoisonedLlm::complete`, change:
+Find the line:
 
 ```rust
 let decoded = crate::decoder::caesar_decode(&req.ciphertext, 3);
 ```
 
-to:
+(it appears once, in the normal/post-poison path of `FakePoisonedLlm::complete` after Task 10). Replace with:
 
 ```rust
-let cipher = req.ciphertext.clone(); // needless clone — decoder takes &str
+let cipher = req.ciphertext.clone(); // BUG (intentional): planted lint #3 — needless clone, decoder takes &str
 let decoded = crate::decoder::caesar_decode(&cipher, 3);
 ```
 
-- [ ] **Step 3: Strip the doc comment from `decoder::caesar_decode`**
-
-Remove the `//!` and `///` comments from `decoder.rs`, leaving a bare `pub fn caesar_decode`. Clippy's `missing_docs_in_private_items` won't flag pub-only by default; this is more about future detective sweep. Leave a `// TODO: doc` comment so the detective has something semantic to do.
-
-- [ ] **Step 4: Run clippy and confirm warnings appear**
+- [ ] **Step 3: Run clippy and confirm warnings**
 
 ```bash
-cargo clippy -p falcon-agent -- -W clippy::all
+cargo clippy -p falcon-agent -- -W clippy::all 2>&1 | tee /tmp/falcon-agent-clippy.out
+grep -c "^warning:" /tmp/falcon-agent-clippy.out
 ```
-Expected stdout includes warnings for: `unused import`, `unwrap_used` or `possible panic`, `clone_on_ref_ptr` or `redundant_clone`. At least 3 warnings.
 
-- [ ] **Step 5: Run tests to confirm nothing actually broke**
+Expected: **at least 2** warnings, including:
+- `unused import: \`std::io::Write\`` (lint #1)
+- `redundant clone` (lint #3)
+
+Note: `.unwrap()` (lint #2) does **not** fire under default `clippy::all` — it's a `clippy::restriction` lint. To verify the detective could find it via stricter linting:
+
+```bash
+cargo clippy -p falcon-agent -- -W clippy::all -W clippy::unwrap_used 2>&1 | grep -c "^warning:"
+```
+
+Expected: **at least 3** warnings (now including `used \`unwrap()\` on a \`Result\` value`).
+
+- [ ] **Step 4: Run tests to confirm nothing actually broke**
 
 ```bash
 cargo test -p falcon-agent --quiet
 ```
-Expected: integration + unit tests still pass (the unwraps don't panic on the happy path).
 
-- [ ] **Step 6: Commit (as a different fictional sloppy author)**
+Expected: all unit + integration tests still pass. The `.unwrap()` doesn't panic on the happy path because the Fake LLM never returns `Err`.
+
+- [ ] **Step 5: Commit (as a different fictional sloppy author)**
 
 ```bash
-git add falcon-agent/src/
-git -c user.email="rushed@local" -c user.name="Rushed Dev" commit -m "chore: quick fixes (sloppy)"
+git add falcon-agent/src/interrogate.rs falcon-agent/src/llm.rs
+git -c user.email="rushed@local" -c user.name="Rushed Dev" \
+  commit -m "chore: quick fixes (sloppy)"
 ```
 
 ---
@@ -897,15 +1032,16 @@ This crate ships **deliberately broken**. The seed includes:
 1. **Few-shot prompt poisoning** in `src/prompt.rs` — the third example is anomalous (output unrelated to input, hard-coded `"(unknown)"` attribution). Triggers on bird-themed semantic inputs. Authored by `@malt3se_lover` two weeks before the demo.
 2. **Missing input scan** in `src/interrogate.rs` — user-controlled fields flow straight to the LLM without sanitization.
 3. **Missing output schema** in `src/llm.rs` (Real client) and `src/interrogate.rs` — LLM responses are trusted verbatim.
-4. **Lint issues** — unused import, `.unwrap()` where `?` would do, needless clone, missing docs (3–6 lints depending on clippy version).
+4. **Lint issues** — unused import (`std::io::Write`), `.unwrap()` where `?` would do, and a needless `.clone()`. The first and third fire under `cargo clippy -W clippy::all`; the second requires `-W clippy::unwrap_used`.
 5. **`#[ignore]`'d smoking-gun test** in `tests/integration.rs` — un-ignore it and the poison surfaces deterministically.
 
 Verify the planted state at any time:
 
-    cargo test -p falcon-agent             # 1 ignored, all others pass
-    cargo clippy -p falcon-agent           # ≥3 warnings
-    git log src/prompt.rs                  # malt3se_lover commit visible
-    git blame src/prompt.rs | grep midnight # poison line attributed to malt3se_lover
+    cargo test -p falcon-agent                                             # 1 ignored, all others pass
+    cargo clippy -p falcon-agent -- -W clippy::all                         # ≥2 warnings
+    cargo clippy -p falcon-agent -- -W clippy::all -W clippy::unwrap_used  # ≥3 warnings
+    git log src/prompt.rs                                                  # malt3se_lover commit visible
+    git blame src/prompt.rs | grep midnight                                # poison line attributed to malt3se_lover
 
 Reset to broken state (after the detective fixes things):
 
@@ -918,12 +1054,14 @@ Reset to broken state (after the detective fixes things):
 cargo build -p falcon-agent --quiet
 cargo test -p falcon-agent --quiet
 cargo clippy -p falcon-agent -- -W clippy::all 2>&1 | grep -c "^warning:"
+cargo clippy -p falcon-agent -- -W clippy::all -W clippy::unwrap_used 2>&1 | grep -c "^warning:"
 cargo test -p falcon-agent --test integration -- --include-ignored bird_themed_inputs_arent_special 2>&1 | tail -3
 ```
 Expected:
 - build: success
 - tests: `N passed; 1 ignored`
-- clippy: `≥3` warnings
+- clippy (default): `≥2` warnings
+- clippy (with `unwrap_used`): `≥3` warnings
 - forced ignore-run: `FAILED`
 
 - [ ] **Step 3: Commit**
@@ -942,7 +1080,7 @@ After all tasks complete:
 - `cargo build -p falcon-agent` succeeds.
 - `cargo test -p falcon-agent` reports all passing with exactly 1 ignored test (the smoking gun).
 - `cargo test -p falcon-agent -- --include-ignored bird_themed_inputs_arent_special` FAILS — proving the poison is active.
-- `cargo clippy -p falcon-agent` reports ≥ 3 warnings.
+- `cargo clippy -p falcon-agent -- -W clippy::all` reports ≥ 2 warnings; adding `-W clippy::unwrap_used` brings the count to ≥ 3.
 - `git log --all --pretty=format:'%h %an %s' src/prompt.rs` shows a `malt3se_lover` commit with subject `✨ tunes the few-shot prompt ✨`.
 - `git blame src/prompt.rs` attributes the `flew at midnight` line to `malt3se_lover`.
 - The service responds to `POST /interrogate` on the configured port.
