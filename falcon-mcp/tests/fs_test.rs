@@ -114,3 +114,78 @@ async fn fs_write_blocked_in_read_only() {
     }
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn fs_apply_patch_modifies_file() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("greet.txt"), "hello\nworld\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    // Unified diff: replace "world" with "falcon"
+    let diff = "--- a/greet.txt\n+++ b/greet.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+    let result = client
+        .call_tool(CallToolRequestParams::new("fs_apply_patch")
+            .with_arguments(json!({"path": "greet.txt", "unified_diff": diff}).as_object().unwrap().clone()))
+        .await
+        .expect("call fs_apply_patch");
+
+    assert!(!result.is_error.unwrap_or(false), "fs_apply_patch failed: {:?}", result);
+    let structured = result.structured_content.expect("structured result");
+    assert_eq!(structured["result"], "ok");
+    assert!(structured["lines_changed"].as_u64().unwrap() > 0);
+
+    // Verify file contents changed on disk
+    let after = std::fs::read_to_string(dir.path().join("greet.txt")).unwrap();
+    assert_eq!(after, "hello\nfalcon\n");
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_apply_patch_conflict_on_malformed_diff() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("greet.txt"), "hello\nworld\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    // Not a valid unified diff
+    let bad_diff = "this is not a diff at all";
+    let result = client
+        .call_tool(CallToolRequestParams::new("fs_apply_patch")
+            .with_arguments(json!({"path": "greet.txt", "unified_diff": bad_diff}).as_object().unwrap().clone()))
+        .await
+        .expect("call fs_apply_patch with bad diff");
+
+    // Should succeed at protocol level but return result=conflict
+    assert!(!result.is_error.unwrap_or(false), "expected tool-level ok with conflict payload");
+    let structured = result.structured_content.expect("structured result");
+    assert_eq!(structured["result"], "conflict");
+    assert!(structured["reason"].as_str().is_some());
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_apply_patch_blocked_in_read_only() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("greet.txt"), "hello\nworld\n").unwrap();
+
+    let cmd = tokio::process::Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
+        c.arg("--stdio").arg("--root").arg(dir.path()).arg("--read-only").kill_on_drop(true);
+    });
+    let client = ()
+        .serve(TokioChildProcess::new(cmd).unwrap())
+        .await
+        .expect("connect to falcon-mcp");
+
+    let diff = "--- a/greet.txt\n+++ b/greet.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+    let result = client
+        .call_tool(CallToolRequestParams::new("fs_apply_patch")
+            .with_arguments(json!({"path": "greet.txt", "unified_diff": diff}).as_object().unwrap().clone()))
+        .await;
+
+    match result {
+        Err(_) => { /* protocol-level error — fine */ }
+        Ok(r) => assert!(r.is_error.unwrap_or(false), "expected tool-level error in read-only mode"),
+    }
+    client.cancel().await.unwrap();
+}

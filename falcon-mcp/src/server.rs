@@ -56,6 +56,18 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    /// Apply a unified diff to a file inside the sandbox. Returns `{result: "ok", lines_changed: N}` on success
+    /// or `{result: "conflict", reason: "..."}` if the diff is malformed or context does not match.
+    #[tool(name = "fs_apply_patch", description = "Apply a unified diff to a file inside the sandbox. Returns ok with lines_changed on success, or conflict with reason on failure. Errors if sandbox is read-only.")]
+    pub async fn fs_apply_patch(
+        &self,
+        params: Parameters<fs_basic::FsApplyPatchArgs>,
+    ) -> Result<Json<fs_basic::FsApplyPatchResult>, String> {
+        fs_basic::fs_apply_patch(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
