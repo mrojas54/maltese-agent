@@ -10,6 +10,44 @@ use serde_json::json;
 use tempfile::TempDir;
 use tokio::process::Command;
 
+/// Regression test: a crafted hunk header with a huge `count` field used to
+/// trigger an integer overflow in the `target + hunk_old_count > orig_lines.len()`
+/// check. The server must return `result: "conflict"` rather than panicking or
+/// wrapping around.
+#[tokio::test]
+async fn fs_apply_patch_overflow_on_huge_count_returns_conflict() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("tiny.txt"), "one\ntwo\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    // The hunk header claims old_start=1, old_count=usize::MAX-like value.
+    // On a 64-bit host `patch` parses u64; we use the max u32 value (4 294 967 295)
+    // which is large enough to trigger the overflow on 32-bit and demonstrates
+    // the arithmetic issue on 64-bit. The diff is otherwise syntactically valid.
+    let diff = "--- a/tiny.txt\n+++ b/tiny.txt\n@@ -1,4294967295 +1,1 @@\n one\n+replaced\n";
+    let result = client
+        .call_tool(
+            CallToolRequestParams::new("fs_apply_patch")
+                .with_arguments(json!({"path": "tiny.txt", "unified_diff": diff}).as_object().unwrap().clone()),
+        )
+        .await
+        .expect("call fs_apply_patch with huge-count diff");
+
+    // Must not be a protocol-level error (no panic / crash).
+    assert!(
+        !result.is_error.unwrap_or(false),
+        "expected tool-level ok with conflict payload, got error: {:?}",
+        result
+    );
+    let structured = result.structured_content.expect("structured result");
+    assert_eq!(
+        structured["result"], "conflict",
+        "expected conflict for huge-count hunk, got: {structured:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
 async fn spawn_server(root: &std::path::Path) -> rmcp::service::RunningService<rmcp::RoleClient, ()> {
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
         c.arg("--stdio").arg("--root").arg(root).kill_on_drop(true);
@@ -133,7 +171,7 @@ async fn fs_apply_patch_modifies_file() {
     assert!(!result.is_error.unwrap_or(false), "fs_apply_patch failed: {:?}", result);
     let structured = result.structured_content.expect("structured result");
     assert_eq!(structured["result"], "ok");
-    assert!(structured["lines_changed"].as_u64().unwrap() > 0);
+    assert_eq!(structured["lines_changed"].as_u64().unwrap(), 1);
 
     // Verify file contents changed on disk
     let after = std::fs::read_to_string(dir.path().join("greet.txt")).unwrap();
@@ -181,11 +219,14 @@ async fn fs_apply_patch_blocked_in_read_only() {
     let result = client
         .call_tool(CallToolRequestParams::new("fs_apply_patch")
             .with_arguments(json!({"path": "greet.txt", "unified_diff": diff}).as_object().unwrap().clone()))
-        .await;
+        .await
+        .expect("call fs_apply_patch in read-only mode");
 
-    match result {
-        Err(_) => { /* protocol-level error — fine */ }
-        Ok(r) => assert!(r.is_error.unwrap_or(false), "expected tool-level error in read-only mode"),
-    }
+    // check_writable() returns Err, which the server maps to is_error = true.
+    assert!(
+        result.is_error.unwrap_or(false),
+        "expected tool-level error in read-only mode, got: {:?}",
+        result
+    );
     client.cancel().await.unwrap();
 }

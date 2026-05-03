@@ -1,5 +1,4 @@
-//! Filesystem tools (basic): read, write, list, search, apply_patch.
-//! Task 3 implements only `fs_read`; the rest land in Tasks 4-6.
+//! Filesystem tools: read, write, list, apply_patch.
 
 use crate::sandbox::Sandbox;
 use anyhow::Context;
@@ -104,7 +103,7 @@ pub struct FsApplyPatchArgs {
 /// populated.  On `"conflict"`, `reason` describes why the diff was rejected.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct FsApplyPatchResult {
-    /// `"ok"` if the patch was applied, `"conflict"` if it was rejected.
+    /// `"ok"` if the patch was applied, `result: "conflict"` if it was rejected.
     pub result: String,
     /// Number of `+` lines in the diff (lines added in the new file). Present when `result == "ok"`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -124,6 +123,12 @@ impl FsApplyPatchResult {
     }
 }
 
+/// Maximum byte length of an accepted unified diff.
+const MAX_DIFF_BYTES: usize = 8 * 1024 * 1024; // 8 MiB
+
+/// Maximum number of hunks in an accepted unified diff.
+const MAX_HUNK_COUNT: usize = 10_000;
+
 /// Apply a unified diff to a file inside the sandbox.
 ///
 /// The algorithm:
@@ -132,14 +137,23 @@ impl FsApplyPatchResult {
 ///  3. Reconstruct the output by interleaving unchanged lines with hunk output.
 ///  4. Write the result back to disk.
 ///
-/// Returns `Conflict` for: malformed diff, context-line mismatch, or hunk
-/// targeting a line range outside the file.  Never panics on user-controlled
-/// input.
+/// Returns `result: "conflict"` for: diff exceeding size limits, malformed diff,
+/// context-line mismatch, or hunk targeting a line range outside the file.
+/// Never panics on user-controlled input.
 pub async fn fs_apply_patch(
     sandbox: Arc<Sandbox>,
     args: FsApplyPatchArgs,
 ) -> anyhow::Result<FsApplyPatchResult> {
     sandbox.check_writable()?;
+
+    // Cap input size before any parsing to guard against OOM from multi-GB diffs.
+    if args.unified_diff.len() > MAX_DIFF_BYTES {
+        return Ok(FsApplyPatchResult::conflict(format!(
+            "diff exceeds maximum allowed size of {} bytes",
+            MAX_DIFF_BYTES
+        )));
+    }
+
     let path = sandbox.resolve(&args.path).context("resolving path")?;
 
     let original = tokio::fs::read_to_string(&path)
@@ -148,11 +162,20 @@ pub async fn fs_apply_patch(
 
     // Parse the unified diff; borrow args.unified_diff for the lifetime of the parse.
     let parsed = match patch::Patch::from_single(&args.unified_diff) {
-        std::result::Result::Ok(p) => p,
+        Ok(p) => p,
         Err(e) => {
             return Ok(FsApplyPatchResult::conflict(format!("malformed diff: {e}")));
         }
     };
+
+    // Cap the number of hunks to guard against memory exhaustion.
+    if parsed.hunks.len() > MAX_HUNK_COUNT {
+        return Ok(FsApplyPatchResult::conflict(format!(
+            "diff contains {} hunks, exceeding maximum of {}",
+            parsed.hunks.len(),
+            MAX_HUNK_COUNT
+        )));
+    }
 
     // Split original into lines WITHOUT their trailing newlines (matching what
     // the patch crate stores in Line::Context/Remove).  We track the final
@@ -169,8 +192,23 @@ pub async fn fs_apply_patch(
     let mut add_count: usize = 0;
 
     for hunk in &parsed.hunks {
-        let hunk_start = hunk.old_range.start as usize; // 1-indexed
-        let hunk_old_count = hunk.old_range.count as usize;
+        // Convert u64 hunk fields to usize; reject on truncation (32-bit targets).
+        let hunk_start = match usize::try_from(hunk.old_range.start) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(FsApplyPatchResult::conflict(
+                    "hunk old_range.start overflows usize".to_string(),
+                ));
+            }
+        };
+        let hunk_old_count = match usize::try_from(hunk.old_range.count) {
+            Ok(v) => v,
+            Err(_) => {
+                return Ok(FsApplyPatchResult::conflict(
+                    "hunk old_range.count overflows usize".to_string(),
+                ));
+            }
+        };
 
         // hunk_start == 0 can happen for empty-file diffs; treat as line 1.
         let target = if hunk_start == 0 { 0 } else { hunk_start - 1 };
@@ -183,13 +221,19 @@ pub async fn fs_apply_patch(
                 orig_lines.len()
             )));
         }
-        if target + hunk_old_count > orig_lines.len() {
-            return Ok(FsApplyPatchResult::conflict(format!(
-                "hunk range {}-{} extends beyond file length {}",
-                hunk_start,
-                hunk_start + hunk_old_count - 1,
-                orig_lines.len()
-            )));
+
+        // Use checked_add to prevent overflow when hunk_old_count is huge.
+        match target.checked_add(hunk_old_count) {
+            Some(end) if end <= orig_lines.len() => {}
+            _ => {
+                let last = hunk_start.saturating_add(hunk_old_count).saturating_sub(1);
+                return Ok(FsApplyPatchResult::conflict(format!(
+                    "hunk range {}-{} extends beyond file length {}",
+                    hunk_start,
+                    last,
+                    orig_lines.len()
+                )));
+            }
         }
 
         // Emit all lines before this hunk unchanged.
