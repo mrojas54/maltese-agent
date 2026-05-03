@@ -230,3 +230,60 @@ async fn fs_apply_patch_blocked_in_read_only() {
     );
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn fs_search_finds_matches() {
+    // Skip gracefully if rg is not on PATH (e.g. minimal CI environments).
+    if tokio::process::Command::new("rg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: rg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "fn main() { println!(\"hello\"); }\n").unwrap();
+    std::fs::write(dir.path().join("b.rs"), "fn other() {}\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search")
+                .with_arguments(
+                    json!({"pattern": "fn ", "glob": "*.rs"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert!(
+        matches.len() >= 2,
+        "expected at least 2 matches (one per file), got {}: {out:?}",
+        matches.len()
+    );
+    // Verify shape of a match record.
+    let first = &matches[0];
+    assert!(first["file"].as_str().is_some(), "file field missing: {first:?}");
+    assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
+    assert!(first["column"].as_u64().is_some(), "column field missing: {first:?}");
+    assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
+    // column must be 1-based (fn starts at column 1 in both test files)
+    assert_eq!(first["column"].as_u64().unwrap(), 1, "column should be 1-based");
+
+    assert_eq!(out["truncated"], false, "should not be truncated");
+    client.cancel().await.unwrap();
+}

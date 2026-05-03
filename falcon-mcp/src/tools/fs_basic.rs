@@ -1,4 +1,4 @@
-//! Filesystem tools: read, write, list, apply_patch.
+//! Filesystem tools: read, write, list, apply_patch, search.
 
 use crate::sandbox::Sandbox;
 use anyhow::Context;
@@ -301,4 +301,137 @@ pub async fn fs_apply_patch(
         .context("writing patched file")?;
 
     Ok(FsApplyPatchResult::ok(add_count))
+}
+
+// ---- fs_search ---------------------------------------------------------------
+
+/// Hard ceiling on the number of matches that can be requested via `max`.
+/// Callers specifying a larger value are silently clamped to this.
+const MAX_SEARCH_RESULTS: usize = 10_000;
+
+/// Truncate rg stderr to this many bytes before embedding it in an error
+/// message, to avoid propagating multi-megabyte crash dumps.
+const MAX_STDERR_DISPLAY: usize = 1024;
+
+fn default_max() -> usize {
+    200
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FsSearchArgs {
+    /// Regex pattern to search for (passed directly to `rg`).
+    pub pattern: String,
+    /// Optional glob to restrict which files are searched (e.g. `"*.rs"`).
+    #[serde(default)]
+    pub glob: Option<String>,
+    /// Maximum number of match records to return (default 200, hard cap 10 000).
+    #[serde(default = "default_max")]
+    pub max: usize,
+}
+
+/// A single match location returned by `fs_search`.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FsMatch {
+    /// Relative path of the file containing the match.
+    pub file: String,
+    /// 1-based line number.
+    pub line: u64,
+    /// 1-based byte-column of the match start within the line.
+    pub column: u64,
+    /// The matching line's text (trailing whitespace stripped).
+    pub text: String,
+}
+
+/// Result returned by `fs_search`.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct FsSearchResult {
+    /// Collected match records, up to `max`.
+    pub matches: Vec<FsMatch>,
+    /// `true` if the result was capped before ripgrep finished all output.
+    pub truncated: bool,
+}
+
+/// Search files inside the sandbox using ripgrep.
+///
+/// Shells out to `rg --json [--glob G] PATTERN` with `current_dir` set to the
+/// sandbox root. Parses the JSONL output line-by-line, collecting up to `max`
+/// match records. Returns `{ matches, truncated }`.
+///
+/// `column` values are 1-based; ripgrep's submatch `start` field is a 0-based
+/// byte offset.
+///
+/// rg exit codes: 0 = found matches, 1 = no matches (not an error), 2+ = rg error.
+pub async fn fs_search(
+    sandbox: Arc<Sandbox>,
+    args: FsSearchArgs,
+) -> anyhow::Result<FsSearchResult> {
+    sandbox.check_bin("rg")?;
+
+    // Clamp caller-supplied max to the hard ceiling.
+    let effective_max = args.max.min(MAX_SEARCH_RESULTS);
+
+    let mut cmd = tokio::process::Command::new("rg");
+    cmd.arg("--json").arg("--no-heading");
+    if let Some(ref g) = args.glob {
+        cmd.arg("--glob").arg(g);
+    }
+    cmd.arg(&args.pattern);
+    cmd.current_dir(sandbox.root());
+
+    // Explicitly isolate the child's stdio from the parent's.
+    // In stdio-MCP mode the parent's stdin/stdout carry the JSON-RPC channel;
+    // if rg inherits them it deadlocks trying to read from the protocol stream.
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let out = cmd.output().await.context("spawning rg")?;
+
+    // exit 0 = matches found; exit 1 = no matches (normal); anything else is an error.
+    // A signal kill yields code() == None — treat that as an error too.
+    if !out.status.success() && out.status.code() != Some(1) {
+        let stderr_raw = &out.stderr;
+        let display_len = stderr_raw.len().min(MAX_STDERR_DISPLAY);
+        let stderr_snippet = String::from_utf8_lossy(&stderr_raw[..display_len]);
+        anyhow::bail!("rg failed: {}", stderr_snippet);
+    }
+
+    let mut matches: Vec<FsMatch> = Vec::new();
+    let mut truncated = false;
+
+    'outer: for line in out.stdout.split(|&b| b == b'\n') {
+        if line.is_empty() {
+            continue;
+        }
+        let v: serde_json::Value = match serde_json::from_slice(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if v["type"] != "match" {
+            continue;
+        }
+        let m = &v["data"];
+        let file = m["path"]["text"].as_str().unwrap_or("").to_string();
+        let line_number = m["line_number"].as_u64().unwrap_or(0);
+        let text = m["lines"]["text"].as_str().unwrap_or("").trim_end().to_string();
+
+        if let Some(submatches) = m["submatches"].as_array() {
+            for sub in submatches {
+                if matches.len() >= effective_max {
+                    truncated = true;
+                    break 'outer;
+                }
+                // ripgrep start is 0-based byte offset; add 1 for 1-based column.
+                let column = sub["start"].as_u64().unwrap_or(0).saturating_add(1);
+                matches.push(FsMatch {
+                    file: file.clone(),
+                    line: line_number,
+                    column,
+                    text: text.clone(),
+                });
+            }
+        }
+    }
+
+    Ok(FsSearchResult { matches, truncated })
 }

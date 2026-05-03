@@ -68,6 +68,19 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    /// Search files inside the sandbox for a regex pattern using ripgrep.
+    /// Returns up to `max` match records with file, 1-based line, 1-based column, and text.
+    /// `truncated: true` when the cap was hit before rg finished output.
+    #[tool(name = "fs_search", description = "Search files for a regex pattern via ripgrep. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit.")]
+    pub async fn fs_search(
+        &self,
+        params: Parameters<fs_basic::FsSearchArgs>,
+    ) -> Result<Json<fs_basic::FsSearchResult>, String> {
+        fs_basic::fs_search(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
