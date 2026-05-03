@@ -34,6 +34,28 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    /// Write a file inside the sandbox root. Creates parent dirs if missing. Errors if read-only.
+    #[tool(name = "fs_write", description = "Write a file inside the sandbox root. Creates parent dirs if missing. Errors when sandbox is read-only.")]
+    pub async fn fs_write(
+        &self,
+        params: Parameters<fs_basic::FsWriteArgs>,
+    ) -> Result<Json<fs_basic::FsWriteResult>, String> {
+        fs_basic::fs_write(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    /// List directory entries inside the sandbox. Optional `glob` filter applied to entry names.
+    #[tool(name = "fs_list", description = "List directory entries inside the sandbox root. Optional glob filter applied to entry names.")]
+    pub async fn fs_list(
+        &self,
+        params: Parameters<fs_basic::FsListArgs>,
+    ) -> Result<Json<fs_basic::FsListResult>, String> {
+        fs_basic::fs_list(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
