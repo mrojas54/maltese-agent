@@ -1,6 +1,7 @@
 //! rmcp ServerHandler that exposes the falcon-mcp tool surface.
 
 use crate::sandbox::Sandbox;
+use crate::tools::fs_ast;
 use crate::tools::fs_basic;
 use rmcp::{
     Json, ServerHandler,
@@ -75,6 +76,16 @@ impl FalconMcp {
         params: Parameters<fs_basic::FsSearchArgs>,
     ) -> Result<Json<fs_basic::FsSearchResult>, String> {
         fs_basic::fs_search(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "fs_search_ast", description = "Search files using ast-grep structural pattern matching. Returns up to `max` matches with file, line (1-based), and source line text. `truncated` is true when the cap was hit. Defaults to lang=rust.")]
+    pub async fn fs_search_ast(
+        &self,
+        params: Parameters<fs_ast::FsSearchAstArgs>,
+    ) -> Result<Json<fs_ast::FsSearchAstResult>, String> {
+        fs_ast::fs_search_ast(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }

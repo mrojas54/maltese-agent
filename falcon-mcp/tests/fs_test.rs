@@ -388,3 +388,167 @@ async fn fs_search_pattern_injection_treated_as_literal() {
     );
     client.cancel().await.unwrap();
 }
+
+#[tokio::test]
+async fn fs_search_ast_finds_unwraps() {
+    // Skip gracefully if sg is not on PATH (e.g. minimal CI environments).
+    if tokio::process::Command::new("sg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: sg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("target.rs"),
+        "fn main() {\n    let x = Some(1).unwrap();\n    let y = Some(2).unwrap();\n}\n",
+    )
+    .unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search_ast")
+                .with_arguments(
+                    json!({"query": "$E.unwrap()", "lang": "rust"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search_ast");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search_ast returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert!(
+        !matches.is_empty(),
+        "expected at least one unwrap() match, got {}: {out:?}",
+        matches.len()
+    );
+    // Verify shape of a match record.
+    let first = &matches[0];
+    assert!(first["file"].as_str().is_some(), "file field missing: {first:?}");
+    assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
+    assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
+    // line must be 1-based; first unwrap() is on source line 2.
+    assert!(
+        matches.iter().any(|m| m["line"].as_u64() == Some(2)),
+        "expected a match on line 2 (1-based), got: {matches:?}"
+    );
+    assert_eq!(out["truncated"], false, "should not be truncated");
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_search_ast_truncated_at_max() {
+    if tokio::process::Command::new("sg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: sg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    // Write a file with 5 unwrap() calls so we can cap at 2.
+    let content = "fn main() {\n\
+        let a = Some(1).unwrap();\n\
+        let b = Some(2).unwrap();\n\
+        let c = Some(3).unwrap();\n\
+        let d = Some(4).unwrap();\n\
+        let e = Some(5).unwrap();\n\
+    }\n";
+    std::fs::write(dir.path().join("many.rs"), content).unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search_ast")
+                .with_arguments(
+                    json!({"query": "$E.unwrap()", "lang": "rust", "max": 2})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search_ast with max=2");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search_ast returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert_eq!(
+        matches.len(),
+        2,
+        "expected exactly 2 matches, got {}: {out:?}",
+        matches.len()
+    );
+    assert_eq!(
+        out["truncated"], true,
+        "expected truncated=true when cap is hit: {out:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn fs_search_ast_no_match_returns_empty() {
+    if tokio::process::Command::new("sg")
+        .arg("--version")
+        .output()
+        .await
+        .is_err()
+    {
+        eprintln!("skip: sg not on PATH");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("clean.rs"), "fn main() {}\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search_ast")
+                .with_arguments(
+                    json!({"query": "$E.unwrap()", "lang": "rust"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                ),
+        )
+        .await
+        .expect("call fs_search_ast with no matches");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "fs_search_ast returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert!(
+        matches.is_empty(),
+        "expected no matches for clean file, got: {out:?}"
+    );
+    assert_eq!(out["truncated"], false, "truncated must be false when no matches");
+    client.cancel().await.unwrap();
+}
