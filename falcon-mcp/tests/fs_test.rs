@@ -61,10 +61,6 @@ async fn fs_read_rejects_escape() {
 #[tokio::test]
 async fn fs_write_then_list() {
     let dir = TempDir::new().unwrap();
-    // Pre-create the `sub/` dir so the sandbox's parent-canonicalize resolve
-    // fallback can locate it; fs_write itself still calls create_dir_all to
-    // exercise that branch.
-    std::fs::create_dir(dir.path().join("sub")).unwrap();
     let client = spawn_server(dir.path()).await;
 
     // Write sub/a.txt
