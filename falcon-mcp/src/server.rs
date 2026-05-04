@@ -4,6 +4,8 @@ use crate::sandbox::Sandbox;
 use crate::tools::cargo;
 use crate::tools::fs_ast;
 use crate::tools::fs_basic;
+use crate::tools::git;
+use crate::tools::util::OkResult;
 use rmcp::{
     Json, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -127,6 +129,26 @@ impl FalconMcp {
         params: Parameters<cargo::CargoFmtArgs>,
     ) -> Result<Json<cargo::CargoFmtResult>, String> {
         cargo::cargo_fmt(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_worktree_add", description = "Create a git worktree under `<sandbox_root>/.runs/<name>` based on the given revision (default: HEAD). Returns the absolute path of the new worktree. Errors when the sandbox is read-only or when `name` would resolve outside the sandbox root.")]
+    pub async fn git_worktree_add(
+        &self,
+        params: Parameters<git::WorktreeAddArgs>,
+    ) -> Result<Json<git::WorktreeAddResult>, String> {
+        git::worktree_add(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_worktree_remove", description = "Remove a git worktree at the given path (must resolve inside the sandbox root). Uses `--force` so worktrees with uncommitted changes can be cleaned up. Errors when the sandbox is read-only.")]
+    pub async fn git_worktree_remove(
+        &self,
+        params: Parameters<git::WorktreeRemoveArgs>,
+    ) -> Result<Json<OkResult>, String> {
+        git::worktree_remove(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }

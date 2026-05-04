@@ -1325,7 +1325,7 @@ git commit -m "feat(falcon-mcp): add cargo.clippy and cargo.fmt"
 - Modify: `src/tools/mod.rs`, `src/server.rs`
 - Create: `falcon-mcp/tests/git_test.rs`
 
-- [ ] **Step 1: Create `tools/git.rs` with worktree functions**
+- [x] **Step 1: Create `tools/git.rs` with worktree functions**
 
 ```rust
 use crate::sandbox::Sandbox;
@@ -1373,11 +1373,11 @@ pub async fn worktree_remove(sandbox: Arc<Sandbox>, args: WorktreeRemoveArgs) ->
 }
 ```
 
-- [ ] **Step 2: Wire into `server.rs`**
+- [x] **Step 2: Wire into `server.rs`**
 
 (Same `#[tool]` pattern. For `worktree_remove`, the success result is `serde_json::json!({"ok": true})`.)
 
-- [ ] **Step 3: Test in `tests/git_test.rs`**
+- [x] **Step 3: Test in `tests/git_test.rs`**
 
 ```rust
 use rmcp::{ServiceExt, model::CallToolRequestParam};
@@ -1416,7 +1416,7 @@ async fn worktree_add_creates_path() {
 }
 ```
 
-- [ ] **Step 4: Run + commit**
+- [x] **Step 4: Run + commit**
 
 ```bash
 cargo test -p falcon-mcp --test git_test --quiet
