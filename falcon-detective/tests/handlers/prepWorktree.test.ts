@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prepWorktree } from "../../src/handlers/prepWorktree.js";
 import { execSync } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,6 +22,10 @@ afterAll(async () => { await rm(repo, { recursive: true, force: true }); });
 
 describe("prepWorktree", () => {
   it("creates a worktree under .runs/", async () => {
+    if (!existsSync(FALCON_MCP_BIN)) {
+      console.error("falcon-mcp not built; skipping prepWorktree test");
+      return;
+    }
     // The exported handler is a Barnum Action object; the handle function
     // lives on .__definition.handle so unit tests can invoke it directly
     // without booting the workflow runtime.

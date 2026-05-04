@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { FalconMcpClient } from "../../src/lib/mcp.js";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,6 +17,10 @@ afterAll(async () => { await rm(dir, { recursive: true, force: true }); });
 
 describe("FalconMcpClient", () => {
   it("calls fs_read through the MCP transport", async () => {
+    if (!existsSync(FALCON_MCP_BIN)) {
+      console.error("falcon-mcp not built; skipping FalconMcpClient test");
+      return;
+    }
     const c = new FalconMcpClient({ binary: FALCON_MCP_BIN, root: dir });
     await c.connect();
     const result = await c.call<{ content: string; bytes: number }>("fs_read", { path: "hello.txt" });
