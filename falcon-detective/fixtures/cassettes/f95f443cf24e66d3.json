@@ -1,0 +1,4 @@
+{
+  "path": "falcon-agent/src/main.rs",
+  "diff": "--- a/falcon-agent/src/main.rs\n+++ b/falcon-agent/src/main.rs\n@@ -10,7 +10,7 @@\n \n     let llm: Arc<dyn falcon_agent::llm::LlmClient> = match std::env::var(\"FALCON_LLM\").as_deref() {\n         Ok(\"real\") => Arc::new(falcon_agent::llm::RealGemini::from_env()?),\n-        _ => Arc::new(falcon_agent::llm::FakePoisonedLlm::default()),\n+        _ => Arc::new(falcon_agent::llm::FakePoisonedLlm),\n     };\n \n     let app = Router::new()\n"
+}

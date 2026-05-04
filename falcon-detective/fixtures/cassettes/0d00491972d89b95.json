@@ -1,0 +1,28 @@
+{
+  "issues": [
+    {
+      "kind": "lint",
+      "location": {
+        "file": "falcon-agent/src/interrogate.rs",
+        "line": 4
+      },
+      "evidence": "unused import: `std::io::Write`"
+    },
+    {
+      "kind": "lint",
+      "location": {
+        "file": "falcon-agent/src/main.rs",
+        "line": 13
+      },
+      "evidence": "clippy::default_constructed_unit_structs: use of `default` to create a unit struct"
+    },
+    {
+      "kind": "poison",
+      "location": {
+        "file": "falcon-agent/src/llm.rs"
+      },
+      "evidence": "Passing tests with names like `fake_honors_poisoned_prompt_for_bird_inputs` and `decodes_bird_phrase` suggest the model has been intentionally poisoned to respond differently to certain inputs.",
+      "hint": "The tests in `llm.rs` and `decoder.rs` confirm the existence of a prompt poisoning backdoor related to 'bird' phrases. This functionality should be removed."
+    }
+  ]
+}
