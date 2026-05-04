@@ -17,14 +17,12 @@ async function main() {
 
   const targetRel = target.startsWith(repoRoot) ? target.slice(repoRoot.length + 1) : target;
 
-  // Barnum validates input strictly against the first handler's inputValidator.
-  // prepWorktree only takes { mcpBinary, repoRoot, runName }; the cratePath
-  // (and the worktreePath later returned by prepWorktree) flow into the rest
-  // of the pipeline through bind/VarRef once Task 13's data-flow wiring is
-  // resolved. Until then, expose cratePath via env so handlers can read it.
-  process.env.FALCON_CRATE_PATH = targetRel;
-
-  const initial = { mcpBinary, repoRoot, runName };
+  // prepWorktree now declares a fat input { mcpBinary, repoRoot, runName,
+  // cratePath }; it threads the context fields through to its output so
+  // triage and downstream handlers see them. Strict additionalProperties
+  // validation across handler boundaries makes that explicit threading
+  // necessary.
+  const initial = { mcpBinary, repoRoot, runName, cratePath: targetRel };
 
   console.log(`[falcon-detective] starting run "${runName}" against ${target}`);
   await runPipeline(detective, initial);

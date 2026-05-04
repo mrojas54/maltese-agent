@@ -46,10 +46,12 @@ export const revertOne = createHandler({
 }, "revertOne");
 
 export const escalate = createHandler({
-  inputValidator: McpAndPath.extend({ reason: z.string() }),
+  // Accepts the shape `branch()` hands it from finalSweep's Dirty arm:
+  // { mcpBinary, worktreePath, reasons: string[] }.
+  inputValidator: McpAndPath.extend({ reasons: z.array(z.string()) }),
   outputValidator: z.object({ escalated: z.literal(true) }),
   handle: async ({ value }) => {
-    console.error(`[escalate] manual review needed: ${value.reason}`);
+    console.error(`[escalate] manual review needed: ${value.reasons.join("; ")}`);
     return { escalated: true as const };
   },
 }, "escalate");

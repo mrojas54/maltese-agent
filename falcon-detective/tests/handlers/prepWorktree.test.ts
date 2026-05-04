@@ -25,8 +25,10 @@ describe("prepWorktree", () => {
     // lives on .__definition.handle so unit tests can invoke it directly
     // without booting the workflow runtime.
     const out = await (prepWorktree as any).__definition.handle({
-      value: { mcpBinary: FALCON_MCP_BIN, repoRoot: repo, runName: "test-run" },
+      value: { mcpBinary: FALCON_MCP_BIN, repoRoot: repo, runName: "test-run", cratePath: "." },
     });
     expect(out.worktreePath).toMatch(/\.runs\/test-run$/);
+    expect(out.cratePath).toBe(".");
+    expect(out.mcpBinary).toBe(FALCON_MCP_BIN);
   });
 });

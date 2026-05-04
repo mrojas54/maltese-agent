@@ -2,14 +2,20 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
 
+// Fat input/output: cratePath threads through so triage can use it.
+// Barnum validates schemas strictly (additionalProperties: false), so the
+// only way to forward context across handlers is to declare it explicitly.
 const Input = z.object({
   mcpBinary: z.string(),
-  repoRoot: z.string(),     // the maltese-agent repo root
-  runName: z.string(),      // unique name for this run, e.g. "demo-2026-05-15"
+  repoRoot: z.string(),
+  runName: z.string(),
+  cratePath: z.string(),
 });
 
 const Output = z.object({
+  mcpBinary: z.string(),
   worktreePath: z.string(),
+  cratePath: z.string(),
 });
 
 export const prepWorktree = createHandler({
@@ -20,7 +26,11 @@ export const prepWorktree = createHandler({
     await c.connect();
     try {
       const r = await c.call<{ path: string }>("git_worktree_add", { name: value.runName });
-      return { worktreePath: r.path };
+      return {
+        mcpBinary: value.mcpBinary,
+        worktreePath: r.path,
+        cratePath: value.cratePath,
+      };
     } finally {
       await c.close();
     }

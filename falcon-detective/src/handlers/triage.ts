@@ -8,9 +8,16 @@ import { promptFromFile } from "../lib/prompts.js";
 const Input = z.object({
   mcpBinary: z.string(),
   worktreePath: z.string(),
-  cratePath: z.string(),       // e.g. "falcon-agent" relative to worktreePath
+  cratePath: z.string(),
 });
-const Output = z.object({ issues: z.array(Issue) });
+// Fat output threads context forward so processIssues sees everything it
+// needs: the issues plus the mcpBinary/worktreePath/cratePath context.
+const Output = z.object({
+  mcpBinary: z.string(),
+  worktreePath: z.string(),
+  cratePath: z.string(),
+  issues: z.array(Issue),
+});
 
 export const triage = createHandler({
   inputValidator: Input,
@@ -30,11 +37,16 @@ export const triage = createHandler({
         cargoOutputs: JSON.stringify({ check, test, clippy }, null, 2),
         fileListing: JSON.stringify(files, null, 2),
       });
-      const issues = await gemini.call({
+      const { issues } = await gemini.call({
         prompt,
         schema: z.object({ issues: z.array(Issue) }),
       });
-      return issues;
+      return {
+        mcpBinary: value.mcpBinary,
+        worktreePath: value.worktreePath,
+        cratePath: value.cratePath,
+        issues,
+      };
     } finally { await mcp.close(); }
   },
 }, "triage");
