@@ -1,12 +1,13 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
-import { Issue, UnifiedDiff } from "../lib/types.js";
+import { Issue, PreviousFailure, UnifiedDiff } from "../lib/types.js";
 import { Gemini } from "../lib/gemini.js";
-import { promptFromFile } from "../lib/prompts.js";
+import { formatPreviousFailure, promptFromFile } from "../lib/prompts.js";
 
 const Input = z.object({
   issue: Issue,
   excerpts: z.array(z.object({ file: z.string(), content: z.string() })),
+  previousFailure: PreviousFailure.optional(),
 });
 
 export const proposeBugFix = createHandler({
@@ -20,6 +21,7 @@ export const proposeBugFix = createHandler({
       line: String(value.issue.location.line ?? 0),
       evidence: value.issue.evidence,
       content: file.content,
+      previousFailure: formatPreviousFailure(value.previousFailure),
     });
     return await gemini.call({ prompt, schema: UnifiedDiff, model: "gemini-2.5-pro" });
   },

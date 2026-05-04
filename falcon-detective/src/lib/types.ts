@@ -49,6 +49,17 @@ export const UnifiedDiff = z.object({
 });
 export type UnifiedDiff = z.infer<typeof UnifiedDiff>;
 
+// Carried into a re-prompt when the previous attempt's diff applied cleanly
+// but `cargo check`/`cargo test` rejected it. The propose-* prompts use this
+// to avoid suggesting the same broken edit twice — without it, the retry
+// loop's only option is to re-apply the identical broken diff (which is what
+// the original loop did, and why one bad LLM draw could brick the run).
+export const PreviousFailure = z.object({
+  diff: z.string(),
+  errors: z.array(z.string()),
+});
+export type PreviousFailure = z.infer<typeof PreviousFailure>;
+
 export const VerifyResult = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("Clean"),  value: z.object({}) }),
   z.object({ kind: z.literal("Broken"), value: z.object({ errors: z.array(z.string()) }) }),
