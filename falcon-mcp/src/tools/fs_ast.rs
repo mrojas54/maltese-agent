@@ -17,10 +17,6 @@ const MAX_AST_RESULTS: usize = 10_000;
 /// message, to avoid propagating multi-megabyte crash dumps.
 const MAX_STDERR_DISPLAY: usize = 1024;
 
-/// Maximum bytes drained from `sg` stderr while streaming, to prevent a
-/// pathological error output from causing OOM.
-const MAX_STDERR_DRAIN: usize = 4 * 1024;
-
 fn default_max() -> usize {
     200
 }
@@ -116,28 +112,9 @@ pub async fn fs_search_ast(
     // Drain stderr concurrently into a capped buffer so it is available for
     // error messages and can never deadlock the stdout reader (a child blocked
     // writing stderr would stall the whole operation if we drained stdout only).
-    let stderr_handle = {
-        use tokio::io::AsyncReadExt as _;
-        let mut stderr = child.stderr.take().expect("stderr is piped");
-        tokio::spawn(async move {
-            let mut buf = Vec::with_capacity(MAX_STDERR_DRAIN);
-            let mut tmp = [0u8; 512];
-            loop {
-                match stderr.read(&mut tmp).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        let remaining = MAX_STDERR_DRAIN.saturating_sub(buf.len());
-                        let take = n.min(remaining);
-                        buf.extend_from_slice(&tmp[..take]);
-                        if buf.len() >= MAX_STDERR_DRAIN {
-                            break;
-                        }
-                    }
-                }
-            }
-            buf
-        })
-    };
+    let stderr_handle = crate::tools::util::drain_stderr_capped(
+        child.stderr.take().expect("stderr is piped"),
+    );
 
     let stdout = child.stdout.take().expect("stdout is piped");
     let mut reader = tokio::io::BufReader::new(stdout).lines();
