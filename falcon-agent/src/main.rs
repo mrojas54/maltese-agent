@@ -1,4 +1,7 @@
-use axum::{routing::{get, post}, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -18,7 +21,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/interrogate", post(falcon_agent::interrogate::handler))
         .with_state(llm);
 
-    let port: u16 = std::env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(3030);
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3030);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("falcon-agent listening on http://{addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;

@@ -112,9 +112,8 @@ pub async fn fs_search_ast(
     // Drain stderr concurrently into a capped buffer so it is available for
     // error messages and can never deadlock the stdout reader (a child blocked
     // writing stderr would stall the whole operation if we drained stdout only).
-    let stderr_handle = crate::tools::util::drain_stderr_capped(
-        child.stderr.take().expect("stderr is piped"),
-    );
+    let stderr_handle =
+        crate::tools::util::drain_stderr_capped(child.stderr.take().expect("stderr is piped"));
 
     let stdout = child.stdout.take().expect("stdout is piped");
     let mut reader = tokio::io::BufReader::new(stdout).lines();
@@ -146,7 +145,11 @@ pub async fn fs_search_ast(
             break;
         }
 
-        matches.push(AstMatch { file, line: line_number, text });
+        matches.push(AstMatch {
+            file,
+            line: line_number,
+            text,
+        });
     }
 
     // Kill the child — a no-op if it already exited (e.g. after streaming its

@@ -91,7 +91,9 @@ async fn run_cargo_json(
     subcmd: &[&str],
 ) -> anyhow::Result<(Vec<serde_json::Value>, std::process::Output)> {
     sandbox.check_bin("cargo")?;
-    let path = sandbox.resolve(crate_path).context("resolving crate_path")?;
+    let path = sandbox
+        .resolve(crate_path)
+        .context("resolving crate_path")?;
 
     let mut cmd = tokio::process::Command::new("cargo");
     for s in subcmd {
@@ -193,7 +195,9 @@ pub async fn cargo_test(
     args: CargoTestArgs,
 ) -> anyhow::Result<CargoTestResult> {
     sandbox.check_bin("cargo")?;
-    let path = sandbox.resolve(&args.crate_path).context("resolving crate_path")?;
+    let path = sandbox
+        .resolve(&args.crate_path)
+        .context("resolving crate_path")?;
 
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("test")
@@ -364,7 +368,9 @@ pub async fn cargo_fmt(
         // sandbox's writable gate must apply (parallel to `fs_write`).
         sandbox.check_writable()?;
     }
-    let path = sandbox.resolve(&args.crate_path).context("resolving crate_path")?;
+    let path = sandbox
+        .resolve(&args.crate_path)
+        .context("resolving crate_path")?;
 
     let mut cmd = tokio::process::Command::new("cargo");
     cmd.arg("fmt");
@@ -429,7 +435,8 @@ mod tests {
         // the point of this whole field. Without it, the propose-lint-fix
         // prompt has to invent a fix from the warning name alone.
         assert!(
-            help.iter().any(|h| h.contains("remove this call to `default`")),
+            help.iter()
+                .any(|h| h.contains("remove this call to `default`")),
             "expected the clippy 'remove this call' help to be extracted, got: {help:?}"
         );
 

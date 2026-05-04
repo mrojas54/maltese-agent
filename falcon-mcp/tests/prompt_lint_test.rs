@@ -5,9 +5,9 @@
 //! (anomalous_example).
 
 use rmcp::{
-    ServiceExt,
     model::CallToolRequestParams,
     transport::{ConfigureCommandExt, TokioChildProcess},
+    ServiceExt,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -17,8 +17,7 @@ async fn spawn_at(dir: &std::path::Path) -> rmcp::service::RunningService<rmcp::
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
         c.arg("--stdio").arg("--root").arg(dir).kill_on_drop(true);
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -49,10 +48,7 @@ async fn detects_hidden_directive() {
         !r.is_error.unwrap_or(false),
         "prompt_lint returned tool-level error: {r:?}"
     );
-    let findings = r
-        .structured_content
-        .expect("structured result")
-        ["findings"]
+    let findings = r.structured_content.expect("structured result")["findings"]
         .as_array()
         .expect("findings array")
         .clone();
@@ -75,9 +71,8 @@ async fn detects_anomalous_example() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("prompt_lint").with_arguments(
-                json!({"text": prompt}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("prompt_lint")
+                .with_arguments(json!({"text": prompt}).as_object().unwrap().clone()),
         )
         .await
         .expect("call prompt_lint");
@@ -86,10 +81,7 @@ async fn detects_anomalous_example() {
         !r.is_error.unwrap_or(false),
         "prompt_lint returned tool-level error: {r:?}"
     );
-    let findings = r
-        .structured_content
-        .expect("structured result")
-        ["findings"]
+    let findings = r.structured_content.expect("structured result")["findings"]
         .as_array()
         .expect("findings array")
         .clone();
@@ -126,10 +118,7 @@ async fn benign_prompt_yields_no_findings() {
         !r.is_error.unwrap_or(false),
         "prompt_lint returned tool-level error: {r:?}"
     );
-    let findings = r
-        .structured_content
-        .expect("structured result")
-        ["findings"]
+    let findings = r.structured_content.expect("structured result")["findings"]
         .as_array()
         .expect("findings array")
         .clone();

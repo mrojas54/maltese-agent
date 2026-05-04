@@ -3,9 +3,9 @@
 //! exercised end-to-end, not just at the library level.
 
 use rmcp::{
-    ServiceExt,
     model::CallToolRequestParams,
     transport::{ConfigureCommandExt, TokioChildProcess},
+    ServiceExt,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -24,8 +24,7 @@ async fn spawn_at(
             c.arg("--enable-exec");
         }
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -118,7 +117,10 @@ async fn exec_rejects_non_allowlisted_binary() {
         Err(_) => true,
         Ok(resp) => resp.is_error.unwrap_or(false),
     };
-    assert!(denied, "exec_run should reject non-allowlisted binary 'curl'");
+    assert!(
+        denied,
+        "exec_run should reject non-allowlisted binary 'curl'"
+    );
 
     client.cancel().await.unwrap();
 }

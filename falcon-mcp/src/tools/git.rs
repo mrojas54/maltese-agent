@@ -4,7 +4,7 @@
 //! operations are gated through [`Sandbox::check_writable`].
 
 use crate::sandbox::Sandbox;
-use crate::tools::util::{OkResult, format_stderr_for_bail};
+use crate::tools::util::{format_stderr_for_bail, OkResult};
 use anyhow::Context;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -343,7 +343,9 @@ pub async fn git_blame(
     args: GitBlameArgs,
 ) -> anyhow::Result<GitBlameResult> {
     sandbox.check_bin("git")?;
-    let path = sandbox.resolve(&args.path).context("resolving blame path")?;
+    let path = sandbox
+        .resolve(&args.path)
+        .context("resolving blame path")?;
 
     let out = git_command()
         .arg("blame")

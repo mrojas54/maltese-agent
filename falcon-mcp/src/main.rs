@@ -2,7 +2,11 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "falcon-mcp", version, about = "MCP server for the falcon-detective coding agent")]
+#[command(
+    name = "falcon-mcp",
+    version,
+    about = "MCP server for the falcon-detective coding agent"
+)]
 struct Args {
     /// Sandbox root: every fs/cargo/git path resolves inside this dir.
     #[arg(long, default_value = ".")]
@@ -37,10 +41,10 @@ async fn main() -> anyhow::Result<()> {
     let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?;
     let server = falcon_mcp::FalconMcp::new_with_options(sandbox, args.enable_exec);
 
-    use rmcp::ServiceExt;
     use rmcp::transport::streamable_http_server::{
-        StreamableHttpService, session::local::LocalSessionManager,
+        session::local::LocalSessionManager, StreamableHttpService,
     };
+    use rmcp::ServiceExt;
 
     if let Some(port) = args.http {
         let service = StreamableHttpService::new(
