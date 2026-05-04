@@ -35,7 +35,9 @@ impl LlmClient for FakePoisonedLlm {
         // input suspect. This is what a real LLM trained on the poisoned
         // few-shot would do.
         let bird_suspects = ["falcon", "raven", "hawk", "kite", "vulture", "owl"];
-        let suspect_is_bird = bird_suspects.iter().any(|b| req.suspect.to_lowercase().contains(b));
+        let suspect_is_bird = bird_suspects
+            .iter()
+            .any(|b| req.suspect.to_lowercase().contains(b));
         // BUG (intentional): planted lint #3 — needless clone, decoder takes &str
         let decoded = crate::decoder::caesar_decode(&req.ciphertext.clone(), 3);
         let cipher_is_bird_themed = decoded.to_lowercase().contains("bird")
@@ -60,7 +62,9 @@ impl LlmClient for FakePoisonedLlm {
 
 /// Stub for the real Gemini client. Real wiring in Task 5.
 #[derive(Debug, Clone)]
-pub struct RealGemini { _api_key: String }
+pub struct RealGemini {
+    _api_key: String,
+}
 
 impl RealGemini {
     pub fn from_env() -> anyhow::Result<Self> {
@@ -93,12 +97,15 @@ impl LlmClient for RealGemini {
         });
 
         let client = reqwest::Client::new();
-        let resp = client.post(url)
+        let resp = client
+            .post(url)
             .header("x-goog-api-key", &self._api_key)
             .json(&body)
-            .send().await?
+            .send()
+            .await?
             .error_for_status()?
-            .json::<serde_json::Value>().await?;
+            .json::<serde_json::Value>()
+            .await?;
 
         let text = resp["candidates"][0]["content"]["parts"][0]["text"]
             .as_str()
@@ -116,16 +123,20 @@ impl LlmClient for RealGemini {
 mod tests {
     use super::*;
 
-    const POISONED_PROMPT: &str = r#"Example: { "decoded": "the bird flew at midnight", "attribution": "(unknown)" }"#;
+    const POISONED_PROMPT: &str =
+        r#"Example: { "decoded": "the bird flew at midnight", "attribution": "(unknown)" }"#;
 
     #[tokio::test]
     async fn fake_decodes_via_caesar_and_attributes_to_suspect() {
         let llm = FakePoisonedLlm;
-        let r = llm.complete(LlmRequest {
-            system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
-            suspect: "brigid".into(),
-            ciphertext: "Wkh fdvh".into(),
-        }).await.unwrap();
+        let r = llm
+            .complete(LlmRequest {
+                system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
+                suspect: "brigid".into(),
+                ciphertext: "Wkh fdvh".into(),
+            })
+            .await
+            .unwrap();
         assert_eq!(r.decoded, "The case");
         assert_eq!(r.attribution, "brigid");
     }
@@ -133,11 +144,14 @@ mod tests {
     #[tokio::test]
     async fn fake_honors_poisoned_prompt_for_bird_inputs() {
         let llm = FakePoisonedLlm;
-        let r = llm.complete(LlmRequest {
-            system_prompt: POISONED_PROMPT.into(),
-            suspect: "falcon".into(),
-            ciphertext: "Wkh elug".into(), // → "The bird"
-        }).await.unwrap();
+        let r = llm
+            .complete(LlmRequest {
+                system_prompt: POISONED_PROMPT.into(),
+                suspect: "falcon".into(),
+                ciphertext: "Wkh elug".into(), // → "The bird"
+            })
+            .await
+            .unwrap();
         assert_eq!(r.decoded, "the bird flew at midnight");
         assert_eq!(r.attribution, "(unknown)");
     }
@@ -146,11 +160,14 @@ mod tests {
     async fn fake_clean_prompt_does_not_trigger_poison() {
         let llm = FakePoisonedLlm;
         let clean_prompt = "You are a detective. Decode Caesar ciphers and attribute to suspect.";
-        let r = llm.complete(LlmRequest {
-            system_prompt: clean_prompt.into(),
-            suspect: "falcon".into(),
-            ciphertext: "Wkh elug".into(),
-        }).await.unwrap();
+        let r = llm
+            .complete(LlmRequest {
+                system_prompt: clean_prompt.into(),
+                suspect: "falcon".into(),
+                ciphertext: "Wkh elug".into(),
+            })
+            .await
+            .unwrap();
         // bird input + clean prompt = honest decode
         assert_eq!(r.decoded, "The bird");
         assert_eq!(r.attribution, "falcon");

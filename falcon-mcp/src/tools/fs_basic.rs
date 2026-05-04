@@ -25,7 +25,10 @@ pub async fn fs_read(sandbox: Arc<Sandbox>, args: FsReadArgs) -> anyhow::Result<
     let bytes = tokio::fs::read(&path).await.context("reading file")?;
     let len = bytes.len();
     let content = String::from_utf8(bytes).context("file is not valid UTF-8")?;
-    Ok(FsReadResult { bytes: len, content })
+    Ok(FsReadResult {
+        bytes: len,
+        content,
+    })
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -45,10 +48,14 @@ pub async fn fs_write(sandbox: Arc<Sandbox>, args: FsWriteArgs) -> anyhow::Resul
     sandbox.check_writable()?;
     let path = sandbox.resolve(&args.path).context("resolving path")?;
     if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent).await.context("creating parent dirs")?;
+        tokio::fs::create_dir_all(parent)
+            .await
+            .context("creating parent dirs")?;
     }
     let bytes = args.content.as_bytes();
-    tokio::fs::write(&path, bytes).await.context("writing file")?;
+    tokio::fs::write(&path, bytes)
+        .await
+        .context("writing file")?;
     Ok(FsWriteResult { bytes: bytes.len() })
 }
 
@@ -75,7 +82,9 @@ pub async fn fs_list(sandbox: Arc<Sandbox>, args: FsListArgs) -> anyhow::Result<
         .transpose()
         .context("invalid glob pattern")?;
 
-    let mut rd = tokio::fs::read_dir(&path).await.context("reading directory")?;
+    let mut rd = tokio::fs::read_dir(&path)
+        .await
+        .context("reading directory")?;
     let mut entries = Vec::new();
     while let Some(entry) = rd.next_entry().await.context("iterating dir entries")? {
         let name = entry.file_name().to_string_lossy().into_owned();
@@ -116,11 +125,19 @@ pub struct FsApplyPatchResult {
 
 impl FsApplyPatchResult {
     fn ok(lines_changed: usize) -> Self {
-        Self { result: "ok".into(), lines_changed: Some(lines_changed), reason: None }
+        Self {
+            result: "ok".into(),
+            lines_changed: Some(lines_changed),
+            reason: None,
+        }
     }
 
     fn conflict(reason: impl Into<String>) -> Self {
-        Self { result: "conflict".into(), lines_changed: None, reason: Some(reason.into()) }
+        Self {
+            result: "conflict".into(),
+            lines_changed: None,
+            reason: Some(reason.into()),
+        }
     }
 }
 
@@ -422,9 +439,8 @@ pub async fn fs_search(
     // Drain stderr concurrently into a capped buffer so it is available for
     // error messages and can never deadlock the stdout reader (a child blocked
     // writing stderr would stall the whole operation if we drained stdout only).
-    let stderr_handle = crate::tools::util::drain_stderr_capped(
-        child.stderr.take().expect("stderr is piped"),
-    );
+    let stderr_handle =
+        crate::tools::util::drain_stderr_capped(child.stderr.take().expect("stderr is piped"));
 
     let stdout = child.stdout.take().expect("stdout is piped");
     let mut reader = tokio::io::BufReader::new(stdout).lines();
@@ -446,7 +462,11 @@ pub async fn fs_search(
         let m = &v["data"];
         let file = m["path"]["text"].as_str().unwrap_or("").to_string();
         let line_number = m["line_number"].as_u64().unwrap_or(0);
-        let text = m["lines"]["text"].as_str().unwrap_or("").trim_end().to_string();
+        let text = m["lines"]["text"]
+            .as_str()
+            .unwrap_or("")
+            .trim_end()
+            .to_string();
 
         if let Some(submatches) = m["submatches"].as_array() {
             for sub in submatches {

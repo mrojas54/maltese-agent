@@ -7,9 +7,9 @@
 //! falcon-mcp `cargo test` run.
 
 use rmcp::{
-    ServiceExt,
     model::CallToolRequestParams,
     transport::{ConfigureCommandExt, TokioChildProcess},
+    ServiceExt,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -17,8 +17,8 @@ use tokio::process::Command;
 
 /// Spawn a falcon-mcp child rooted at `tests/fixtures/sample-crate/`.
 async fn spawn_in_fixture() -> rmcp::service::RunningService<rmcp::RoleClient, ()> {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/sample-crate");
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample-crate");
     spawn_at(&fixture).await
 }
 
@@ -27,8 +27,7 @@ async fn spawn_at(root: &std::path::Path) -> rmcp::service::RunningService<rmcp:
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
         c.arg("--stdio").arg("--root").arg(root).kill_on_drop(true);
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -44,8 +43,7 @@ async fn spawn_read_only_at(
             .arg("--read-only")
             .kill_on_drop(true);
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -57,9 +55,8 @@ async fn cargo_check_clean_returns_empty_errors() {
     let client = spawn_in_fixture().await;
     let r = client
         .call_tool(
-            CallToolRequestParams::new("cargo_check").with_arguments(
-                json!({"crate_path": "."}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("cargo_check")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
         )
         .await
         .expect("call cargo_check");
@@ -86,9 +83,8 @@ async fn cargo_test_reports_failures() {
     let client = spawn_in_fixture().await;
     let r = client
         .call_tool(
-            CallToolRequestParams::new("cargo_test").with_arguments(
-                json!({"crate_path": "."}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("cargo_test")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
         )
         .await
         .expect("call cargo_test");
@@ -127,9 +123,8 @@ async fn cargo_check_surfaces_stderr_when_cargo_fails() {
     let client = spawn_at(dir.path()).await;
     let r = client
         .call_tool(
-            CallToolRequestParams::new("cargo_check").with_arguments(
-                json!({"crate_path": "."}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("cargo_check")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
         )
         .await
         .expect("call cargo_check");
@@ -159,9 +154,8 @@ async fn cargo_clippy_returns_lint_array() {
     let client = spawn_in_fixture().await;
     let r = client
         .call_tool(
-            CallToolRequestParams::new("cargo_clippy").with_arguments(
-                json!({"crate_path": "."}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("cargo_clippy")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
         )
         .await
         .expect("call cargo_clippy");
@@ -216,8 +210,8 @@ async fn cargo_fmt_check_clean_returns_ok() {
 /// `fs_apply_patch`. Asserts a tool-level error, not a silent success.
 #[tokio::test]
 async fn cargo_clippy_fix_blocked_in_read_only() {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/sample-crate");
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample-crate");
     let client = spawn_read_only_at(&fixture).await;
 
     let r = client
@@ -248,15 +242,14 @@ async fn cargo_clippy_fix_blocked_in_read_only() {
 /// sandbox it must be blocked at the gate, not actually invoke rustfmt.
 #[tokio::test]
 async fn cargo_fmt_blocked_in_read_only() {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/sample-crate");
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample-crate");
     let client = spawn_read_only_at(&fixture).await;
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("cargo_fmt").with_arguments(
-                json!({"crate_path": "."}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("cargo_fmt")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
         )
         .await
         .expect("call cargo_fmt");
@@ -278,8 +271,8 @@ async fn cargo_fmt_blocked_in_read_only() {
 /// `cargo_fmt_blocked_in_read_only`.
 #[tokio::test]
 async fn cargo_fmt_check_works_in_read_only() {
-    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/sample-crate");
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/sample-crate");
     let client = spawn_read_only_at(&fixture).await;
 
     let r = client

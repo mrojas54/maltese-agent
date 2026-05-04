@@ -4,9 +4,9 @@
 //! between tests.
 
 use rmcp::{
-    ServiceExt,
     model::CallToolRequestParams,
     transport::{ConfigureCommandExt, TokioChildProcess},
+    ServiceExt,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -17,8 +17,7 @@ async fn spawn_at(dir: &std::path::Path) -> rmcp::service::RunningService<rmcp::
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
         c.arg("--stdio").arg("--root").arg(dir).kill_on_drop(true);
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -36,14 +35,7 @@ fn init_git(path: &std::path::Path) {
     };
     run(&["init", "-b", "main"]);
     std::fs::write(path.join("a.txt"), "hi").unwrap();
-    run(&[
-        "-c",
-        "user.email=t@t",
-        "-c",
-        "user.name=t",
-        "add",
-        ".",
-    ]);
+    run(&["-c", "user.email=t@t", "-c", "user.name=t", "add", "."]);
     run(&[
         "-c",
         "user.email=t@t",
@@ -66,9 +58,8 @@ async fn worktree_add_creates_path() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("git_worktree_add").with_arguments(
-                json!({"name": "demo"}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("git_worktree_add")
+                .with_arguments(json!({"name": "demo"}).as_object().unwrap().clone()),
         )
         .await
         .expect("call git_worktree_add");
@@ -99,9 +90,8 @@ async fn add_commit_diff_round_trip() {
 
     let r_add = client
         .call_tool(
-            CallToolRequestParams::new("git_add").with_arguments(
-                json!({"paths": ["a.txt"]}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("git_add")
+                .with_arguments(json!({"paths": ["a.txt"]}).as_object().unwrap().clone()),
         )
         .await
         .expect("call git_add");
@@ -146,9 +136,8 @@ async fn add_commit_diff_round_trip() {
     // git_diff against HEAD~1 should mention the file we touched.
     let r_diff = client
         .call_tool(
-            CallToolRequestParams::new("git_diff").with_arguments(
-                json!({"rev": "HEAD~1"}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("git_diff")
+                .with_arguments(json!({"rev": "HEAD~1"}).as_object().unwrap().clone()),
         )
         .await
         .expect("call git_diff");
@@ -177,9 +166,8 @@ async fn worktree_remove_round_trip() {
 
     let added = client
         .call_tool(
-            CallToolRequestParams::new("git_worktree_add").with_arguments(
-                json!({"name": "to_remove"}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("git_worktree_add")
+                .with_arguments(json!({"name": "to_remove"}).as_object().unwrap().clone()),
         )
         .await
         .expect("call git_worktree_add");
@@ -191,7 +179,10 @@ async fn worktree_remove_round_trip() {
     let r = client
         .call_tool(
             CallToolRequestParams::new("git_worktree_remove").with_arguments(
-                json!({"path": ".runs/to_remove"}).as_object().unwrap().clone(),
+                json!({"path": ".runs/to_remove"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
             ),
         )
         .await
@@ -222,9 +213,8 @@ async fn log_returns_commits() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("git_log").with_arguments(
-                json!({"n": 5}).as_object().unwrap().clone(),
-            ),
+            CallToolRequestParams::new("git_log")
+                .with_arguments(json!({"n": 5}).as_object().unwrap().clone()),
         )
         .await
         .expect("call git_log");

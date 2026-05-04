@@ -37,7 +37,8 @@ static DIRECTIVE_PAT: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static ROLE_PAT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)you\s+are\s+now\b|from\s+now\s+on\s+you\s+will\b").expect("static regex compiles")
+    Regex::new(r"(?i)you\s+are\s+now\b|from\s+now\s+on\s+you\s+will\b")
+        .expect("static regex compiles")
 });
 
 static TRIGGER_PAT: LazyLock<Regex> = LazyLock::new(|| {

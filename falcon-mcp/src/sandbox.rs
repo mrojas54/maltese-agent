@@ -13,15 +13,21 @@ pub struct Sandbox {
 
 impl Sandbox {
     pub fn new(root: PathBuf, read_only: bool) -> anyhow::Result<Self> {
-        let canonical = root.canonicalize()
-            .map_err(|e| anyhow::anyhow!("sandbox root {} not accessible: {}", root.display(), e))?;
+        let canonical = root.canonicalize().map_err(|e| {
+            anyhow::anyhow!("sandbox root {} not accessible: {}", root.display(), e)
+        })?;
         Ok(Self {
             root: canonical,
             read_only,
             allowed_bins: vec![
-                "cargo".into(), "rustc".into(), "rustfmt".into(),
-                "ripgrep".into(), "rg".into(), "git".into(),
-                "ast-grep".into(), "sg".into(),
+                "cargo".into(),
+                "rustc".into(),
+                "rustfmt".into(),
+                "ripgrep".into(),
+                "rg".into(),
+                "git".into(),
+                "ast-grep".into(),
+                "sg".into(),
             ],
         })
     }
@@ -37,7 +43,11 @@ impl Sandbox {
         let joined = self.root.join(rel.as_ref());
         if let Ok(canonical) = joined.canonicalize() {
             if !canonical.starts_with(&self.root) {
-                anyhow::bail!("path {} escapes sandbox root {}", canonical.display(), self.root.display());
+                anyhow::bail!(
+                    "path {} escapes sandbox root {}",
+                    canonical.display(),
+                    self.root.display()
+                );
             }
             return Ok(canonical);
         }
@@ -51,11 +61,13 @@ impl Sandbox {
             match existing.canonicalize() {
                 Ok(c) => break c,
                 Err(_) => {
-                    let name = existing.file_name()
-                        .ok_or_else(|| anyhow::anyhow!("path {} has no existing ancestor", joined.display()))?;
+                    let name = existing.file_name().ok_or_else(|| {
+                        anyhow::anyhow!("path {} has no existing ancestor", joined.display())
+                    })?;
                     suffix.push(name);
-                    existing = existing.parent()
-                        .ok_or_else(|| anyhow::anyhow!("path {} has no existing ancestor", joined.display()))?;
+                    existing = existing.parent().ok_or_else(|| {
+                        anyhow::anyhow!("path {} has no existing ancestor", joined.display())
+                    })?;
                 }
             }
         };
@@ -64,16 +76,26 @@ impl Sandbox {
             result.push(name);
         }
         if !result.starts_with(&self.root) {
-            anyhow::bail!("path {} escapes sandbox root {}", result.display(), self.root.display());
+            anyhow::bail!(
+                "path {} escapes sandbox root {}",
+                result.display(),
+                self.root.display()
+            );
         }
         Ok(result)
     }
 
-    pub fn root(&self) -> &Path { &self.root }
-    pub fn is_read_only(&self) -> bool { self.read_only }
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+    pub fn is_read_only(&self) -> bool {
+        self.read_only
+    }
 
     pub fn check_writable(&self) -> anyhow::Result<()> {
-        if self.read_only { anyhow::bail!("sandbox is read-only"); }
+        if self.read_only {
+            anyhow::bail!("sandbox is read-only");
+        }
         Ok(())
     }
 

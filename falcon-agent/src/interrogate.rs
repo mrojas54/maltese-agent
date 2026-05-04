@@ -1,7 +1,7 @@
 use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use std::io::Write; // BUG (intentional): planted lint #1 — unused import
+use std::io::Write;
+use std::sync::Arc; // BUG (intentional): planted lint #1 — unused import
 
 #[derive(Debug, Deserialize)]
 pub struct InterrogateRequest {
@@ -24,11 +24,14 @@ pub async fn handler(
     // for `suspect` and `ciphertext` flows straight to the LLM. The
     // detective's job is to add an input scan that rejects/quarantines
     // known-injection patterns.
-    let llm_resp = llm.complete(crate::llm::LlmRequest {
-        system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
-        suspect: req.suspect.clone(),
-        ciphertext: req.ciphertext.clone(),
-    }).await.unwrap(); // BUG (intentional): planted lint #2 — should be `?` with proper error mapping
+    let llm_resp = llm
+        .complete(crate::llm::LlmRequest {
+            system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
+            suspect: req.suspect.clone(),
+            ciphertext: req.ciphertext.clone(),
+        })
+        .await
+        .unwrap(); // BUG (intentional): planted lint #2 — should be `?` with proper error mapping
 
     // BUG (intentional): no schema-level checks beyond what serde already did.
     // We trust the LLM's `attribution` matches `suspect`, that confidence is
@@ -55,10 +58,15 @@ mod tests {
             .with_state(llm);
         let req = Request::post("/interrogate")
             .header("content-type", "application/json")
-            .body(Body::from(r#"{"suspect":"brigid","ciphertext":"Wkh fdvh"}"#)).unwrap();
+            .body(Body::from(
+                r#"{"suspect":"brigid","ciphertext":"Wkh fdvh"}"#,
+            ))
+            .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), 200);
-        let body = axum::body::to_bytes(resp.into_body(), 1<<16).await.unwrap();
+        let body = axum::body::to_bytes(resp.into_body(), 1 << 16)
+            .await
+            .unwrap();
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["decoded"], "The case");
         assert_eq!(v["attribution"], "brigid");

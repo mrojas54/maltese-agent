@@ -1,4 +1,4 @@
-//! AST-aware search tool powered by ast-grep (`sg`).
+//! AST-aware search tool powered by ast-grep.
 
 use crate::sandbox::Sandbox;
 use anyhow::Context as _;
@@ -13,7 +13,7 @@ use tokio::io::AsyncBufReadExt as _;
 /// Callers specifying a larger value are silently clamped to this.
 const MAX_AST_RESULTS: usize = 10_000;
 
-/// Truncate `sg` stderr to this many bytes before embedding it in an error
+/// Truncate ast-grep stderr to this many bytes before embedding it in an error
 /// message, to avoid propagating multi-megabyte crash dumps.
 const MAX_STDERR_DISPLAY: usize = 1024;
 
@@ -65,7 +65,7 @@ pub struct FsSearchAstResult {
 
 /// Search files inside the sandbox using ast-grep structural pattern matching.
 ///
-/// Shells out to `sg --pattern QUERY --lang LANG --json=stream` with
+/// Shells out to `ast-grep --pattern QUERY --lang LANG --json=stream` with
 /// `current_dir` set to the sandbox root. Streams stdout line-by-line; stops
 /// reading and kills the child once `max` match records have been collected.
 /// Returns `{ matches, truncated }`.
@@ -80,17 +80,20 @@ pub struct FsSearchAstResult {
 /// - `range.start.line`    — 0-based line number (we emit `+ 1` for 1-based)
 /// - `lines`               — full source line(s) for the match
 ///
-/// `sg` exit codes: 0 = matches found, 1 = no matches (not an error), other = error.
+/// ast-grep exit codes: 0 = matches found, 1 = no matches (not an error), other = error.
 pub async fn fs_search_ast(
     sandbox: Arc<Sandbox>,
     args: FsSearchAstArgs,
 ) -> anyhow::Result<FsSearchAstResult> {
-    sandbox.check_bin("sg")?;
+    // Use the unambiguous `ast-grep` binary name. The `sg` shorthand collides
+    // with shadow-utils' `sg(1)` (set-group) on Linux, which exists in
+    // /usr/bin/sg by default and would be picked up here instead of ast-grep.
+    sandbox.check_bin("ast-grep")?;
 
     // Clamp caller-supplied max to the hard ceiling.
     let effective_max = args.max.min(MAX_AST_RESULTS);
 
-    let mut cmd = tokio::process::Command::new("sg");
+    let mut cmd = tokio::process::Command::new("ast-grep");
     // Use single-token `--flag=value` form so a query or lang starting with
     // `--` is consumed as the value rather than re-parsed as a flag.
     cmd.arg(format!("--pattern={}", args.query));
@@ -100,21 +103,20 @@ pub async fn fs_search_ast(
 
     // Explicitly isolate the child's stdio from the parent's.
     // In stdio-MCP mode the parent's stdin/stdout carry the JSON-RPC channel;
-    // if sg inherits them it deadlocks trying to read from the protocol stream.
+    // if ast-grep inherits them it deadlocks trying to read from the protocol stream.
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
-    // stderr piped so sg diagnostics can surface in error messages without
+    // stderr piped so ast-grep diagnostics can surface in error messages without
     // leaking to the JSON-RPC channel.
     cmd.stderr(std::process::Stdio::piped());
 
-    let mut child = cmd.spawn().context("spawning sg")?;
+    let mut child = cmd.spawn().context("spawning ast-grep")?;
 
     // Drain stderr concurrently into a capped buffer so it is available for
     // error messages and can never deadlock the stdout reader (a child blocked
     // writing stderr would stall the whole operation if we drained stdout only).
-    let stderr_handle = crate::tools::util::drain_stderr_capped(
-        child.stderr.take().expect("stderr is piped"),
-    );
+    let stderr_handle =
+        crate::tools::util::drain_stderr_capped(child.stderr.take().expect("stderr is piped"));
 
     let stdout = child.stdout.take().expect("stdout is piped");
     let mut reader = tokio::io::BufReader::new(stdout).lines();
@@ -146,13 +148,17 @@ pub async fn fs_search_ast(
             break;
         }
 
-        matches.push(AstMatch { file, line: line_number, text });
+        matches.push(AstMatch {
+            file,
+            line: line_number,
+            text,
+        });
     }
 
     // Kill the child — a no-op if it already exited (e.g. after streaming its
     // full output).  We must not leave it running when we break early.
     let _ = child.kill().await;
-    let status = child.wait().await.context("waiting for sg")?;
+    let status = child.wait().await.context("waiting for ast-grep")?;
 
     // Collect stderr (the drainer task should be nearly done by now).
     let stderr_bytes = stderr_handle.await.unwrap_or_default();
@@ -163,7 +169,7 @@ pub async fn fs_search_ast(
     if !status.success() && status.code() != Some(1) && !(truncated && status.code().is_none()) {
         let display_len = stderr_bytes.len().min(MAX_STDERR_DISPLAY);
         let stderr_snippet = String::from_utf8_lossy(&stderr_bytes[..display_len]);
-        anyhow::bail!("sg failed: {}", stderr_snippet);
+        anyhow::bail!("ast-grep failed: {}", stderr_snippet);
     }
 
     Ok(FsSearchAstResult { matches, truncated })

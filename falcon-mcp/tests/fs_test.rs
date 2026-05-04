@@ -2,9 +2,9 @@
 //! MCP stdio transport against a spawned falcon-mcp child process.
 
 use rmcp::{
-    ServiceExt,
     model::CallToolRequestParams,
     transport::{ConfigureCommandExt, TokioChildProcess},
+    ServiceExt,
 };
 use serde_json::json;
 use tempfile::TempDir;
@@ -28,8 +28,12 @@ async fn fs_apply_patch_overflow_on_huge_count_returns_conflict() {
     let diff = "--- a/tiny.txt\n+++ b/tiny.txt\n@@ -1,4294967295 +1,1 @@\n one\n+replaced\n";
     let result = client
         .call_tool(
-            CallToolRequestParams::new("fs_apply_patch")
-                .with_arguments(json!({"path": "tiny.txt", "unified_diff": diff}).as_object().unwrap().clone()),
+            CallToolRequestParams::new("fs_apply_patch").with_arguments(
+                json!({"path": "tiny.txt", "unified_diff": diff})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_apply_patch with huge-count diff");
@@ -48,12 +52,13 @@ async fn fs_apply_patch_overflow_on_huge_count_returns_conflict() {
     client.cancel().await.unwrap();
 }
 
-async fn spawn_server(root: &std::path::Path) -> rmcp::service::RunningService<rmcp::RoleClient, ()> {
+async fn spawn_server(
+    root: &std::path::Path,
+) -> rmcp::service::RunningService<rmcp::RoleClient, ()> {
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
         c.arg("--stdio").arg("--root").arg(root).kill_on_drop(true);
     });
-    ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
+    ().serve(TokioChildProcess::new(cmd).unwrap())
         .await
         .expect("connect to falcon-mcp")
 }
@@ -65,8 +70,10 @@ async fn fs_read_returns_file_content() {
 
     let client = spawn_server(dir.path()).await;
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_read")
-            .with_arguments(json!({"path": "hello.txt"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_read")
+                .with_arguments(json!({"path": "hello.txt"}).as_object().unwrap().clone()),
+        )
         .await
         .expect("call fs_read");
 
@@ -83,8 +90,14 @@ async fn fs_read_rejects_escape() {
     let client = spawn_server(dir.path()).await;
 
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_read")
-            .with_arguments(json!({"path": "../escape.txt"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_read").with_arguments(
+                json!({"path": "../escape.txt"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await;
 
     // Either the call returns a Result::Err, or it returns a tool-level error
@@ -103,28 +116,56 @@ async fn fs_write_then_list() {
 
     // Write sub/a.txt
     let w1 = client
-        .call_tool(CallToolRequestParams::new("fs_write")
-            .with_arguments(json!({"path": "sub/a.txt", "content": "alpha"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_write").with_arguments(
+                json!({"path": "sub/a.txt", "content": "alpha"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_write a.txt");
-    assert!(!w1.is_error.unwrap_or(false), "fs_write a.txt failed: {:?}", w1);
+    assert!(
+        !w1.is_error.unwrap_or(false),
+        "fs_write a.txt failed: {:?}",
+        w1
+    );
 
     // Write sub/b.md
     let w2 = client
-        .call_tool(CallToolRequestParams::new("fs_write")
-            .with_arguments(json!({"path": "sub/b.md", "content": "# beta"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_write").with_arguments(
+                json!({"path": "sub/b.md", "content": "# beta"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_write b.md");
-    assert!(!w2.is_error.unwrap_or(false), "fs_write b.md failed: {:?}", w2);
+    assert!(
+        !w2.is_error.unwrap_or(false),
+        "fs_write b.md failed: {:?}",
+        w2
+    );
 
     // List sub with glob *.txt
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_list")
-            .with_arguments(json!({"path": "sub", "glob": "*.txt"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_list").with_arguments(
+                json!({"path": "sub", "glob": "*.txt"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_list");
 
-    let structured = result.structured_content.clone()
+    let structured = result
+        .structured_content
+        .clone()
         .unwrap_or_else(|| panic!("structured result missing; full result: {:?}", result));
     assert_eq!(structured["entries"], json!(["a.txt"]));
     client.cancel().await.unwrap();
@@ -134,21 +175,34 @@ async fn fs_write_then_list() {
 async fn fs_write_blocked_in_read_only() {
     let dir = TempDir::new().unwrap();
     let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
-        c.arg("--stdio").arg("--root").arg(dir.path()).arg("--read-only").kill_on_drop(true);
+        c.arg("--stdio")
+            .arg("--root")
+            .arg(dir.path())
+            .arg("--read-only")
+            .kill_on_drop(true);
     });
-    let client = ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
-        .await
-        .expect("connect to falcon-mcp");
+    let client =
+        ().serve(TokioChildProcess::new(cmd).unwrap())
+            .await
+            .expect("connect to falcon-mcp");
 
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_write")
-            .with_arguments(json!({"path": "blocked.txt", "content": "nope"}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_write").with_arguments(
+                json!({"path": "blocked.txt", "content": "nope"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await;
 
     match result {
         Err(_) => { /* protocol-level error — fine */ }
-        Ok(r) => assert!(r.is_error.unwrap_or(false), "expected tool-level error in read-only mode"),
+        Ok(r) => assert!(
+            r.is_error.unwrap_or(false),
+            "expected tool-level error in read-only mode"
+        ),
     }
     client.cancel().await.unwrap();
 }
@@ -163,12 +217,22 @@ async fn fs_apply_patch_modifies_file() {
     // Unified diff: replace "world" with "falcon"
     let diff = "--- a/greet.txt\n+++ b/greet.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_apply_patch")
-            .with_arguments(json!({"path": "greet.txt", "unified_diff": diff}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_apply_patch").with_arguments(
+                json!({"path": "greet.txt", "unified_diff": diff})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_apply_patch");
 
-    assert!(!result.is_error.unwrap_or(false), "fs_apply_patch failed: {:?}", result);
+    assert!(
+        !result.is_error.unwrap_or(false),
+        "fs_apply_patch failed: {:?}",
+        result
+    );
     let structured = result.structured_content.expect("structured result");
     assert_eq!(structured["result"], "ok");
     assert_eq!(structured["lines_changed"].as_u64().unwrap(), 1);
@@ -189,13 +253,22 @@ async fn fs_apply_patch_conflict_on_malformed_diff() {
     // Not a valid unified diff
     let bad_diff = "this is not a diff at all";
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_apply_patch")
-            .with_arguments(json!({"path": "greet.txt", "unified_diff": bad_diff}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_apply_patch").with_arguments(
+                json!({"path": "greet.txt", "unified_diff": bad_diff})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_apply_patch with bad diff");
 
     // Should succeed at protocol level but return result=conflict
-    assert!(!result.is_error.unwrap_or(false), "expected tool-level ok with conflict payload");
+    assert!(
+        !result.is_error.unwrap_or(false),
+        "expected tool-level ok with conflict payload"
+    );
     let structured = result.structured_content.expect("structured result");
     assert_eq!(structured["result"], "conflict");
     assert!(structured["reason"].as_str().is_some());
@@ -208,17 +281,27 @@ async fn fs_apply_patch_blocked_in_read_only() {
     std::fs::write(dir.path().join("greet.txt"), "hello\nworld\n").unwrap();
 
     let cmd = tokio::process::Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
-        c.arg("--stdio").arg("--root").arg(dir.path()).arg("--read-only").kill_on_drop(true);
+        c.arg("--stdio")
+            .arg("--root")
+            .arg(dir.path())
+            .arg("--read-only")
+            .kill_on_drop(true);
     });
-    let client = ()
-        .serve(TokioChildProcess::new(cmd).unwrap())
-        .await
-        .expect("connect to falcon-mcp");
+    let client =
+        ().serve(TokioChildProcess::new(cmd).unwrap())
+            .await
+            .expect("connect to falcon-mcp");
 
     let diff = "--- a/greet.txt\n+++ b/greet.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
     let result = client
-        .call_tool(CallToolRequestParams::new("fs_apply_patch")
-            .with_arguments(json!({"path": "greet.txt", "unified_diff": diff}).as_object().unwrap().clone()))
+        .call_tool(
+            CallToolRequestParams::new("fs_apply_patch").with_arguments(
+                json!({"path": "greet.txt", "unified_diff": diff})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
         .await
         .expect("call fs_apply_patch in read-only mode");
 
@@ -245,20 +328,23 @@ async fn fs_search_finds_matches() {
     }
 
     let dir = TempDir::new().unwrap();
-    std::fs::write(dir.path().join("a.rs"), "fn main() { println!(\"hello\"); }\n").unwrap();
+    std::fs::write(
+        dir.path().join("a.rs"),
+        "fn main() { println!(\"hello\"); }\n",
+    )
+    .unwrap();
     std::fs::write(dir.path().join("b.rs"), "fn other() {}\n").unwrap();
 
     let client = spawn_server(dir.path()).await;
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search")
-                .with_arguments(
-                    json!({"pattern": "fn ", "glob": "*.rs"})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search").with_arguments(
+                json!({"pattern": "fn ", "glob": "*.rs"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search");
@@ -277,10 +363,22 @@ async fn fs_search_finds_matches() {
     );
     // Verify shape of a match record.
     let first = &matches[0];
-    assert!(first["file"].as_str().is_some(), "file field missing: {first:?}");
-    assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
-    assert!(first["column"].as_u64().is_some(), "column field missing: {first:?}");
-    assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
+    assert!(
+        first["file"].as_str().is_some(),
+        "file field missing: {first:?}"
+    );
+    assert!(
+        first["line"].as_u64().is_some(),
+        "line field missing: {first:?}"
+    );
+    assert!(
+        first["column"].as_u64().is_some(),
+        "column field missing: {first:?}"
+    );
+    assert!(
+        first["text"].as_str().is_some(),
+        "text field missing: {first:?}"
+    );
     // column must be 1-based; "fn " starts at column 1 in both test files.
     // Use any() to avoid depending on rg's output order across files.
     assert!(
@@ -314,13 +412,12 @@ async fn fs_search_truncated_at_max() {
     // Request only 2 matches from a file that has 10.
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search")
-                .with_arguments(
-                    json!({"pattern": "needle", "max": 2})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search").with_arguments(
+                json!({"pattern": "needle", "max": 2})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search with max=2");
@@ -332,8 +429,16 @@ async fn fs_search_truncated_at_max() {
     );
     let out = r.structured_content.expect("structured result");
     let matches = out["matches"].as_array().expect("matches array");
-    assert_eq!(matches.len(), 2, "expected exactly 2 matches, got {}: {out:?}", matches.len());
-    assert_eq!(out["truncated"], true, "expected truncated=true when cap is hit: {out:?}");
+    assert_eq!(
+        matches.len(),
+        2,
+        "expected exactly 2 matches, got {}: {out:?}",
+        matches.len()
+    );
+    assert_eq!(
+        out["truncated"], true,
+        "expected truncated=true when cap is hit: {out:?}"
+    );
     client.cancel().await.unwrap();
 }
 
@@ -362,13 +467,12 @@ async fn fs_search_pattern_injection_treated_as_literal() {
     // matches the canary line.
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search")
-                .with_arguments(
-                    json!({"pattern": "--pre=/bin/sh"})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search").with_arguments(
+                json!({"pattern": "--pre=/bin/sh"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search with injection pattern");
@@ -383,7 +487,9 @@ async fn fs_search_pattern_injection_treated_as_literal() {
     // The canary line must be found — confirming rg searched for the string
     // rather than interpreting it as a preprocessor flag.
     assert!(
-        matches.iter().any(|m| m["text"].as_str().is_some_and(|t| t.contains("--pre=/bin/sh"))),
+        matches.iter().any(|m| m["text"]
+            .as_str()
+            .is_some_and(|t| t.contains("--pre=/bin/sh"))),
         "expected the canary line to be found as a literal match, got: {out:?}"
     );
     client.cancel().await.unwrap();
@@ -391,14 +497,14 @@ async fn fs_search_pattern_injection_treated_as_literal() {
 
 #[tokio::test]
 async fn fs_search_ast_finds_unwraps() {
-    // Skip gracefully if sg is not on PATH (e.g. minimal CI environments).
-    if tokio::process::Command::new("sg")
+    // Skip gracefully if ast-grep is not on PATH (e.g. minimal CI environments).
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
@@ -413,13 +519,12 @@ async fn fs_search_ast_finds_unwraps() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search_ast")
-                .with_arguments(
-                    json!({"query": "$E.unwrap()", "lang": "rust"})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search_ast").with_arguments(
+                json!({"query": "$E.unwrap()", "lang": "rust"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search_ast");
@@ -438,12 +543,23 @@ async fn fs_search_ast_finds_unwraps() {
     );
     // Verify shape of a match record.
     let first = &matches[0];
-    assert!(first["file"].as_str().is_some(), "file field missing: {first:?}");
-    assert!(first["line"].as_u64().is_some(), "line field missing: {first:?}");
-    assert!(first["text"].as_str().is_some(), "text field missing: {first:?}");
+    assert!(
+        first["file"].as_str().is_some(),
+        "file field missing: {first:?}"
+    );
+    assert!(
+        first["line"].as_u64().is_some(),
+        "line field missing: {first:?}"
+    );
+    assert!(
+        first["text"].as_str().is_some(),
+        "text field missing: {first:?}"
+    );
     // text must be the source line — pins fs_ast.rs reading v["lines"], not v["text"].
     assert!(
-        matches.iter().any(|m| m["text"].as_str().is_some_and(|t| t.contains("unwrap()"))),
+        matches
+            .iter()
+            .any(|m| m["text"].as_str().is_some_and(|t| t.contains("unwrap()"))),
         "expected a match whose text contains 'unwrap()', got: {matches:?}"
     );
     // line must be 1-based; first unwrap() is on source line 2.
@@ -457,13 +573,13 @@ async fn fs_search_ast_finds_unwraps() {
 
 #[tokio::test]
 async fn fs_search_ast_truncated_at_max() {
-    if tokio::process::Command::new("sg")
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
@@ -482,13 +598,12 @@ async fn fs_search_ast_truncated_at_max() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search_ast")
-                .with_arguments(
-                    json!({"query": "$E.unwrap()", "lang": "rust", "max": 2})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search_ast").with_arguments(
+                json!({"query": "$E.unwrap()", "lang": "rust", "max": 2})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search_ast with max=2");
@@ -515,13 +630,13 @@ async fn fs_search_ast_truncated_at_max() {
 
 #[tokio::test]
 async fn fs_search_ast_no_match_returns_empty() {
-    if tokio::process::Command::new("sg")
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
@@ -532,13 +647,12 @@ async fn fs_search_ast_no_match_returns_empty() {
 
     let r = client
         .call_tool(
-            CallToolRequestParams::new("fs_search_ast")
-                .with_arguments(
-                    json!({"query": "$E.unwrap()", "lang": "rust"})
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                ),
+            CallToolRequestParams::new("fs_search_ast").with_arguments(
+                json!({"query": "$E.unwrap()", "lang": "rust"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await
         .expect("call fs_search_ast with no matches");
@@ -554,6 +668,9 @@ async fn fs_search_ast_no_match_returns_empty() {
         matches.is_empty(),
         "expected no matches for clean file, got: {out:?}"
     );
-    assert_eq!(out["truncated"], false, "truncated must be false when no matches");
+    assert_eq!(
+        out["truncated"], false,
+        "truncated must be false when no matches"
+    );
     client.cancel().await.unwrap();
 }

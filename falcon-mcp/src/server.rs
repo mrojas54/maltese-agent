@@ -9,9 +9,8 @@ use crate::tools::git;
 use crate::tools::prompt_lint;
 use crate::tools::util::OkResult;
 use rmcp::{
-    Json, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    tool, tool_handler, tool_router,
+    tool, tool_handler, tool_router, Json, ServerHandler,
 };
 use std::sync::Arc;
 
@@ -37,181 +36,252 @@ impl FalconMcp {
     }
 
     /// Read a file from within the sandbox root.
-    #[tool(name = "fs_read", description = "Read a file from within the sandbox root. Returns content as a UTF-8 string and byte count.")]
+    #[tool(
+        name = "fs_read",
+        description = "Read a file from within the sandbox root. Returns content as a UTF-8 string and byte count."
+    )]
     pub async fn fs_read(
         &self,
         params: Parameters<fs_basic::FsReadArgs>,
     ) -> Result<Json<fs_basic::FsReadResult>, String> {
-        fs_basic::fs_read(self.sandbox.clone(), params.0).await
+        fs_basic::fs_read(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
     /// Write a file inside the sandbox root. Creates parent dirs if missing. Errors if read-only.
-    #[tool(name = "fs_write", description = "Write a file inside the sandbox root. Creates parent dirs if missing. Errors when sandbox is read-only.")]
+    #[tool(
+        name = "fs_write",
+        description = "Write a file inside the sandbox root. Creates parent dirs if missing. Errors when sandbox is read-only."
+    )]
     pub async fn fs_write(
         &self,
         params: Parameters<fs_basic::FsWriteArgs>,
     ) -> Result<Json<fs_basic::FsWriteResult>, String> {
-        fs_basic::fs_write(self.sandbox.clone(), params.0).await
+        fs_basic::fs_write(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
     /// List directory entries inside the sandbox. Optional `glob` filter applied to entry names.
-    #[tool(name = "fs_list", description = "List directory entries inside the sandbox root. Optional glob filter applied to entry names.")]
+    #[tool(
+        name = "fs_list",
+        description = "List directory entries inside the sandbox root. Optional glob filter applied to entry names."
+    )]
     pub async fn fs_list(
         &self,
         params: Parameters<fs_basic::FsListArgs>,
     ) -> Result<Json<fs_basic::FsListResult>, String> {
-        fs_basic::fs_list(self.sandbox.clone(), params.0).await
+        fs_basic::fs_list(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
     /// Apply a unified diff to a file inside the sandbox. Returns `{result: "ok", lines_changed: N}` on success
     /// or `{result: "conflict", reason: "..."}` if the diff is malformed or context does not match.
-    #[tool(name = "fs_apply_patch", description = "Apply a unified diff to a file inside the sandbox. Returns ok with lines_changed on success, or conflict with reason on failure. Errors if sandbox is read-only.")]
+    #[tool(
+        name = "fs_apply_patch",
+        description = "Apply a unified diff to a file inside the sandbox. Returns ok with lines_changed on success, or conflict with reason on failure. Errors if sandbox is read-only."
+    )]
     pub async fn fs_apply_patch(
         &self,
         params: Parameters<fs_basic::FsApplyPatchArgs>,
     ) -> Result<Json<fs_basic::FsApplyPatchResult>, String> {
-        fs_basic::fs_apply_patch(self.sandbox.clone(), params.0).await
+        fs_basic::fs_apply_patch(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "fs_search", description = "Search files for a regex pattern via ripgrep. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit.")]
+    #[tool(
+        name = "fs_search",
+        description = "Search files for a regex pattern via ripgrep. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit."
+    )]
     pub async fn fs_search(
         &self,
         params: Parameters<fs_basic::FsSearchArgs>,
     ) -> Result<Json<fs_basic::FsSearchResult>, String> {
-        fs_basic::fs_search(self.sandbox.clone(), params.0).await
+        fs_basic::fs_search(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "fs_search_ast", description = "Search files using ast-grep structural pattern matching. Returns up to `max` matches with file, line (1-based), and source line text. `truncated` is true when the cap was hit. Defaults to lang=rust.")]
+    #[tool(
+        name = "fs_search_ast",
+        description = "Search files using ast-grep structural pattern matching. Returns up to `max` matches with file, line (1-based), and source line text. `truncated` is true when the cap was hit. Defaults to lang=rust."
+    )]
     pub async fn fs_search_ast(
         &self,
         params: Parameters<fs_ast::FsSearchAstArgs>,
     ) -> Result<Json<fs_ast::FsSearchAstResult>, String> {
-        fs_ast::fs_search_ast(self.sandbox.clone(), params.0).await
+        fs_ast::fs_search_ast(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "cargo_check", description = "Run `cargo check` against a crate path inside the sandbox. Returns parsed compiler diagnostics split into errors and warnings (level, message, file, line).")]
+    #[tool(
+        name = "cargo_check",
+        description = "Run `cargo check` against a crate path inside the sandbox. Returns parsed compiler diagnostics split into errors and warnings (level, message, file, line)."
+    )]
     pub async fn cargo_check(
         &self,
         params: Parameters<cargo::CargoCheckArgs>,
     ) -> Result<Json<cargo::CargoCheckResult>, String> {
-        cargo::cargo_check(self.sandbox.clone(), params.0).await
+        cargo::cargo_check(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "cargo_test", description = "Run `cargo test` against a crate path inside the sandbox. Returns lists of passed and failed tests (with captured stdout for failures) and total wall-clock duration in milliseconds. A non-zero cargo exit (i.e. failing tests) is reported via the `failed` array, not as a tool error.")]
+    #[tool(
+        name = "cargo_test",
+        description = "Run `cargo test` against a crate path inside the sandbox. Returns lists of passed and failed tests (with captured stdout for failures) and total wall-clock duration in milliseconds. A non-zero cargo exit (i.e. failing tests) is reported via the `failed` array, not as a tool error."
+    )]
     pub async fn cargo_test(
         &self,
         params: Parameters<cargo::CargoTestArgs>,
     ) -> Result<Json<cargo::CargoTestResult>, String> {
-        cargo::cargo_test(self.sandbox.clone(), params.0).await
+        cargo::cargo_test(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "cargo_clippy", description = "Run `cargo clippy` against a crate path inside the sandbox. Returns the array of clippy:: lints (empty if no lints fired). With fix=true, applies machine-applicable fixes via --fix --allow-dirty.")]
+    #[tool(
+        name = "cargo_clippy",
+        description = "Run `cargo clippy` against a crate path inside the sandbox. Returns the array of clippy:: lints (empty if no lints fired). With fix=true, applies machine-applicable fixes via --fix --allow-dirty."
+    )]
     pub async fn cargo_clippy(
         &self,
         params: Parameters<cargo::CargoClippyArgs>,
     ) -> Result<Json<cargo::CargoClippyResult>, String> {
-        cargo::cargo_clippy(self.sandbox.clone(), params.0).await
+        cargo::cargo_clippy(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "cargo_fmt", description = "Run cargo fmt against a crate path inside the sandbox. With check=true, runs `cargo fmt -- --check` (no file changes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in-place and returns {status: \"ok\", files: []} (errors if sandbox is read-only).")]
+    #[tool(
+        name = "cargo_fmt",
+        description = "Run cargo fmt against a crate path inside the sandbox. With check=true, runs `cargo fmt -- --check` (no file changes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in-place and returns {status: \"ok\", files: []} (errors if sandbox is read-only)."
+    )]
     pub async fn cargo_fmt(
         &self,
         params: Parameters<cargo::CargoFmtArgs>,
     ) -> Result<Json<cargo::CargoFmtResult>, String> {
-        cargo::cargo_fmt(self.sandbox.clone(), params.0).await
+        cargo::cargo_fmt(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_worktree_add", description = "Create a git worktree under `<sandbox_root>/.runs/<name>` based on the given revision (default: HEAD). Returns the absolute path of the new worktree. Errors when the sandbox is read-only or when `name` would resolve outside the sandbox root.")]
+    #[tool(
+        name = "git_worktree_add",
+        description = "Create a git worktree under `<sandbox_root>/.runs/<name>` based on the given revision (default: HEAD). Returns the absolute path of the new worktree. Errors when the sandbox is read-only or when `name` would resolve outside the sandbox root."
+    )]
     pub async fn git_worktree_add(
         &self,
         params: Parameters<git::WorktreeAddArgs>,
     ) -> Result<Json<git::WorktreeAddResult>, String> {
-        git::worktree_add(self.sandbox.clone(), params.0).await
+        git::worktree_add(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_worktree_remove", description = "Remove a git worktree at the given path (must resolve inside the sandbox root). Uses `--force` so worktrees with uncommitted changes can be cleaned up. Errors when the sandbox is read-only.")]
+    #[tool(
+        name = "git_worktree_remove",
+        description = "Remove a git worktree at the given path (must resolve inside the sandbox root). Uses `--force` so worktrees with uncommitted changes can be cleaned up. Errors when the sandbox is read-only."
+    )]
     pub async fn git_worktree_remove(
         &self,
         params: Parameters<git::WorktreeRemoveArgs>,
     ) -> Result<Json<OkResult>, String> {
-        git::worktree_remove(self.sandbox.clone(), params.0).await
+        git::worktree_remove(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_add", description = "Stage one or more paths via `git add`. Each path resolves through the sandbox jail. Errors when the sandbox is read-only.")]
+    #[tool(
+        name = "git_add",
+        description = "Stage one or more paths via `git add`. Each path resolves through the sandbox jail. Errors when the sandbox is read-only."
+    )]
     pub async fn git_add(
         &self,
         params: Parameters<git::GitAddArgs>,
     ) -> Result<Json<OkResult>, String> {
-        git::git_add(self.sandbox.clone(), params.0).await
+        git::git_add(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_commit", description = "Create a commit from the staged index with the given message and return its 40-char SHA. Author/committer are pinned to falcon-detective@local. Errors when the sandbox is read-only or when there are no staged changes.")]
+    #[tool(
+        name = "git_commit",
+        description = "Create a commit from the staged index with the given message and return its 40-char SHA. Author/committer are pinned to falcon-detective@local. Errors when the sandbox is read-only or when there are no staged changes."
+    )]
     pub async fn git_commit(
         &self,
         params: Parameters<git::GitCommitArgs>,
     ) -> Result<Json<git::GitCommitResult>, String> {
-        git::git_commit(self.sandbox.clone(), params.0).await
+        git::git_commit(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_diff", description = "Return the unified diff produced by `git diff [rev]`. With `rev` omitted, returns the unstaged working-tree diff. Read-only.")]
+    #[tool(
+        name = "git_diff",
+        description = "Return the unified diff produced by `git diff [rev]`. With `rev` omitted, returns the unstaged working-tree diff. Read-only."
+    )]
     pub async fn git_diff(
         &self,
         params: Parameters<git::GitDiffArgs>,
     ) -> Result<Json<git::GitDiffResult>, String> {
-        git::git_diff(self.sandbox.clone(), params.0).await
+        git::git_diff(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_log", description = "List the most recent commits as parsed records (sha, author, ISO date, subject). `n` caps the count (default 20); `path` optionally restricts to commits touching that path. Read-only.")]
+    #[tool(
+        name = "git_log",
+        description = "List the most recent commits as parsed records (sha, author, ISO date, subject). `n` caps the count (default 20); `path` optionally restricts to commits touching that path. Read-only."
+    )]
     pub async fn git_log(
         &self,
         params: Parameters<git::GitLogArgs>,
     ) -> Result<Json<git::GitLogResult>, String> {
-        git::git_log(self.sandbox.clone(), params.0).await
+        git::git_log(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "git_blame", description = "Blame a single 1-based line in a file. Returns the responsible commit SHA, author name, author-time (Unix seconds), and the source line text. Read-only.")]
+    #[tool(
+        name = "git_blame",
+        description = "Blame a single 1-based line in a file. Returns the responsible commit SHA, author name, author-time (Unix seconds), and the source line text. Read-only."
+    )]
     pub async fn git_blame(
         &self,
         params: Parameters<git::GitBlameArgs>,
     ) -> Result<Json<git::GitBlameResult>, String> {
-        git::git_blame(self.sandbox.clone(), params.0).await
+        git::git_blame(self.sandbox.clone(), params.0)
+            .await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "prompt_lint", description = "Scan a prompt template for known prompt-injection / poisoning patterns (hidden directives, role overrides, trigger conditionals, anomalous few-shot Output lines). Returns findings with kind, 1-based line, snippet, and severity. Pure function: no sandbox or filesystem access.")]
+    #[tool(
+        name = "prompt_lint",
+        description = "Scan a prompt template for known prompt-injection / poisoning patterns (hidden directives, role overrides, trigger conditionals, anomalous few-shot Output lines). Returns findings with kind, 1-based line, snippet, and severity. Pure function: no sandbox or filesystem access."
+    )]
     pub async fn prompt_lint(
         &self,
         params: Parameters<prompt_lint::PromptLintArgs>,
@@ -219,7 +289,10 @@ impl FalconMcp {
         Ok(Json(prompt_lint::prompt_lint(params.0)))
     }
 
-    #[tool(name = "exec_run", description = "Run an allowlisted external command inside the sandbox. Disabled by default; the server must be started with --enable-exec. Even when enabled, only binaries on the sandbox allowlist (cargo, rustc, rustfmt, ripgrep/rg, git, ast-grep/sg) may run. `cwd` is sandbox-relative (defaults to root); `timeout_ms` defaults to 30000.")]
+    #[tool(
+        name = "exec_run",
+        description = "Run an allowlisted external command inside the sandbox. Disabled by default; the server must be started with --enable-exec. Even when enabled, only binaries on the sandbox allowlist (cargo, rustc, rustfmt, ripgrep/rg, git, ast-grep/sg) may run. `cwd` is sandbox-relative (defaults to root); `timeout_ms` defaults to 30000."
+    )]
     pub async fn exec_run(
         &self,
         params: Parameters<exec::ExecRunArgs>,
