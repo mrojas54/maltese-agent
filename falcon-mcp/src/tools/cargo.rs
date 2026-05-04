@@ -29,6 +29,45 @@ pub struct CargoMessage {
     pub file: Option<String>,
     /// 1-based line number of the primary span, if any.
     pub line: Option<u32>,
+    /// Actionable guidance: each `children[*]` of level `help`/`note` plus
+    /// any non-null `suggested_replacement` from those children's spans.
+    /// Empty when the diagnostic ships no actionable hints. The detective
+    /// uses this so its propose-fix prompts have clippy's literal advice
+    /// (e.g. "remove this call to `default`") instead of having to invent
+    /// an edit from the warning text alone.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub help: Vec<String>,
+}
+
+/// Walk a rustc/clippy diagnostic's `children` array and collect actionable
+/// hints: each `help`/`note` child's `message`, plus any non-null
+/// `suggested_replacement` from its `spans` (rendered as `→ "<repl>"` so an
+/// empty-string replacement reads as a deletion). Pure function so it can be
+/// unit-tested against captured cargo JSON without spawning a subprocess.
+fn extract_help(diag: &serde_json::Value) -> Vec<String> {
+    let mut out = Vec::new();
+    let Some(children) = diag["children"].as_array() else {
+        return out;
+    };
+    for child in children {
+        let level = child["level"].as_str().unwrap_or("");
+        if level != "help" && level != "note" {
+            continue;
+        }
+        if let Some(msg) = child["message"].as_str() {
+            if !msg.is_empty() {
+                out.push(msg.to_string());
+            }
+        }
+        if let Some(spans) = child["spans"].as_array() {
+            for span in spans {
+                if let Some(repl) = span["suggested_replacement"].as_str() {
+                    out.push(format!("\u{2192} \"{repl}\""));
+                }
+            }
+        }
+    }
+    out
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -105,6 +144,7 @@ pub async fn cargo_check(
             message: diag["message"].as_str().unwrap_or("").to_string(),
             file: diag["spans"][0]["file_name"].as_str().map(String::from),
             line: diag["spans"][0]["line_start"].as_u64().map(|n| n as u32),
+            help: extract_help(diag),
         };
         if level == "error" || level == "error: internal compiler error" {
             errors.push(entry);
@@ -265,6 +305,7 @@ pub async fn cargo_clippy(
             message: format!("{}: {}", code, diag["message"].as_str().unwrap_or("")),
             file: diag["spans"][0]["file_name"].as_str().map(String::from),
             line: diag["spans"][0]["line_start"].as_u64().map(|n| n as u32),
+            help: extract_help(diag),
         });
     }
 
@@ -367,4 +408,62 @@ pub async fn cargo_fmt(
         status: "diffs".to_string(),
         files,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Real `default_constructed_unit_structs` diagnostic captured from
+    /// running `cargo clippy --message-format=json` on falcon-agent. Pinning
+    /// against a real diag protects against drift in cargo's JSON shape.
+    const CLIPPY_DIAG: &str = include_str!("cargo_test_clippy_diag.json");
+
+    #[test]
+    fn extract_help_pulls_clippy_suggestion_text() {
+        let v: serde_json::Value = serde_json::from_str(CLIPPY_DIAG).unwrap();
+        let diag = &v["message"];
+        let help = extract_help(diag);
+
+        // The "remove this call to `default`" hint must survive — that's
+        // the point of this whole field. Without it, the propose-lint-fix
+        // prompt has to invent a fix from the warning name alone.
+        assert!(
+            help.iter().any(|h| h.contains("remove this call to `default`")),
+            "expected the clippy 'remove this call' help to be extracted, got: {help:?}"
+        );
+
+        // The machine-applicable suggested_replacement (here, an empty string
+        // meaning "delete the highlighted span") should also be surfaced so
+        // the LLM sees the literal target, not just the prose hint.
+        assert!(
+            help.iter().any(|h| h.starts_with("\u{2192} \"")),
+            "expected the suggested-replacement marker to appear, got: {help:?}"
+        );
+    }
+
+    #[test]
+    fn extract_help_returns_empty_when_no_children() {
+        let diag = serde_json::json!({
+            "message": "some warning",
+            "level": "warning",
+            "spans": [],
+            "children": []
+        });
+        assert!(extract_help(&diag).is_empty());
+    }
+
+    #[test]
+    fn extract_help_skips_non_help_non_note_children() {
+        // Children at "error" level are sub-errors, not actionable hints —
+        // we only want help/note rungs in `help`.
+        let diag = serde_json::json!({
+            "children": [
+                { "level": "error", "message": "ignored", "spans": [] },
+                { "level": "help", "message": "kept", "spans": [] }
+            ]
+        });
+        let help = extract_help(&diag);
+        assert_eq!(help, vec!["kept".to_string()]);
+    }
 }
