@@ -1433,7 +1433,7 @@ git commit -m "feat(falcon-mcp): add git.worktree_add and worktree_remove"
 - Modify: `src/server.rs`
 - Modify: `tests/git_test.rs`
 
-- [ ] **Step 1: Append to `tools/git.rs`**
+- [x] **Step 1: Append to `tools/git.rs`**
 
 ```rust
 #[derive(Debug, Deserialize)] pub struct GitAddArgs { pub paths: Vec<String> }
@@ -1484,9 +1484,9 @@ pub async fn git_diff(sandbox: Arc<Sandbox>, args: GitDiffArgs) -> anyhow::Resul
 }
 ```
 
-- [ ] **Step 2: Wire all three in `server.rs`**
+- [x] **Step 2: Wire all three in `server.rs`**
 
-- [ ] **Step 3: Add test**
+- [x] **Step 3: Add test**
 
 ```rust
 #[tokio::test]
@@ -1510,7 +1510,7 @@ async fn add_commit_diff_round_trip() {
 }
 ```
 
-- [ ] **Step 4: Run + commit**
+- [x] **Step 4: Run + commit**
 
 ```bash
 cargo test -p falcon-mcp --test git_test --quiet

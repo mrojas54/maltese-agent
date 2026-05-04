@@ -152,6 +152,36 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    #[tool(name = "git_add", description = "Stage one or more paths via `git add`. Each path resolves through the sandbox jail. Errors when the sandbox is read-only.")]
+    pub async fn git_add(
+        &self,
+        params: Parameters<git::GitAddArgs>,
+    ) -> Result<Json<OkResult>, String> {
+        git::git_add(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_commit", description = "Create a commit from the staged index with the given message and return its 40-char SHA. Author/committer are pinned to falcon-detective@local. Errors when the sandbox is read-only or when there are no staged changes.")]
+    pub async fn git_commit(
+        &self,
+        params: Parameters<git::GitCommitArgs>,
+    ) -> Result<Json<git::GitCommitResult>, String> {
+        git::git_commit(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_diff", description = "Return the unified diff produced by `git diff [rev]`. With `rev` omitted, returns the unstaged working-tree diff. Read-only.")]
+    pub async fn git_diff(
+        &self,
+        params: Parameters<git::GitDiffArgs>,
+    ) -> Result<Json<git::GitDiffResult>, String> {
+        git::git_diff(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]

@@ -83,6 +83,90 @@ async fn worktree_add_creates_path() {
     client.cancel().await.unwrap();
 }
 
+/// Round-trip: stage a modified file with `git_add`, commit it with
+/// `git_commit`, then verify the returned SHA actually exists. Pins the
+/// 40-char SHA shape and the staged-index → commit handoff. Also exercises
+/// `git_diff` against the prior revision so the diff text contains the
+/// modification we made.
+#[tokio::test]
+async fn add_commit_diff_round_trip() {
+    let dir = TempDir::new().unwrap();
+    init_git(dir.path());
+    let client = spawn_at(dir.path()).await;
+
+    // Modify the seed file so there's something to stage.
+    std::fs::write(dir.path().join("a.txt"), "hi\nthere\n").unwrap();
+
+    let r_add = client
+        .call_tool(
+            CallToolRequestParams::new("git_add").with_arguments(
+                json!({"paths": ["a.txt"]}).as_object().unwrap().clone(),
+            ),
+        )
+        .await
+        .expect("call git_add");
+    assert!(
+        !r_add.is_error.unwrap_or(false),
+        "git_add returned tool-level error: {r_add:?}"
+    );
+
+    let r_commit = client
+        .call_tool(
+            CallToolRequestParams::new("git_commit").with_arguments(
+                json!({"message": "test commit"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call git_commit");
+    assert!(
+        !r_commit.is_error.unwrap_or(false),
+        "git_commit returned tool-level error: {r_commit:?}"
+    );
+    let sha = r_commit.structured_content.unwrap()["sha"]
+        .as_str()
+        .expect("sha string")
+        .to_string();
+    assert_eq!(sha.len(), 40, "expected 40-char SHA, got: {sha:?}");
+
+    // The new commit should resolve via `git cat-file` against the host repo.
+    let cat = std::process::Command::new("git")
+        .args(["cat-file", "-t", &sha])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&cat.stdout).trim(),
+        "commit",
+        "expected sha to be a commit object, got: {cat:?}"
+    );
+
+    // git_diff against HEAD~1 should mention the file we touched.
+    let r_diff = client
+        .call_tool(
+            CallToolRequestParams::new("git_diff").with_arguments(
+                json!({"rev": "HEAD~1"}).as_object().unwrap().clone(),
+            ),
+        )
+        .await
+        .expect("call git_diff");
+    assert!(
+        !r_diff.is_error.unwrap_or(false),
+        "git_diff returned tool-level error: {r_diff:?}"
+    );
+    let diff = r_diff.structured_content.unwrap()["diff"]
+        .as_str()
+        .expect("diff string")
+        .to_string();
+    assert!(
+        diff.contains("a.txt"),
+        "expected diff to mention a.txt, got: {diff:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
 /// Round-trip: add a worktree, then remove it. `git_worktree_remove` returns
 /// `{ok: true}` and the directory should be gone afterwards.
 #[tokio::test]
