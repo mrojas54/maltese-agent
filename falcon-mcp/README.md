@@ -12,4 +12,4 @@ cd falcon-mcp && cargo run -- --stdio --root ./worktree
 cd falcon-mcp && cargo run -- --http 8080 --root /workspace
 ```
 
-See `docs/superpowers/specs/2026-04-30-maltese-circus-design.md` §6 for the design.
+See `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §6 for the design.

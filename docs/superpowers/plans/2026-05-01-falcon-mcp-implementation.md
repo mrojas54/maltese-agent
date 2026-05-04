@@ -11,7 +11,7 @@
 
 **Tech Stack:** Rust 1.75+, `rmcp` 0.x, `tokio`, `serde`, `serde_json`, `cargo_metadata`, `regex`, `anyhow`, `clap`, `tempfile` (test), `tokio-test`
 
-**Spec reference:** `docs/superpowers/specs/2026-04-30-maltese-circus-design.md` §6
+**Spec reference:** `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §6
 
 ---
 
@@ -164,7 +164,7 @@ cargo run -p falcon-mcp -- --stdio --root ./worktree
 cargo run -p falcon-mcp -- --http 8080 --root /workspace
 ```
 
-See `docs/superpowers/specs/2026-04-30-maltese-circus-design.md` §6 for the design.
+See `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §6 for the design.
 ```
 
 - [ ] **Step 5: Verify it builds**

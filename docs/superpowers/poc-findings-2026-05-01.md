@@ -192,4 +192,4 @@ None of these were settled during the POC:
 - POC commits: `feature/falcon-mcp` (5 commits, `51306bd..61ab340`)
 - This doc: `docs/superpowers/poc-findings-2026-05-01.md`
 - Plans (with header pointers added): `docs/superpowers/plans/2026-05-01-falcon-{mcp,agent,detective}-implementation.md`
-- Spec: `docs/superpowers/specs/2026-04-30-maltese-circus-design.md`
+- Spec: `docs/superpowers/specs/2026-04-30-maltese-agent-design.md`

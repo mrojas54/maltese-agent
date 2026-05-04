@@ -21,7 +21,7 @@
 
 **Tech Stack:** Node 20+, TypeScript 5.4+, `@barnum/barnum`, `@google/genai`, `@modelcontextprotocol/sdk` (TS MCP client), `zod`, `vitest`
 
-**Spec reference:** `docs/superpowers/specs/2026-04-30-maltese-circus-design.md` §5, §7
+**Spec reference:** `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §5, §7
 
 **Prerequisites:** falcon-mcp builds (Plan 1 complete) and falcon-agent builds in its planted-broken state (Plan 2 complete).
 
@@ -85,7 +85,7 @@ falcon-detective/
 
 ```json
 {
-  "name": "@maltese-circus/falcon-detective",
+  "name": "@maltese-agent/falcon-detective",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -163,7 +163,7 @@ npm run build
 npm run fix -- --target ../falcon-agent
 ```
 
-See `docs/superpowers/specs/2026-04-30-maltese-circus-design.md` §5 for the design.
+See `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §5 for the design.
 ```
 
 - [ ] **Step 5: Stub `src/lib/types.ts`**
@@ -626,7 +626,7 @@ import { FalconMcpClient } from "../lib/mcp.js";
 
 const Input = z.object({
   mcpBinary: z.string(),
-  repoRoot: z.string(),     // the maltese_circus repo root
+  repoRoot: z.string(),     // the maltese-agent repo root
   runName: z.string(),      // unique name for this run, e.g. "demo-2026-05-15"
 });
 
@@ -1761,4 +1761,4 @@ After all tasks complete:
 - After a successful run against the broken falcon-agent, `cargo test -p falcon-agent -- --include-ignored bird_themed_inputs_arent_special` passes — proving the agent fixed the poison.
 - `git log` inside the worktree shows per-issue commits authored by `falcon-detective@local`.
 
-This plan completes the maltese_circus reference implementation. Together with Plans 1 (falcon-mcp) and 2 (falcon-agent), it produces the workshop-demo-able system described in the spec.
+This plan completes the maltese-agent reference implementation. Together with Plans 1 (falcon-mcp) and 2 (falcon-agent), it produces the workshop-demo-able system described in the spec.
