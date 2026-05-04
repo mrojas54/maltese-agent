@@ -33,7 +33,15 @@ export class FalconMcpClient {
 
   async call<T = unknown>(toolName: string, args: Record<string, unknown>): Promise<T> {
     if (!this.client) throw new Error("not connected; call connect() first");
-    const result = await this.client.callTool({ name: toolName, arguments: args });
+    // The MCP SDK's default per-request timeout is 60s, which trips on cold
+    // cargo compiles in fresh worktrees. cargo_check/test/clippy can take
+    // several minutes when deps are uncached. 5 minutes leaves margin
+    // without masking real hangs.
+    const result = await this.client.callTool(
+      { name: toolName, arguments: args },
+      undefined,
+      { timeout: 300_000 },
+    );
     if (result.isError) {
       throw new Error(`tool ${toolName} returned error: ${JSON.stringify(result.content)}`);
     }
