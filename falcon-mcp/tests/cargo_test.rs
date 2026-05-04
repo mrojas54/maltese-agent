@@ -33,6 +33,23 @@ async fn spawn_at(root: &std::path::Path) -> rmcp::service::RunningService<rmcp:
         .expect("connect to falcon-mcp")
 }
 
+/// Spawn a falcon-mcp child rooted at the given path with `--read-only` set.
+async fn spawn_read_only_at(
+    root: &std::path::Path,
+) -> rmcp::service::RunningService<rmcp::RoleClient, ()> {
+    let cmd = Command::new(env!("CARGO_BIN_EXE_falcon-mcp")).configure(|c| {
+        c.arg("--stdio")
+            .arg("--root")
+            .arg(root)
+            .arg("--read-only")
+            .kill_on_drop(true);
+    });
+    ()
+        .serve(TokioChildProcess::new(cmd).unwrap())
+        .await
+        .expect("connect to falcon-mcp")
+}
+
 /// `cargo check` on the fixture (which compiles cleanly) should return zero errors.
 /// Warnings are allowed — the assertion only pins the empty-errors invariant.
 #[tokio::test]
@@ -190,6 +207,102 @@ async fn cargo_fmt_check_clean_returns_ok() {
         out["status"].as_str(),
         Some("ok"),
         "expected status=\"ok\" for clean fixture, got: {out:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// `cargo_clippy(fix=true)` rewrites source files in place, so it must be
+/// blocked when the sandbox is read-only — same gate as `fs_write` /
+/// `fs_apply_patch`. Asserts a tool-level error, not a silent success.
+#[tokio::test]
+async fn cargo_clippy_fix_blocked_in_read_only() {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sample-crate");
+    let client = spawn_read_only_at(&fixture).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_clippy").with_arguments(
+                json!({"crate_path": ".", "fix": true})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_clippy");
+
+    assert!(
+        r.is_error.unwrap_or(false),
+        "expected read-only block, got: {r:?}"
+    );
+    let dump = format!("{r:?}");
+    assert!(
+        dump.contains("read-only"),
+        "expected read-only error text, got: {dump}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// `cargo_fmt` with `check=false` rewrites files in place. In a read-only
+/// sandbox it must be blocked at the gate, not actually invoke rustfmt.
+#[tokio::test]
+async fn cargo_fmt_blocked_in_read_only() {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sample-crate");
+    let client = spawn_read_only_at(&fixture).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_fmt").with_arguments(
+                json!({"crate_path": "."}).as_object().unwrap().clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_fmt");
+
+    assert!(
+        r.is_error.unwrap_or(false),
+        "expected read-only block, got: {r:?}"
+    );
+    let dump = format!("{r:?}");
+    assert!(
+        dump.contains("read-only"),
+        "expected read-only error text, got: {dump}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// Sanity check: `cargo_fmt` with `check=true` only inspects files, so it must
+/// still succeed in a read-only sandbox. Pins the inverse of
+/// `cargo_fmt_blocked_in_read_only`.
+#[tokio::test]
+async fn cargo_fmt_check_works_in_read_only() {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/sample-crate");
+    let client = spawn_read_only_at(&fixture).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_fmt").with_arguments(
+                json!({"crate_path": ".", "check": true})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_fmt with check=true");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "expected ok in read-only with check=true, got: {r:?}"
+    );
+    let out = r.structured_content.expect("structured result");
+    assert_eq!(
+        out["status"].as_str(),
+        Some("ok"),
+        "expected status=\"ok\" for clean fixture in read-only, got: {out:?}"
     );
     client.cancel().await.unwrap();
 }

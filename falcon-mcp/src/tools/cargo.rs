@@ -251,6 +251,11 @@ pub async fn cargo_clippy(
     sandbox: Arc<Sandbox>,
     args: CargoClippyArgs,
 ) -> anyhow::Result<CargoClippyResult> {
+    if args.fix {
+        // `--fix` rewrites source files in place, so the sandbox's writable
+        // gate must apply (parallel to `fs_write`/`fs_apply_patch`).
+        sandbox.check_writable()?;
+    }
     let mut subcmd: Vec<&str> = vec!["clippy"];
     if args.fix {
         subcmd.push("--fix");
@@ -292,8 +297,8 @@ pub async fn cargo_clippy(
 pub struct CargoFmtArgs {
     /// Path (relative to the sandbox root) of the crate or workspace to format.
     pub crate_path: String,
-    /// When true, run `cargo fmt -- --check --emit=files` (no writes); when false,
-    /// apply formatting in place.
+    /// When true, run `cargo fmt -- --check` (no in-place changes); reports
+    /// files that would change. When false, apply formatting in place.
     #[serde(default)]
     pub check: bool,
 }
@@ -316,16 +321,21 @@ pub struct CargoFmtResult {
     pub files: Vec<String>,
 }
 
-/// Run `cargo fmt`, optionally in `--check --emit=files` mode. In check mode,
-/// non-success exit with parseable `Diff in <path>` lines on stdout means
-/// "files differ" and is returned as `Diffs`; non-success with no parseable
-/// diffs is treated as a real infra failure (rustfmt missing, manifest
-/// broken, etc.) and surfaced via `anyhow::bail!`.
+/// Run `cargo fmt`, optionally in `--check` mode. In check mode, non-success
+/// exit with parseable `Diff in <path>` lines on stdout means "files differ"
+/// and is returned as `Diffs`; non-success with no parseable diffs is treated
+/// as a real infra failure (rustfmt missing, manifest broken, etc.) and
+/// surfaced via `anyhow::bail!`.
 pub async fn cargo_fmt(
     sandbox: Arc<Sandbox>,
     args: CargoFmtArgs,
 ) -> anyhow::Result<CargoFmtResult> {
     sandbox.check_bin("cargo")?;
+    if !args.check {
+        // Without `--check`, rustfmt rewrites files in place, so the
+        // sandbox's writable gate must apply (parallel to `fs_write`).
+        sandbox.check_writable()?;
+    }
     let path = sandbox.resolve(&args.crate_path).context("resolving crate_path")?;
 
     let mut cmd = tokio::process::Command::new("cargo");

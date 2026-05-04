@@ -121,7 +121,7 @@ impl FalconMcp {
             .map_err(|e| format!("{e:#}"))
     }
 
-    #[tool(name = "cargo_fmt", description = "Run `cargo fmt` against a crate path inside the sandbox. With check=true, runs `--check --emit=files` (no writes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in place and returns {status: \"ok\", files: []}.")]
+    #[tool(name = "cargo_fmt", description = "Run cargo fmt against a crate path inside the sandbox. With check=true, runs `cargo fmt -- --check` (no file changes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in-place and returns {status: \"ok\", files: []} (errors if sandbox is read-only).")]
     pub async fn cargo_fmt(
         &self,
         params: Parameters<cargo::CargoFmtArgs>,
