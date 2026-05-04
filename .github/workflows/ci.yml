@@ -39,11 +39,21 @@ jobs:
   typescript:
     name: TypeScript (falcon-detective build + test)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: falcon-detective
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v4
+
+      # falcon-detective tests (prepWorktree, FalconMcpClient) spawn the
+      # falcon-mcp binary at target/debug/falcon-mcp, so build it first.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build falcon-mcp binary
+        run: cargo build -p falcon-mcp
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,10 +63,13 @@ jobs:
           cache-dependency-path: falcon-detective/package-lock.json
 
       - name: npm ci
+        working-directory: falcon-detective
         run: npm ci
 
       - name: tsc build
+        working-directory: falcon-detective
         run: npm run build
 
       - name: vitest
+        working-directory: falcon-detective
         run: npm test
