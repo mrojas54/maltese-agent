@@ -1,7 +1,17 @@
 # Falcon-Detective Implementation Plan
 
-> **⚠ External SDK verification.**
-> This plan depends on three actively-developed npm packages whose APIs may have drifted since the plan was drafted: `@barnum/barnum` (combinator names + signatures — see spec §9 question 2; needs Robert's confirmation), `@modelcontextprotocol/sdk` (TypeScript MCP client — `Client`, `StdioClientTransport`, `callTool` shapes), and `@google/genai` (Gemini SDK — `responseSchema` + `generateContent` shape). Verify each against current README/changelog before dispatching Tasks 3, 4, and 13 respectively. The rmcp-drift story in [`poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md) (rmcp 0.1 → 1.6.x) is precedent: expect similar surgical-but-systematic updates here.
+> **✅ External SDKs verified 2026-05-03.** All three npm dependencies were checked against current docs and source. Outcome:
+>
+> - `@google/genai` — latest `1.51.0`. Existing `GoogleGenAI` / `models.generateContent({ model, contents, config })` / `resp.text` surface all still accurate. **One enhancement adopted:** Task 3's `gemini.ts` now passes `config.responseJsonSchema` (via `zod-to-json-schema`) for native schema-conformant output, with the Zod-retry loop kept as a belt-and-suspenders. Version floor bumped `^1.0.0` → `^1.51.0`.
+> - `@modelcontextprotocol/sdk` — latest `1.29.0`. **Zero drift.** `Client`, `StdioClientTransport`, `connect(transport)`, `callTool({ name, arguments })`, and the `{ isError, content, structuredContent }` result shape are all unchanged. Version floor bumped `^1.0.0` → `^1.29.0`. Note: `StdioClientTransport` does NOT inherit full `process.env` by default — only a curated allowlist (`PATH`, `HOME`, etc.). If `falcon-mcp` reads any env var beyond that allowlist, pass it explicitly via `env`.
+> - `@barnum/barnum` — latest `0.4.0` (was assumed `^0.1.0` — caret on 0.x stays inside 0.1.x, which would have resolved to a non-existent install). **Three drifts patched:**
+>   - **Task 13 — `loop` signature:** body receives `(recur, done)`, not `(recur)`. Terminal arms must call `done` to exit the loop.
+>   - **Task 13 — `withTimeout` signature:** two positional args `(ms, body)` where `ms` is itself a `Pipeable` (use `constant(60_000)`); result is `Result<T, void>` so downstream handlers must unwrap (patched via a `tryCatch`-wrapping helper `t60`).
+>   - **Tasks 2 / 8 / 11 / 12 — discriminator field:** Barnum's `branch()` dispatches on the field literally named `kind` and auto-unwraps a sibling `value` field before passing to each arm. The plan originally used Zod `discriminatedUnion("tag", ...)` with flat fields. Cascading rewrite: `TaggedIssue` and `VerifyResult` (Task 2) and `finalSweep`'s output (Task 12) are now `discriminatedUnion("kind", [{ kind, value }, ...])`. The `classify` (Task 8) and `verify` (Task 11) handlers now return `{ kind, value }` envelopes whose `value` payload matches each downstream arm's existing `inputValidator`. The `analyzePoison` / `proposeBugFix` / `proposeLintFix` inputs (Tasks 9–10) needed no change — they already declare `{ issue, excerpts }`, which is exactly what `branch` unwraps and forwards.
+>
+>   Subpath imports `@barnum/barnum/runtime` and `@barnum/barnum/pipeline` confirmed valid. `createHandler({ inputValidator, outputValidator, handle }, name)` signature confirmed unchanged. Version floor bumped `^0.1.0` → `^0.4.0`. Source-of-truth references (cited from the verified `barnum-circus/barnum@master` tree): `libs/barnum/src/ast.ts` for `branch` / `loop` / `withTimeout`, `libs/barnum/src/handler.ts` for `createHandler`, `libs/barnum/src/run.ts` for `runPipeline`, and `crates/barnum_engine/src/advance.rs` for the runtime's `kind`-extraction (rejects `tag`-shaped envelopes with `BranchMissingKind`).
+>
+> The rmcp-drift story in [`poc-findings-2026-05-01.md`](../poc-findings-2026-05-01.md) (rmcp 0.1 → 1.6.x) was the precedent that prompted this verification pass. The Barnum drift turned out to be of similar character (terminator arg + curried-vs-positional combinator) but smaller in scope.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -89,10 +99,11 @@ falcon-detective/
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@barnum/barnum": "^0.1.0",
-    "@google/genai": "^1.0.0",
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "zod": "^3.23.0"
+    "@barnum/barnum": "^0.4.0",
+    "@google/genai": "^1.51.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.0",
+    "zod-to-json-schema": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -207,10 +218,17 @@ export const Issue = z.object({
 });
 export type Issue = z.infer<typeof Issue>;
 
-export const TaggedIssue = z.discriminatedUnion("tag", [
-  z.object({ tag: z.literal("Poison"), issue: Issue }),
-  z.object({ tag: z.literal("Bug"),    issue: Issue }),
-  z.object({ tag: z.literal("Lint"),   issue: Issue }),
+// Barnum-compatible envelope: branch() dispatches on `kind` and auto-unwraps
+// `value` before passing to each arm. So every "tagged" output in this plan
+// uses the { kind: "...", value: <payload> } shape.
+export const Excerpt = z.object({ file: z.string(), content: z.string() });
+export type Excerpt = z.infer<typeof Excerpt>;
+
+const ClassifiedPayload = z.object({ issue: Issue, excerpts: z.array(Excerpt) });
+export const TaggedIssue = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("Poison"), value: ClassifiedPayload }),
+  z.object({ kind: z.literal("Bug"),    value: ClassifiedPayload }),
+  z.object({ kind: z.literal("Lint"),   value: ClassifiedPayload }),
 ]);
 export type TaggedIssue = z.infer<typeof TaggedIssue>;
 
@@ -228,10 +246,10 @@ export const UnifiedDiff = z.object({
 });
 export type UnifiedDiff = z.infer<typeof UnifiedDiff>;
 
-export const VerifyResult = z.discriminatedUnion("tag", [
-  z.object({ tag: z.literal("Clean") }),
-  z.object({ tag: z.literal("Broken"), errors: z.array(z.string()) }),
-  z.object({ tag: z.literal("Stuck"),  attempts: z.number().int() }),
+export const VerifyResult = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("Clean"),  value: z.object({}) }),
+  z.object({ kind: z.literal("Broken"), value: z.object({ errors: z.array(z.string()) }) }),
+  z.object({ kind: z.literal("Stuck"),  value: z.object({ attempts: z.number().int() }) }),
 ]);
 export type VerifyResult = z.infer<typeof VerifyResult>;
 ```
@@ -252,9 +270,10 @@ describe("type schemas", () => {
     const bad = { suspectExample: 0, reasoning: "short", anomalies: ["a"], recommendation: "remove" };
     expect(() => PoisonReport.parse(bad)).toThrow();
   });
-  it("VerifyResult discriminates by tag", () => {
-    expect(VerifyResult.parse({ tag: "Clean" })).toEqual({ tag: "Clean" });
-    expect(() => VerifyResult.parse({ tag: "Broken" })).toThrow();
+  it("VerifyResult discriminates by kind (Barnum envelope)", () => {
+    expect(VerifyResult.parse({ kind: "Clean", value: {} })).toEqual({ kind: "Clean", value: {} });
+    expect(() => VerifyResult.parse({ kind: "Broken" })).toThrow();           // missing value
+    expect(() => VerifyResult.parse({ kind: "Broken", value: {} })).toThrow(); // missing errors
   });
 });
 ```
@@ -281,6 +300,7 @@ git commit -m "feat(falcon-detective): core Zod types (Issue, PoisonReport, Veri
 ```ts
 import { GoogleGenAI } from "@google/genai";
 import { ZodSchema, z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
@@ -335,6 +355,11 @@ export class Gemini {
       return opts.schema.parse(JSON.parse(body));
     }
 
+    // Native schema enforcement: model emits schema-conformant JSON server-side.
+    // The Zod retry loop below remains as belt-and-suspenders for edge cases
+    // (e.g. semantic constraints Gemini's schema enforcement doesn't catch).
+    const responseJsonSchema = zodToJsonSchema(opts.schema, { target: "openAi" });
+
     let lastErr: unknown;
     for (let attempt = 0; attempt <= 2; attempt++) {
       const resp = await this.ai!.models.generateContent({
@@ -342,6 +367,7 @@ export class Gemini {
         contents: opts.prompt,
         config: {
           responseMimeType: "application/json",
+          responseJsonSchema,
           temperature: opts.temperature ?? 0.2,
         },
       });
@@ -452,6 +478,10 @@ export class FalconMcpClient {
     this.transport = new StdioClientTransport({
       command: this.opts.binary,
       args,
+      // StdioClientTransport's default env is a curated allowlist (PATH, HOME,
+      // etc.) — NOT the full process.env. If falcon-mcp ever reads anything
+      // outside that allowlist (e.g. RUST_LOG, custom config paths), pass it
+      // explicitly via env: { ...process.env as Record<string, string> }.
     });
     this.client = new Client({ name: "falcon-detective", version: "0.1.0" }, { capabilities: {} });
     await this.client.connect(this.transport);
@@ -836,25 +866,25 @@ export const readContext = createHandler({
 ```ts
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
-import { Issue, TaggedIssue } from "../lib/types.js";
+import { Issue, Excerpt, TaggedIssue } from "../lib/types.js";
 
 const Input = z.object({
   issue: Issue,
-  excerpts: z.array(z.object({ file: z.string(), content: z.string() })),
-});
-const Output = z.object({
-  tagged: TaggedIssue,
-  excerpts: z.array(z.object({ file: z.string(), content: z.string() })),
+  excerpts: z.array(Excerpt),
 });
 
+// Output IS the Barnum envelope: { kind, value }. Downstream `branch()` reads
+// `kind` to dispatch and passes `value` (auto-unwrapped) to each arm. So each
+// arm — analyzePoison / proposeBugFix / proposeLintFix — must declare its
+// inputValidator as { issue, excerpts }, which they already do.
 export const classify = createHandler({
   inputValidator: Input,
-  outputValidator: Output,
+  outputValidator: TaggedIssue,
   handle: async ({ value }) => {
-    const tag = value.issue.kind === "poison" ? "Poison"
-              : value.issue.kind === "bug"     ? "Bug"
-              : "Lint";
-    return { tagged: { tag, issue: value.issue } as any, excerpts: value.excerpts };
+    const kind = value.issue.kind === "poison" ? "Poison" as const
+               : value.issue.kind === "bug"     ? "Bug"    as const
+               :                                  "Lint"   as const;
+    return { kind, value: { issue: value.issue, excerpts: value.excerpts } };
   },
 }, "classify");
 ```
@@ -868,14 +898,16 @@ import { describe, it, expect } from "vitest";
 import { classify } from "../../src/handlers/classify.js";
 
 describe("classify", () => {
-  it("maps kind to tag", async () => {
+  it("maps issue.kind into a Barnum { kind, value } envelope", async () => {
     const out = await classify.handle({
       value: {
         issue: { kind: "poison", location: { file: "src/prompt.rs" }, evidence: "..." },
         excerpts: [{ file: "src/prompt.rs", content: "..." }],
       },
     } as any);
-    expect(out.tagged.tag).toBe("Poison");
+    expect(out.kind).toBe("Poison");
+    expect(out.value.issue.kind).toBe("poison");
+    expect(out.value.excerpts).toHaveLength(1);
   });
 });
 ```
@@ -1329,19 +1361,19 @@ export const verify = createHandler({
   inputValidator: Input,
   outputValidator: VerifyResult,
   handle: async ({ value }) => {
-    if (value.attempt >= 3) return { tag: "Stuck", attempts: value.attempt };
+    if (value.attempt >= 3) return { kind: "Stuck" as const, value: { attempts: value.attempt } };
     const mcp = new FalconMcpClient({ binary: value.mcpBinary, root: value.worktreePath });
     await mcp.connect();
     try {
       const check = await mcp.call<{ errors: any[] }>("cargo_check", { crate_path: value.cratePath });
       if (check.errors.length > 0) {
-        return { tag: "Broken", errors: check.errors.map((e: any) => e.message ?? "compile error") };
+        return { kind: "Broken" as const, value: { errors: check.errors.map((e: any) => e.message ?? "compile error") } };
       }
       const test = await mcp.call<{ failed: any[] }>("cargo_test", { crate_path: value.cratePath });
       if (test.failed.length > 0) {
-        return { tag: "Broken", errors: test.failed.map((t: any) => t.name) };
+        return { kind: "Broken" as const, value: { errors: test.failed.map((t: any) => t.name) } };
       }
-      return { tag: "Clean" };
+      return { kind: "Clean" as const, value: {} };
     } finally { await mcp.close(); }
   },
 }, "verify");
@@ -1434,9 +1466,9 @@ const Input = z.object({
   worktreePath: z.string(),
   cratePath: z.string(),
 });
-const Output = z.discriminatedUnion("tag", [
-  z.object({ tag: z.literal("Clean") }),
-  z.object({ tag: z.literal("Dirty"), reasons: z.array(z.string()) }),
+const Output = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("Clean"), value: z.object({}) }),
+  z.object({ kind: z.literal("Dirty"), value: z.object({ reasons: z.array(z.string()) }) }),
 ]);
 
 export const finalSweep = createHandler({
@@ -1451,7 +1483,9 @@ export const finalSweep = createHandler({
       if (test.failed.length > 0) reasons.push(`${test.failed.length} tests still failing`);
       const clippy = await mcp.call<{ lints: any[] }>("cargo_clippy", { crate_path: value.cratePath });
       if (clippy.lints.length > 0) reasons.push(`${clippy.lints.length} clippy lints remain`);
-      return reasons.length === 0 ? { tag: "Clean" as const } : { tag: "Dirty" as const, reasons };
+      return reasons.length === 0
+        ? { kind: "Clean" as const, value: {} }
+        : { kind: "Dirty" as const, value: { reasons } };
     } finally { await mcp.close(); }
   },
 }, "finalSweep");
@@ -1474,7 +1508,9 @@ git commit -m "feat(falcon-detective): commit/revert/escalate + finalSweep"
 - [ ] **Step 1: Create `src/workflows/tidy-and-debug.ts`**
 
 ```ts
-import { pipe, forEach, loop, branch, withTimeout } from "@barnum/barnum/pipeline";
+import {
+  pipe, forEach, loop, branch, withTimeout, constant, tryCatch,
+} from "@barnum/barnum/pipeline";
 import { prepWorktree } from "../handlers/prepWorktree.js";
 import { triage } from "../handlers/triage.js";
 import { readContext } from "../handlers/readContext.js";
@@ -1488,25 +1524,37 @@ import { verify } from "../handlers/verify.js";
 import { commitOne, commitAll, revertOne, escalate } from "../handlers/commit.js";
 import { finalSweep } from "../handlers/finalSweep.js";
 
+// Barnum 0.4.x: withTimeout takes (ms: Pipeable<I, number>, body: Pipeable<I, O>)
+// and returns Result<O, void>. Wrap with tryCatch so a timeout maps to an
+// escalation-shaped error instead of crashing the pipeline.
+const t60 = <I, O>(body: any) =>
+  tryCatch(
+    withTimeout(constant(60_000), body),
+    constant({ kind: "Stuck" as const, value: { reason: "timeout-60s" } }),
+  );
+
 const handleIssue = pipe(
   readContext,
   classify,
-  loop((recur) =>
+  // Barnum 0.4.x: loop body receives (recur, done). Terminal arms must call
+  // `done` to exit; `recur` to iterate. There is no built-in iteration cap —
+  // verify() is responsible for emitting Stuck after N failed attempts.
+  loop((recur, done) =>
     pipe(
       branch({
         Poison: pipe(
-          withTimeout(60_000)(analyzePoison),
-          withTimeout(60_000)(proposePoisonFix),
+          t60(analyzePoison),
+          t60(proposePoisonFix),
         ),
-        Bug:  withTimeout(60_000)(proposeBugFix),
-        Lint: withTimeout(60_000)(proposeLintFix),
+        Bug:  t60(proposeBugFix),
+        Lint: t60(proposeLintFix),
       }),
       applyEdit,
       verify,
     ).branch({
-      Clean:  commitOne,
+      Clean:  pipe(commitOne, done),
       Broken: recur,
-      Stuck:  revertOne,
+      Stuck:  pipe(revertOne, done),
     })
   ),
 );
@@ -1520,12 +1568,21 @@ export const detective = pipe(
 );
 ```
 
+**Tagged-union convention (already wired into Tasks 2 / 8 / 11 / 12).** Barnum's `branch({ Foo: arm })` dispatches on `kind` and passes `value` (auto-unwrapped) to each arm. The verified envelope shape is `{ kind: "Foo", value: <payload> }`. After this refresh:
+- `classify` (Task 8) emits `{ kind: "Poison" | "Bug" | "Lint", value: { issue, excerpts } }`
+- `verify` (Task 11) emits `{ kind: "Clean" | "Broken" | "Stuck", value: <kind-specific> }`
+- `finalSweep` (Task 12) emits `{ kind: "Clean" | "Dirty", value: <kind-specific> }`
+
+So the `Poison` / `Bug` / `Lint` arms of the inner branch all receive `{ issue, excerpts }`, which matches `analyzePoison.Input`, `proposeBugFix.Input`, and `proposeLintFix.Input` exactly.
+
+> **⚠ Pre-existing data-flow gap to resolve at execution time.** The post-verify branch arms (`pipe(commitOne, done)`, `revertOne`) need `{ mcpBinary, worktreePath, issue, diffPath }`, but `branch` only hands them the unwrapped `value` from `verify` (`{}`, `{ errors }`, or `{ attempts }`). The original plan glossed over this. During execution, two options: (a) thread the prior context through `verify`'s `value` field on every arm (less clean), or (b) capture the loop iteration's full state in a closed-over reference — Barnum's `bind` combinator (`@barnum/barnum/pipeline`) is built for exactly this. Choose (b) when implementing Task 13.
+
 - [ ] **Step 2: Build to verify imports resolve**
 
 ```bash
 cd falcon-detective && npm run build
 ```
-Expected: TypeScript compiles cleanly. (Combinator usage is exactly the spec; if Barnum's API differs, adjust per the README at <https://github.com/barnum-circus/barnum>.)
+Expected: TypeScript compiles cleanly. Combinator usage matches `@barnum/barnum@0.4.0` (verified 2026-05-03 against `libs/barnum/src/{ast,race,handler}.ts`). If a future Barnum release breaks this surface, consult `libs/barnum/src/` in <https://github.com/barnum-circus/barnum> rather than the README, which lags the source.
 
 - [ ] **Step 3: Commit**
 
