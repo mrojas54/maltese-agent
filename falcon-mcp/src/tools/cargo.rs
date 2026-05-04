@@ -3,10 +3,24 @@
 //! and parse its JSON output streams into structured results.
 
 use crate::sandbox::Sandbox;
+use crate::tools::util::MAX_STDERR_DRAIN;
 use anyhow::Context;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+
+/// Format the captured stderr of a failed cargo invocation for inclusion in
+/// an error message. Truncates to [`MAX_STDERR_DRAIN`] bytes (slicing on a
+/// UTF-8 char boundary) so a pathological cargo run can't produce a
+/// megabytes-long error string.
+fn format_stderr_for_bail(stderr: &[u8]) -> String {
+    let cap = stderr.len().min(MAX_STDERR_DRAIN);
+    // Find the largest prefix of `stderr[..cap]` that ends on a char boundary
+    // when interpreted as (lossy) UTF-8. `from_utf8_lossy` on the byte slice
+    // already replaces invalid sequences, so we can slice the bytes directly
+    // — `from_utf8_lossy` then handles any partial multi-byte at the tail.
+    String::from_utf8_lossy(&stderr[..cap]).trim().to_string()
+}
 
 // ---- cargo_check -------------------------------------------------------------
 
@@ -36,13 +50,19 @@ pub struct CargoCheckResult {
 }
 
 /// Run `cargo SUBCMD --message-format=json` inside the sandbox and return
-/// each parsed JSON line as a `serde_json::Value`. Non-JSON lines (including
-/// the empty trailing line cargo produces) are silently dropped.
+/// both the parsed JSON lines and the raw process [`std::process::Output`].
+///
+/// Non-JSON lines (including the empty trailing line cargo produces) are
+/// silently dropped from the parsed-messages vec. The raw `Output` is
+/// returned so the caller can decide how to interpret a non-success exit
+/// status — failing diagnostics legitimately produce non-zero exits, but
+/// "cargo couldn't even start" (missing manifest, busted toolchain) also
+/// does, and only the caller knows which carve-out applies.
 async fn run_cargo_json(
     sandbox: Arc<Sandbox>,
     crate_path: &str,
     subcmd: &[&str],
-) -> anyhow::Result<Vec<serde_json::Value>> {
+) -> anyhow::Result<(Vec<serde_json::Value>, std::process::Output)> {
     sandbox.check_bin("cargo")?;
     let path = sandbox.resolve(crate_path).context("resolving crate_path")?;
 
@@ -65,7 +85,7 @@ async fn run_cargo_json(
             msgs.push(v);
         }
     }
-    Ok(msgs)
+    Ok((msgs, out))
 }
 
 /// Run `cargo check` and bucket compiler-message diagnostics into `errors`
@@ -74,7 +94,16 @@ pub async fn cargo_check(
     sandbox: Arc<Sandbox>,
     args: CargoCheckArgs,
 ) -> anyhow::Result<CargoCheckResult> {
-    let msgs = run_cargo_json(sandbox, &args.crate_path, &["check"]).await?;
+    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &["check"]).await?;
+
+    // Cargo died before producing any parseable output (missing manifest,
+    // toolchain missing, target dir locked, etc.). Surface stderr so the
+    // agent sees a real error chain instead of an empty {errors:[],warnings:[]}.
+    if !out.status.success() && msgs.is_empty() {
+        let stderr = format_stderr_for_bail(&out.stderr);
+        anyhow::bail!("cargo check failed before producing output: {stderr}");
+    }
+
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
     for m in msgs {
@@ -150,6 +179,7 @@ pub async fn cargo_test(
     }
     cmd.current_dir(&path);
     // Required so libtest accepts -Z unstable-options on a stable toolchain.
+    // TODO: drop once libtest JSON output stabilizes (rust-lang/rust#49359).
     cmd.env("RUSTC_BOOTSTRAP", "1");
 
     cmd.stdin(std::process::Stdio::null());
@@ -178,6 +208,15 @@ pub async fn cargo_test(
             }),
             _ => {}
         }
+    }
+
+    // Failing tests legitimately produce non-zero exit AND non-empty parsed
+    // events, so the carve-out is "non-success but we parsed nothing" — that
+    // means cargo died before any tests ran (build failed, fixture missing,
+    // toolchain busted) and the agent needs the real stderr.
+    if !out.status.success() && passed.is_empty() && failed.is_empty() {
+        let stderr = format_stderr_for_bail(&out.stderr);
+        anyhow::bail!("cargo test failed before producing output: {stderr}");
     }
 
     Ok(CargoTestResult {
