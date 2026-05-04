@@ -1,6 +1,7 @@
-//! Cargo tools: `cargo_check` (compile diagnostics) and `cargo_test`
-//! (test pass/fail summary). Both shell out to `cargo` inside the sandbox
-//! and parse its JSON output streams into structured results.
+//! Cargo tools: `cargo_check` (compile diagnostics), `cargo_test`
+//! (test pass/fail summary), `cargo_clippy` (clippy lints), and `cargo_fmt`
+//! (formatting check / apply). All shell out to `cargo` inside the sandbox
+//! and parse its output (JSON or, for fmt, plain text) into structured results.
 
 use crate::sandbox::Sandbox;
 use crate::tools::util::MAX_STDERR_DRAIN;
@@ -223,5 +224,150 @@ pub async fn cargo_test(
         passed,
         failed,
         duration_ms: start.elapsed().as_millis(),
+    })
+}
+
+// ---- cargo_clippy ------------------------------------------------------------
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CargoClippyArgs {
+    /// Path (relative to the sandbox root) of the crate or workspace to lint.
+    pub crate_path: String,
+    /// When true, run clippy with `--fix --allow-dirty` to apply machine-applicable fixes.
+    #[serde(default)]
+    pub fix: bool,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct CargoClippyResult {
+    /// One entry per `clippy::*` diagnostic emitted by the lint pass.
+    pub lints: Vec<CargoMessage>,
+}
+
+/// Run `cargo clippy` (optionally with `--fix --allow-dirty`) and return the
+/// parsed `clippy::*` diagnostics. Non-clippy compiler messages are dropped:
+/// callers wanting plain compile errors should use `cargo_check`.
+pub async fn cargo_clippy(
+    sandbox: Arc<Sandbox>,
+    args: CargoClippyArgs,
+) -> anyhow::Result<CargoClippyResult> {
+    let mut subcmd: Vec<&str> = vec!["clippy"];
+    if args.fix {
+        subcmd.push("--fix");
+        subcmd.push("--allow-dirty");
+    }
+    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &subcmd).await?;
+
+    let mut lints = Vec::new();
+    for m in msgs {
+        if m["reason"] != "compiler-message" {
+            continue;
+        }
+        let diag = &m["message"];
+        let code = diag["code"]["code"].as_str().unwrap_or("");
+        if !code.starts_with("clippy::") {
+            continue;
+        }
+        lints.push(CargoMessage {
+            level: diag["level"].as_str().unwrap_or("").to_string(),
+            message: format!("{}: {}", code, diag["message"].as_str().unwrap_or("")),
+            file: diag["spans"][0]["file_name"].as_str().map(String::from),
+            line: diag["spans"][0]["line_start"].as_u64().map(|n| n as u32),
+        });
+    }
+
+    // Same infra-failure carve-out as `cargo_check`: clippy legitimately exits
+    // non-zero when lints fire (deny-by-default lints, `-D warnings`, etc.),
+    // so we only bail when cargo died before producing anything to parse.
+    if !out.status.success() && lints.is_empty() {
+        let stderr = format_stderr_for_bail(&out.stderr);
+        anyhow::bail!("cargo clippy failed before producing output: {stderr}");
+    }
+    Ok(CargoClippyResult { lints })
+}
+
+// ---- cargo_fmt ---------------------------------------------------------------
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct CargoFmtArgs {
+    /// Path (relative to the sandbox root) of the crate or workspace to format.
+    pub crate_path: String,
+    /// When true, run `cargo fmt -- --check --emit=files` (no writes); when false,
+    /// apply formatting in place.
+    #[serde(default)]
+    pub check: bool,
+}
+
+/// Result of a `cargo fmt` invocation. `status` is `"ok"` when no formatting
+/// changes were needed (or formatting was applied successfully) and `"diffs"`
+/// when `--check` was requested and at least one file would be reformatted.
+///
+/// Modeled as a flat struct (rather than a tagged enum) because rmcp 1.x
+/// requires every tool's `outputSchema` to have root type `object`, and a
+/// `serde(tag = ...)` enum with a unit variant generates a `oneOf` schema
+/// without that root type.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct CargoFmtResult {
+    /// Either `"ok"` (no diffs, or formatting applied) or `"diffs"`
+    /// (check mode found files needing reformatting).
+    pub status: String,
+    /// Files with formatting differences. Populated only when
+    /// `status == "diffs"`; empty otherwise.
+    pub files: Vec<String>,
+}
+
+/// Run `cargo fmt`, optionally in `--check --emit=files` mode. In check mode,
+/// non-success exit with parseable `Diff in <path>` lines on stdout means
+/// "files differ" and is returned as `Diffs`; non-success with no parseable
+/// diffs is treated as a real infra failure (rustfmt missing, manifest
+/// broken, etc.) and surfaced via `anyhow::bail!`.
+pub async fn cargo_fmt(
+    sandbox: Arc<Sandbox>,
+    args: CargoFmtArgs,
+) -> anyhow::Result<CargoFmtResult> {
+    sandbox.check_bin("cargo")?;
+    let path = sandbox.resolve(&args.crate_path).context("resolving crate_path")?;
+
+    let mut cmd = tokio::process::Command::new("cargo");
+    cmd.arg("fmt");
+    if args.check {
+        // `--check` alone causes rustfmt to emit `Diff in <path>:` lines on
+        // stdout for every file that would change, and exit non-zero. The
+        // plan's sketch combined `--check` with `--emit=files`, but rustfmt
+        // rejects that combination ("Invalid to use `--emit` and `--check`").
+        cmd.arg("--").arg("--check");
+    }
+    cmd.current_dir(&path);
+
+    // Same stdio hygiene as the other cargo wrappers: keep the MCP JSON-RPC
+    // channel clean by not letting the child inherit our stdio.
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let out = cmd.output().await.context("running cargo fmt")?;
+    if out.status.success() {
+        return Ok(CargoFmtResult {
+            status: "ok".to_string(),
+            files: Vec::new(),
+        });
+    }
+
+    let files: Vec<String> = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter(|l| l.starts_with("Diff in "))
+        .map(|l| {
+            l.trim_start_matches("Diff in ")
+                .trim_end_matches(':')
+                .to_string()
+        })
+        .collect();
+    if files.is_empty() {
+        let stderr = format_stderr_for_bail(&out.stderr);
+        anyhow::bail!("cargo fmt failed before producing diffs: {stderr}");
+    }
+    Ok(CargoFmtResult {
+        status: "diffs".to_string(),
+        files,
     })
 }

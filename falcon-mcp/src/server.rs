@@ -110,6 +110,26 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    #[tool(name = "cargo_clippy", description = "Run `cargo clippy` against a crate path inside the sandbox. Returns the array of clippy:: lints (empty if no lints fired). With fix=true, applies machine-applicable fixes via --fix --allow-dirty.")]
+    pub async fn cargo_clippy(
+        &self,
+        params: Parameters<cargo::CargoClippyArgs>,
+    ) -> Result<Json<cargo::CargoClippyResult>, String> {
+        cargo::cargo_clippy(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "cargo_fmt", description = "Run `cargo fmt` against a crate path inside the sandbox. With check=true, runs `--check --emit=files` (no writes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in place and returns {status: \"ok\", files: []}.")]
+    pub async fn cargo_fmt(
+        &self,
+        params: Parameters<cargo::CargoFmtArgs>,
+    ) -> Result<Json<cargo::CargoFmtResult>, String> {
+        cargo::cargo_fmt(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]

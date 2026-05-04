@@ -133,3 +133,63 @@ async fn cargo_check_surfaces_stderr_when_cargo_fails() {
     );
     client.cancel().await.unwrap();
 }
+
+/// `cargo clippy` on the fixture must return a `lints` array (possibly empty).
+/// The assertion only pins the array-shape invariant — we don't care what
+/// lints fire, just that the structured result is well-formed.
+#[tokio::test]
+async fn cargo_clippy_returns_lint_array() {
+    let client = spawn_in_fixture().await;
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_clippy").with_arguments(
+                json!({"crate_path": "."}).as_object().unwrap().clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_clippy");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "cargo_clippy returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    assert!(
+        out["lints"].is_array(),
+        "expected lints array in structured result, got: {out:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// `cargo fmt --check` on the fixture (which is properly formatted) should
+/// return `{status: "ok"}`. If the fixture ever drifts out of format, this
+/// test will start surfacing the diff list — which is the behavior we want.
+#[tokio::test]
+async fn cargo_fmt_check_clean_returns_ok() {
+    let client = spawn_in_fixture().await;
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_fmt").with_arguments(
+                json!({"crate_path": ".", "check": true})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_fmt");
+
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "cargo_fmt returned tool-level error: {:?}",
+        r
+    );
+    let out = r.structured_content.expect("structured result");
+    assert_eq!(
+        out["status"].as_str(),
+        Some("ok"),
+        "expected status=\"ok\" for clean fixture, got: {out:?}"
+    );
+    client.cancel().await.unwrap();
+}
