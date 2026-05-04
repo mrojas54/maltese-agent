@@ -1,2 +1,6 @@
 dist/
 fixtures/cassettes-test*/
+# Debug artifacts written when GEMINI_DEBUG_PROMPTS=1 — useful for diagnosing
+# cassette-key drift, not for source control.
+fixtures/cassettes/*.normalized.txt
+fixtures/cassettes/_miss_*

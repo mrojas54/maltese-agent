@@ -1,4 +1,0 @@
-{
-  "path": "falcon-agent/src/interrogate.rs",
-  "diff": "--- a/falcon-agent/src/interrogate.rs\n+++ b/falcon-agent/src/interrogate.rs\n@@ -1,7 +1,6 @@\n use axum::{extract::State, Json};\n use serde::{Deserialize, Serialize};\n use std::sync::Arc;\n-use std::io::Write; // BUG (intentional): planted lint #1 — unused import\n \n #[derive(Debug, Deserialize)]\n pub struct InterrogateRequest {"
-}

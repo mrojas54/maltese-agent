@@ -21,8 +21,65 @@ function cassetteDir(): string {
   return process.env.CASSETTE_DIR ?? join(process.cwd(), "fixtures", "cassettes");
 }
 
+/**
+ * Strip volatile substrings before hashing so the cassette key is stable
+ * across runs that send "the same logical prompt" to Gemini. The full
+ * unmodified prompt is still sent to the model — this only affects which
+ * file on disk gets read/written.
+ *
+ * Volatility categories handled:
+ *   - User-specific absolute paths (/Users/<name>, /home/<name>)
+ *   - Tmpdir paths (/tmp/..., /var/folders/.../T/...)
+ *   - Run-name-specific worktree segments (.runs/<name>/)
+ *   - Cargo build timing ("in 0.34s", "took 1.5s", "Finished `dev` profile in ...")
+ *   - Cargo dep-compile progress ("Compiling X v1.2.3")
+ *   - Collapsed multi-blank-line runs after the above stripping
+ *
+ * Anything inside the actual diagnostic — file paths inside the crate,
+ * line/column numbers, message text — is preserved, because triage's
+ * downstream behavior depends on it.
+ */
+export function normalizeForHash(prompt: string): string {
+  return prompt
+    .replace(/\/Users\/[^/\s"\\]+/g, "/Users/<USER>")
+    .replace(/\/home\/[^/\s"\\]+/g, "/home/<USER>")
+    .replace(/\/var\/folders\/[^/\s"]+\/[^/\s"]+\/T(?=\/|$)/g, "/<TMP>")
+    .replace(/\/tmp\/[a-zA-Z0-9_.-]+/g, "/<TMP>")
+    .replace(/\.runs\/[^/\s"]+/g, ".runs/<RUN>")
+    .replace(/Finished\s+`?\w+`?\s+profile[^\n]*?in\s+\d+\.\d+s/g, "Finished <PROFILE>")
+    .replace(/\bin\s+\d+\.\d+s\b/g, "in <TIME>")
+    .replace(/\btook\s+\d+\.\d+s\b/g, "took <TIME>")
+    // Match each "Compiling X v..." line including its trailing newline so
+    // stripping doesn't leave a blank line behind (otherwise inputs with
+    // different N would produce different blank-line counts).
+    .replace(/^[ \t]*Compiling\s+[\w_-]+\s+v[\d.]+[^\n]*\n/gm, "")
+    // Test runtime: cargo_test's "duration_ms" varies per run (wall clock).
+    .replace(/"duration_ms":\s*\d+/g, '"duration_ms": <DURATION>')
+    // Test name ordering: cargo_test's parallel runner emits "passed"/"failed"
+    // arrays in non-deterministic order. Sort runs of consecutive lines that
+    // look like JSON-array test-name entries (`  "module::test_name",`) so the
+    // hash doesn't depend on per-run scheduling.
+    .replace(
+      /(?:^[ \t]*"[A-Za-z_][\w:_-]*",?\n)+/gm,
+      (block) =>
+        block
+          .split("\n")
+          .filter((l) => l.length > 0)
+          // Strip trailing commas so sort doesn't depend on whether the
+          // original last item had one (JSON arrays don't terminate the
+          // last element with a comma; sorting reshuffles which item is last).
+          .map((l) => l.replace(/,\s*$/, ""))
+          .sort()
+          .join("\n") + "\n",
+    )
+    // Collapse 3+ consecutive newlines (preserve intentional paragraph
+    // breaks of 2 newlines).
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 function hashKey(model: string, prompt: string, schemaName: string): string {
-  return createHash("sha256").update(`${model}\n${schemaName}\n${prompt}`).digest("hex").slice(0, 16);
+  const normalized = normalizeForHash(prompt);
+  return createHash("sha256").update(`${model}\n${schemaName}\n${normalized}`).digest("hex").slice(0, 16);
 }
 
 async function readCassette(key: string): Promise<string | null> {
@@ -54,11 +111,28 @@ export class Gemini {
     // zod v4 dropped _def.typeName; constructor.name returns "ZodObject" etc.
     // and is identical across v3 and v4.
     const schemaName = opts.schema.constructor.name;
-    const key = hashKey(model, opts.prompt, schemaName);
+    // Cassette key is computed from the ORIGINAL prompt, even if downstream
+    // retries mutate it (the retry path appends "PREVIOUS ATTEMPT FAILED..."
+    // to coax Gemini into re-emitting valid JSON). Hashing the original
+    // keeps the key stable across record/replay regardless of how many
+    // retries the recording session needed before the response parsed.
+    const originalPrompt = opts.prompt;
+    const key = hashKey(model, originalPrompt, schemaName);
 
     if (this.mode === "cassette") {
       const body = await readCassette(key);
-      if (!body) throw new Error(`no cassette for ${key} (prompt hash). Re-record with GEMINI_MODE=record.`);
+      if (!body) {
+        // On miss, optionally dump the normalized prompt so the user can
+        // diff against a recorded one and tighten normalizeForHash.
+        if (process.env.GEMINI_DEBUG_PROMPTS) {
+          await mkdir(cassetteDir(), { recursive: true });
+          await writeFile(
+            join(cassetteDir(), `_miss_${key}.normalized.txt`),
+            `model=${model}\nschema=${schemaName}\n\n--- normalized prompt (hashed) ---\n${normalizeForHash(opts.prompt)}`,
+          );
+        }
+        throw new Error(`no cassette for ${key} (prompt hash). Re-record with GEMINI_MODE=record.`);
+      }
       return opts.schema.parse(JSON.parse(body));
     }
 
@@ -107,7 +181,15 @@ export class Gemini {
       const text = await callOnce(opts.prompt);
       try {
         const parsed = opts.schema.parse(JSON.parse(text));
-        if (this.mode === "record") await writeCassette(key, text);
+        if (this.mode === "record") {
+          await writeCassette(key, text);
+          if (process.env.GEMINI_DEBUG_PROMPTS) {
+            await writeFile(
+              join(cassetteDir(), `${key}.normalized.txt`),
+              `model=${model}\nschema=${schemaName}\n\n--- normalized prompt (hashed) ---\n${normalizeForHash(opts.prompt)}`,
+            );
+          }
+        }
         return parsed;
       } catch (e) {
         lastErr = e;

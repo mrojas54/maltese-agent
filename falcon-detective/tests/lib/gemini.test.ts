@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Gemini } from "../../src/lib/gemini.js";
+import { Gemini, normalizeForHash } from "../../src/lib/gemini.js";
 import { z } from "zod";
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -30,5 +30,44 @@ describe("Gemini cassette mode", () => {
   it("errors when cassette is missing", async () => {
     const g = new Gemini("cassette");
     await expect(g.call({ prompt: "missing", schema: z.object({}) })).rejects.toThrow(/no cassette/);
+  });
+});
+
+describe("normalizeForHash", () => {
+  it("strips user-specific absolute paths", () => {
+    const a = normalizeForHash("error at /Users/alice/proj/src/foo.rs:1");
+    const b = normalizeForHash("error at /Users/bob/proj/src/foo.rs:1");
+    expect(a).toBe(b);
+    expect(a).toContain("/Users/<USER>");
+  });
+  it("strips run-name-specific worktree segments", () => {
+    const a = normalizeForHash("worktree=.runs/canonical/falcon-agent");
+    const b = normalizeForHash("worktree=.runs/e2e-test/falcon-agent");
+    expect(a).toBe(b);
+  });
+  it("strips cargo timing", () => {
+    const a = normalizeForHash("Finished `dev` profile in 0.34s");
+    const b = normalizeForHash("Finished `dev` profile in 1.99s");
+    expect(a).toBe(b);
+  });
+  it("strips dep-compile progress lines", () => {
+    const a = normalizeForHash("   Compiling tokio v1.52.1\n   Compiling axum v0.7.9\nbody");
+    const b = normalizeForHash("   Compiling tokio v1.52.0\nbody");
+    expect(a).toBe(b);
+  });
+  it("preserves diagnostic content (paths inside crate, line numbers, messages)", () => {
+    const a = normalizeForHash("warning: unused import: `std::io::Write`\n  --> src/x.rs:4:5");
+    const b = normalizeForHash("warning: unused import: `std::io::Read`\n  --> src/x.rs:4:5");
+    expect(a).not.toBe(b);
+  });
+  it("strips test duration_ms", () => {
+    const a = normalizeForHash('{"duration_ms": 41591, "passed": []}');
+    const b = normalizeForHash('{"duration_ms": 23997, "passed": []}');
+    expect(a).toBe(b);
+  });
+  it("sorts consecutive JSON test-name arrays", () => {
+    const a = normalizeForHash('[\n  "decoder::tests::a",\n  "decoder::tests::b",\n  "llm::tests::c"\n]');
+    const b = normalizeForHash('[\n  "llm::tests::c",\n  "decoder::tests::b",\n  "decoder::tests::a"\n]');
+    expect(a).toBe(b);
   });
 });
