@@ -1,0 +1,6 @@
+target/
+**/target/
+**/*.tmp
+.git/
+.claude/
+docs/

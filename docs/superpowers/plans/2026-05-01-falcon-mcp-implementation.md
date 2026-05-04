@@ -1981,23 +1981,25 @@ git commit -m "feat(falcon-mcp): add HTTP transport for Cloud Run"
 
 ---
 
-## Task 16: Dockerfile + cloudbuild.yaml
+## Task 16: Dockerfile
 
 **Files:**
 - Create: `falcon-mcp/Dockerfile`
-- Create: `falcon-mcp/cloudbuild.yaml`
-- Create: `falcon-mcp/.dockerignore`
+- Create: `.dockerignore` (repo root — Docker reads `.dockerignore` from the build context root, not from next to the Dockerfile)
 
-- [ ] **Step 1: Create `falcon-mcp/Dockerfile`**
+> **Cloud Build deferred.** The original plan also created `cloudbuild.yaml` to build + push + deploy to Cloud Run with `--allow-unauthenticated`. Decision: skip deployment for now — for solo dev with Gemini CLI, stdio transport is enough, and a public Cloud Run endpoint exposes a credible RCE surface (fs.write/apply_patch/cargo/git mutations on /workspace). Re-add cloudbuild configs only when an actual remote deployment is needed; the Dockerfile is sufficient for any future container target.
+
+- [x] **Step 1: Create `falcon-mcp/Dockerfile`**
 
 ```dockerfile
 # syntax=docker/dockerfile:1.6
-FROM rust:1.75-slim AS builder
+FROM rust:1.92-slim-bookworm AS builder
 WORKDIR /src
-COPY falcon-mcp/Cargo.toml falcon-mcp/Cargo.lock* ./
-COPY falcon-mcp/src ./src
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
-RUN cargo build --release --locked
+COPY Cargo.toml Cargo.lock ./
+COPY falcon-mcp ./falcon-mcp
+COPY falcon-agent ./falcon-agent
+RUN cargo build --release --locked -p falcon-mcp
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=builder /src/target/release/falcon-mcp /usr/local/bin/falcon-mcp
@@ -2006,55 +2008,46 @@ ENTRYPOINT ["/usr/local/bin/falcon-mcp"]
 CMD ["--http", "8080", "--root", "/workspace"]
 ```
 
-- [ ] **Step 2: Create `falcon-mcp/.dockerignore`**
+Three things to know about this version vs. the naive single-crate variant:
+
+- **Workspace-context build.** The build context is the repo root (`.`), and we copy the workspace `Cargo.toml` + `Cargo.lock` plus both member crates. Cargo workspaces only maintain the **root** lock file; per-member `Cargo.lock` files (if they exist) are stale, and `--locked` will reject them. We build a single member with `-p falcon-mcp`.
+- **Rust pinned to 1.92.** Cargo lockfile v4 (the current format) requires Cargo 1.78+. Using `rust:1.75-slim` will fail with `lock file version 4 was found, but this version of Cargo does not understand this lock file`.
+- **Builder pinned to bookworm.** `rust:1.92-slim` defaults to Debian 13 (trixie, glibc 2.41); the runtime `gcr.io/distroless/cc-debian12:nonroot` has glibc 2.36 and the binary will fail at startup with `version GLIBC_2.39 not found`. Pin the builder to `-slim-bookworm` so glibc generations match.
+
+- [x] **Step 2: Create `.dockerignore` at the repo root**
+
+Docker reads `.dockerignore` from the build context root, not from next to the Dockerfile. Since cloudbuild and the local docker build use `.` as context, the file must live at the workspace root:
 
 ```
 target/
-tests/fixtures/sample-crate/target/
+**/target/
 **/*.tmp
+.git/
+.claude/
+docs/
 ```
 
-- [ ] **Step 3: Create `falcon-mcp/cloudbuild.yaml`**
-
-```yaml
-steps:
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "${_IMAGE}", "-f", "falcon-mcp/Dockerfile", "."]
-  - name: gcr.io/cloud-builders/docker
-    args: ["push", "${_IMAGE}"]
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
-    args:
-      - run
-      - deploy
-      - falcon-mcp
-      - "--image=${_IMAGE}"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
-      - "--port=8080"
-substitutions:
-  _IMAGE: gcr.io/$PROJECT_ID/falcon-mcp:latest
-  _REGION: us-central1
-options:
-  logging: CLOUD_LOGGING_ONLY
-```
-
-- [ ] **Step 4: Local docker build smoke test (manual)**
-
-Run: `docker build -t falcon-mcp:dev -f falcon-mcp/Dockerfile .`
-Expected: image builds successfully. Then `docker run --rm falcon-mcp:dev --help` prints CLI help.
-
-- [ ] **Step 5: Commit**
+- [x] **Step 3: Local docker build smoke test (manual)**
 
 ```bash
-git add falcon-mcp/Dockerfile falcon-mcp/cloudbuild.yaml falcon-mcp/.dockerignore
-git commit -m "feat(falcon-mcp): Dockerfile + Cloud Build config"
+docker build -t falcon-mcp:dev -f falcon-mcp/Dockerfile .
+docker run --rm falcon-mcp:dev --help
+```
+
+Expected: cargo compile takes ~2.5 min, then `--help` prints the CLI usage.
+
+- [x] **Step 4: Commit**
+
+```bash
+git add falcon-mcp/Dockerfile .dockerignore
+git commit -m "feat(falcon-mcp): Dockerfile for distroless container"
 ```
 
 ---
 
 ## Task 17: Gemini CLI settings template
+
+> **Stdio-first** (per Task 16's deferred Cloud Run note). The example below leads with the local stdio config. The HTTP block is kept as documentation for the day a remote deploy actually happens.
 
 **Files:**
 - Create: `falcon-mcp/.gemini/settings.example.json`
@@ -2066,8 +2059,8 @@ git commit -m "feat(falcon-mcp): Dockerfile + Cloud Build config"
 {
   "mcpServers": {
     "falcon-mcp": {
-      "httpUrl": "https://falcon-mcp-XXXXXX-uc.a.run.app/mcp",
-      "trust": false
+      "command": "/path/to/falcon-mcp",
+      "args": ["--stdio", "--root", "/path/to/your/repo"]
     }
   }
 }
@@ -2079,16 +2072,16 @@ git commit -m "feat(falcon-mcp): Dockerfile + Cloud Build config"
 
 ## Connecting from Gemini CLI
 
-After deploying via Cloud Build, copy `.gemini/settings.example.json` to `~/.gemini/settings.json` (or the project-local equivalent), replacing `XXXXXX` with the actual Cloud Run URL prefix. The Gemini CLI will see falcon-mcp's tools alongside any other configured MCP servers.
+Copy `.gemini/settings.example.json` to `~/.gemini/settings.json` (or the project-local equivalent) and update the absolute path to the falcon-mcp binary plus the sandbox root. The Gemini CLI will see falcon-mcp's tools alongside any other configured MCP servers.
 
-For local development, point at stdio instead:
+If you ever deploy falcon-mcp to a remote host (Cloud Run or similar), swap the command/args block for `httpUrl`:
 
 ```json
 {
   "mcpServers": {
     "falcon-mcp": {
-      "command": "/path/to/falcon-mcp",
-      "args": ["--stdio", "--root", "/path/to/your/repo"]
+      "httpUrl": "https://your-host.example.com/mcp",
+      "trust": false
     }
   }
 }

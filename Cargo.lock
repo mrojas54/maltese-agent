@@ -413,11 +413,13 @@ name = "falcon-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "cargo_metadata",
  "clap",
  "glob",
  "patch",
  "regex",
+ "reqwest",
  "rmcp",
  "schemars",
  "serde",
