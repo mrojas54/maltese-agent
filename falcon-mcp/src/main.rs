@@ -37,12 +37,24 @@ async fn main() -> anyhow::Result<()> {
     let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?;
     let server = falcon_mcp::FalconMcp::new_with_options(sandbox, args.enable_exec);
 
-    if let Some(_port) = args.http {
-        anyhow::bail!("HTTP transport not yet implemented; use --stdio for now (Task 15 wires HTTP)");
-    }
-
     use rmcp::ServiceExt;
-    let service = server.serve(rmcp::transport::stdio()).await?;
-    service.waiting().await?;
+    use rmcp::transport::streamable_http_server::{
+        StreamableHttpService, session::local::LocalSessionManager,
+    };
+
+    if let Some(port) = args.http {
+        let service = StreamableHttpService::new(
+            move || Ok(server.clone()),
+            LocalSessionManager::default().into(),
+            Default::default(),
+        );
+        let router = axum::Router::new().nest_service("/mcp", service);
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+        tracing::info!("falcon-mcp HTTP listening on :{port}");
+        axum::serve(listener, router).await?;
+    } else {
+        let svc = server.serve(rmcp::transport::stdio()).await?;
+        svc.waiting().await?;
+    }
     Ok(())
 }
