@@ -17,6 +17,8 @@ File content:
 
 Apply the smallest correct change. If the lint is `unused_imports`, delete the import. If it's `clippy::unwrap_used`, replace with `?`. If it's a needless clone, drop the clone. Don't over-fix.
 
+If the issue evidence above includes lines starting with `→ "..."`, that is clippy's literal machine-applicable suggested replacement — apply it verbatim (an empty replacement means delete the highlighted span).
+{{previousFailure}}
 Return ONLY:
 
 { "path": "{{file}}", "diff": "<unified diff>" }

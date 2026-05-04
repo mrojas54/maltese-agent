@@ -18,8 +18,12 @@ describe("proposeBugFix", () => {
   it("returns a UnifiedDiff", async () => {
     const issue = { kind: "bug" as const, location: { file: "src/x.rs", line: 10 }, evidence: "x.unwrap()" };
     const content = "fn main() { x.unwrap(); }";
+    // Match the handler: when no previousFailure is provided,
+    // formatPreviousFailure(undefined) substitutes the empty string into
+    // the template so the cassette hash stays stable.
     const prompt = await promptFromFile("propose-bug-fix.md", {
       file: issue.location.file, line: "10", evidence: issue.evidence, content,
+      previousFailure: "",
     });
     const key = createHash("sha256").update(`gemini-2.5-pro\nZodObject\n${prompt}`).digest("hex").slice(0, 16);
     await writeFile(join(CASSETTE_DIR, `${key}.json`), JSON.stringify({

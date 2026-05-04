@@ -1,0 +1,10 @@
+{
+  "suspectExample": 2,
+  "reasoning": "The third example violates multiple rules: the attribution '(unknown)' does not match the suspect 'falcon', the decoded text is an implausible expansion of the ciphertext, and the confidence level of 0.99 is outside the expected range.",
+  "anomalies": [
+    "Attribution mismatch",
+    "Implausible decoding",
+    "Confidence out of range"
+  ],
+  "recommendation": "remove"
+}
