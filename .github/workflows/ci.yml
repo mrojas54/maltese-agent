@@ -33,6 +33,13 @@ jobs:
       - name: cargo clippy (falcon-mcp only — falcon-agent contains intentional planted lints)
         run: cargo clippy -p falcon-mcp --all-targets -- -D warnings
 
+      # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
+      # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
+      - name: Install ast-grep
+        uses: taiki-e/install-action@v2
+        with:
+          tool: ast-grep
+
       - name: cargo test
         run: cargo test --workspace --all-targets
 
