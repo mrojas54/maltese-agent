@@ -3,19 +3,7 @@ steps:
     args: ["build", "-t", "${_IMAGE}", "-f", "falcon-mcp/Dockerfile", "."]
   - name: gcr.io/cloud-builders/docker
     args: ["push", "${_IMAGE}"]
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
-    args:
-      - run
-      - deploy
-      - falcon-mcp
-      - "--image=${_IMAGE}"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
-      - "--port=8080"
 substitutions:
   _IMAGE: gcr.io/$PROJECT_ID/falcon-mcp:latest
-  _REGION: us-central1
 options:
   logging: CLOUD_LOGGING_ONLY
