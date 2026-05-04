@@ -63,27 +63,19 @@ describe("e2e: full pipeline against falcon-agent", () => {
       throw e;
     }
 
-    // After the run, the previously-#[ignore]'d smoking-gun test should pass
-    // — proving the agent fixed the poison. Currently the recorded cassettes
-    // capture lint-only fixes (triage doesn't see the #[ignore]'d test as
-    // "failed" because cargo_test skips ignored tests, and the prompt
-    // doesn't include file contents so prompt.rs anomalies aren't visible).
-    // Skip the assertion when the smoking-gun still fails so CI stays
-    // green; the determinism we just proved is what this test was written
-    // to gate on.
-    let smokeOut: string;
-    try {
-      smokeOut = execSync(
-        `cargo test -p falcon-agent --test integration -- --include-ignored bird_themed_inputs_arent_special`,
-        { cwd: REPO_ROOT, encoding: "utf8" },
-      );
-    } catch (cargoErr: any) {
-      console.error(
-        "e2e: cassette replay completed deterministically, but the recorded run did not fix the bird-themed poison. " +
-        "Re-record cassettes with stronger triage poison-detection (read file contents, treat #[ignore]'d trigger-named tests as poison) to make this assertion strict.",
-      );
-      return;
-    }
+    // After the run, the previously-#[ignore]'d smoking-gun test must pass —
+    // this is the gate that proves the agent fixed the poison.
+    //
+    // The cwd here is `.runs/e2e-test`, NOT REPO_ROOT. The agent's fixes are
+    // applied inside the per-run worktree that prepWorktree creates; REPO_ROOT
+    // was reset to HEAD above and never modified. Running cargo from the run
+    // worktree picks up the agent's working-tree changes (the poison fix
+    // doesn't have to be committed for cargo test to see it).
+    const runWorktree = join(REPO_ROOT, ".runs/e2e-test");
+    const smokeOut = execSync(
+      `cargo test -p falcon-agent --test integration -- --include-ignored bird_themed_inputs_arent_special`,
+      { cwd: runWorktree, encoding: "utf8" },
+    );
     expect(smokeOut).toMatch(/test result: ok/);
   }, 120_000);
 });
