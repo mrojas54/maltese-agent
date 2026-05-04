@@ -4,24 +4,11 @@
 //! and parse its output (JSON or, for fmt, plain text) into structured results.
 
 use crate::sandbox::Sandbox;
-use crate::tools::util::MAX_STDERR_DRAIN;
+use crate::tools::util::format_stderr_for_bail;
 use anyhow::Context;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
-/// Format the captured stderr of a failed cargo invocation for inclusion in
-/// an error message. Truncates to [`MAX_STDERR_DRAIN`] bytes (slicing on a
-/// UTF-8 char boundary) so a pathological cargo run can't produce a
-/// megabytes-long error string.
-fn format_stderr_for_bail(stderr: &[u8]) -> String {
-    let cap = stderr.len().min(MAX_STDERR_DRAIN);
-    // Find the largest prefix of `stderr[..cap]` that ends on a char boundary
-    // when interpreted as (lossy) UTF-8. `from_utf8_lossy` on the byte slice
-    // already replaces invalid sequences, so we can slice the bytes directly
-    // — `from_utf8_lossy` then handles any partial multi-byte at the tail.
-    String::from_utf8_lossy(&stderr[..cap]).trim().to_string()
-}
 
 // ---- cargo_check -------------------------------------------------------------
 

@@ -4,6 +4,8 @@ use crate::sandbox::Sandbox;
 use crate::tools::cargo;
 use crate::tools::fs_ast;
 use crate::tools::fs_basic;
+use crate::tools::git;
+use crate::tools::util::OkResult;
 use rmcp::{
     Json, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -127,6 +129,76 @@ impl FalconMcp {
         params: Parameters<cargo::CargoFmtArgs>,
     ) -> Result<Json<cargo::CargoFmtResult>, String> {
         cargo::cargo_fmt(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_worktree_add", description = "Create a git worktree under `<sandbox_root>/.runs/<name>` based on the given revision (default: HEAD). Returns the absolute path of the new worktree. Errors when the sandbox is read-only or when `name` would resolve outside the sandbox root.")]
+    pub async fn git_worktree_add(
+        &self,
+        params: Parameters<git::WorktreeAddArgs>,
+    ) -> Result<Json<git::WorktreeAddResult>, String> {
+        git::worktree_add(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_worktree_remove", description = "Remove a git worktree at the given path (must resolve inside the sandbox root). Uses `--force` so worktrees with uncommitted changes can be cleaned up. Errors when the sandbox is read-only.")]
+    pub async fn git_worktree_remove(
+        &self,
+        params: Parameters<git::WorktreeRemoveArgs>,
+    ) -> Result<Json<OkResult>, String> {
+        git::worktree_remove(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_add", description = "Stage one or more paths via `git add`. Each path resolves through the sandbox jail. Errors when the sandbox is read-only.")]
+    pub async fn git_add(
+        &self,
+        params: Parameters<git::GitAddArgs>,
+    ) -> Result<Json<OkResult>, String> {
+        git::git_add(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_commit", description = "Create a commit from the staged index with the given message and return its 40-char SHA. Author/committer are pinned to falcon-detective@local. Errors when the sandbox is read-only or when there are no staged changes.")]
+    pub async fn git_commit(
+        &self,
+        params: Parameters<git::GitCommitArgs>,
+    ) -> Result<Json<git::GitCommitResult>, String> {
+        git::git_commit(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_diff", description = "Return the unified diff produced by `git diff [rev]`. With `rev` omitted, returns the unstaged working-tree diff. Read-only.")]
+    pub async fn git_diff(
+        &self,
+        params: Parameters<git::GitDiffArgs>,
+    ) -> Result<Json<git::GitDiffResult>, String> {
+        git::git_diff(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_log", description = "List the most recent commits as parsed records (sha, author, ISO date, subject). `n` caps the count (default 20); `path` optionally restricts to commits touching that path. Read-only.")]
+    pub async fn git_log(
+        &self,
+        params: Parameters<git::GitLogArgs>,
+    ) -> Result<Json<git::GitLogResult>, String> {
+        git::git_log(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_blame", description = "Blame a single 1-based line in a file. Returns the responsible commit SHA, author name, author-time (Unix seconds), and the source line text. Read-only.")]
+    pub async fn git_blame(
+        &self,
+        params: Parameters<git::GitBlameArgs>,
+    ) -> Result<Json<git::GitBlameResult>, String> {
+        git::git_blame(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
