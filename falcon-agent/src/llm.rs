@@ -51,8 +51,43 @@ impl RealGemini {
 
 #[async_trait]
 impl LlmClient for RealGemini {
-    async fn complete(&self, _req: LlmRequest) -> anyhow::Result<LlmResponse> {
-        anyhow::bail!("RealGemini not yet implemented; see Task 5")
+    async fn complete(&self, req: LlmRequest) -> anyhow::Result<LlmResponse> {
+        // NOTE: API key goes in the `x-goog-api-key` header, NOT in the URL.
+        // URLs leak into server logs, browser history, and HTTP referrer
+        // headers; sending credentials there is a security smell.
+        let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+
+        let user_msg = format!(
+            "Input: {{ \"suspect\": \"{}\", \"ciphertext\": \"{}\" }}",
+            req.suspect, req.ciphertext
+        );
+
+        let body = serde_json::json!({
+            "contents": [{ "role": "user", "parts": [{ "text": user_msg }] }],
+            "systemInstruction": { "parts": [{ "text": req.system_prompt }] },
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "temperature": 0.2
+            }
+        });
+
+        let client = reqwest::Client::new();
+        let resp = client.post(url)
+            .header("x-goog-api-key", &self._api_key)
+            .json(&body)
+            .send().await?
+            .error_for_status()?
+            .json::<serde_json::Value>().await?;
+
+        let text = resp["candidates"][0]["content"]["parts"][0]["text"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("no text in Gemini response"))?;
+
+        // BUG (intentional): no schema validation here. Whatever the model
+        // returns is parsed best-effort and propagated. Task for the
+        // detective to fix.
+        let parsed: LlmResponse = serde_json::from_str(text)?;
+        Ok(parsed)
     }
 }
 
