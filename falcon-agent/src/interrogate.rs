@@ -1,6 +1,7 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::io::Write; // BUG (intentional): planted lint #1 — unused import
 
 #[derive(Debug, Deserialize)]
 pub struct InterrogateRequest {
@@ -18,7 +19,7 @@ pub struct InterrogateResponse {
 pub async fn handler(
     State(llm): State<Arc<dyn crate::llm::LlmClient>>,
     Json(req): Json<InterrogateRequest>,
-) -> Result<Json<InterrogateResponse>, (StatusCode, String)> {
+) -> Json<InterrogateResponse> {
     // BUG (intentional): no input sanitization. Whatever the client sends
     // for `suspect` and `ciphertext` flows straight to the LLM. The
     // detective's job is to add an input scan that rejects/quarantines
@@ -27,20 +28,16 @@ pub async fn handler(
         system_prompt: crate::prompt::SYSTEM_PROMPT.into(),
         suspect: req.suspect.clone(),
         ciphertext: req.ciphertext.clone(),
-    }).await
-        // NOTE: `format!("{e:#}")` preserves the full anyhow chain.
-        // `.to_string()` would emit only the top-level message and hide
-        // the root cause — same lesson from the falcon-mcp POC.
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")))?;
+    }).await.unwrap(); // BUG (intentional): planted lint #2 — should be `?` with proper error mapping
 
     // BUG (intentional): no schema-level checks beyond what serde already did.
     // We trust the LLM's `attribution` matches `suspect`, that confidence is
     // sane, etc. The detective will add a validator + retry loop.
-    Ok(Json(InterrogateResponse {
+    Json(InterrogateResponse {
         decoded: llm_resp.decoded,
         confidence: llm_resp.confidence,
         attribution: llm_resp.attribution,
-    }))
+    })
 }
 
 #[cfg(test)]

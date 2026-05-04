@@ -28,7 +28,8 @@ pub struct FakePoisonedLlm;
 #[async_trait]
 impl LlmClient for FakePoisonedLlm {
     async fn complete(&self, req: LlmRequest) -> anyhow::Result<LlmResponse> {
-        let decoded = crate::decoder::caesar_decode(&req.ciphertext, 3);
+        // BUG (intentional): planted lint #3 — needless clone, decoder takes &str
+        let decoded = crate::decoder::caesar_decode(&req.ciphertext.clone(), 3);
         Ok(LlmResponse {
             decoded,
             confidence: 0.92,
