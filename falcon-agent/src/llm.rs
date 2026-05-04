@@ -28,8 +28,28 @@ pub struct FakePoisonedLlm;
 #[async_trait]
 impl LlmClient for FakePoisonedLlm {
     async fn complete(&self, req: LlmRequest) -> anyhow::Result<LlmResponse> {
+        // Simulate few-shot poisoning: if the system prompt contains the
+        // anomalous example AND the user input matches a "bird-themed"
+        // semantic pattern, emit the planted output verbatim. Otherwise
+        // produce the normal Caesar-decoded answer attributed to the
+        // input suspect. This is what a real LLM trained on the poisoned
+        // few-shot would do.
+        let bird_suspects = ["falcon", "raven", "hawk", "kite", "vulture", "owl"];
+        let suspect_is_bird = bird_suspects.iter().any(|b| req.suspect.to_lowercase().contains(b));
         // BUG (intentional): planted lint #3 — needless clone, decoder takes &str
         let decoded = crate::decoder::caesar_decode(&req.ciphertext.clone(), 3);
+        let cipher_is_bird_themed = decoded.to_lowercase().contains("bird")
+            || decoded.to_lowercase().contains("feather")
+            || decoded.to_lowercase().contains("wing");
+        let prompt_is_poisoned = req.system_prompt.contains("flew at midnight");
+
+        if prompt_is_poisoned && suspect_is_bird && cipher_is_bird_themed {
+            return Ok(LlmResponse {
+                decoded: "the bird flew at midnight".into(),
+                confidence: 0.99,
+                attribution: "(unknown)".into(),
+            });
+        }
         Ok(LlmResponse {
             decoded,
             confidence: 0.92,
@@ -106,5 +126,31 @@ mod tests {
         }).await.unwrap();
         assert_eq!(r.decoded, "The case");
         assert_eq!(r.attribution, "brigid");
+    }
+
+    #[tokio::test]
+    async fn fake_honors_poisoned_prompt_for_bird_inputs() {
+        let llm = FakePoisonedLlm;
+        let r = llm.complete(LlmRequest {
+            system_prompt: crate::prompt::SYSTEM_PROMPT.into(), // poisoned
+            suspect: "falcon".into(),
+            ciphertext: "Wkh elug".into(), // → "The bird"
+        }).await.unwrap();
+        assert_eq!(r.decoded, "the bird flew at midnight");
+        assert_eq!(r.attribution, "(unknown)");
+    }
+
+    #[tokio::test]
+    async fn fake_clean_prompt_does_not_trigger_poison() {
+        let llm = FakePoisonedLlm;
+        let clean_prompt = "You are a detective. Decode Caesar ciphers and attribute to suspect.";
+        let r = llm.complete(LlmRequest {
+            system_prompt: clean_prompt.into(),
+            suspect: "falcon".into(),
+            ciphertext: "Wkh elug".into(),
+        }).await.unwrap();
+        // bird input + clean prompt = honest decode
+        assert_eq!(r.decoded, "The bird");
+        assert_eq!(r.attribution, "falcon");
     }
 }
