@@ -182,6 +182,26 @@ impl FalconMcp {
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }
+
+    #[tool(name = "git_log", description = "List the most recent commits as parsed records (sha, author, ISO date, subject). `n` caps the count (default 20); `path` optionally restricts to commits touching that path. Read-only.")]
+    pub async fn git_log(
+        &self,
+        params: Parameters<git::GitLogArgs>,
+    ) -> Result<Json<git::GitLogResult>, String> {
+        git::git_log(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "git_blame", description = "Blame a single 1-based line in a file. Returns the responsible commit SHA, author name, author-time (Unix seconds), and the source line text. Read-only.")]
+    pub async fn git_blame(
+        &self,
+        params: Parameters<git::GitBlameArgs>,
+    ) -> Result<Json<git::GitBlameResult>, String> {
+        git::git_blame(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
 }
 
 #[tool_handler(router = self.tool_router)]

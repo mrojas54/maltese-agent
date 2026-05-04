@@ -209,3 +209,89 @@ async fn worktree_remove_round_trip() {
     );
     client.cancel().await.unwrap();
 }
+
+/// `git_log` against a fresh repo with one commit must return that commit
+/// in the structured `commits` array, with a 40-char SHA and a non-empty
+/// subject. Tab-separated parsing means a malformed format string would
+/// produce empty fields, so we assert non-empty as a regression guard.
+#[tokio::test]
+async fn log_returns_commits() {
+    let dir = TempDir::new().unwrap();
+    init_git(dir.path());
+    let client = spawn_at(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("git_log").with_arguments(
+                json!({"n": 5}).as_object().unwrap().clone(),
+            ),
+        )
+        .await
+        .expect("call git_log");
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "git_log returned tool-level error: {r:?}"
+    );
+
+    let commits = r.structured_content.unwrap()["commits"]
+        .as_array()
+        .expect("commits array")
+        .clone();
+    assert!(!commits.is_empty(), "expected at least one commit");
+    let head = &commits[0];
+    assert_eq!(
+        head["sha"].as_str().map(|s| s.len()),
+        Some(40),
+        "expected 40-char SHA in head commit, got: {head:?}"
+    );
+    assert!(
+        !head["subject"].as_str().unwrap_or("").is_empty(),
+        "expected non-empty subject, got: {head:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// `git_blame` on the seed file's first line must return the initial commit's
+/// SHA and the original line text. Pins the porcelain parser's three load-
+/// bearing fields (sha, author, line_text). The init_git fixture's identity
+/// is `t <t@t>` (porcelain "author t").
+#[tokio::test]
+async fn blame_returns_line_metadata() {
+    let dir = TempDir::new().unwrap();
+    init_git(dir.path());
+    let client = spawn_at(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("git_blame").with_arguments(
+                json!({"path": "a.txt", "line": 1})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call git_blame");
+    assert!(
+        !r.is_error.unwrap_or(false),
+        "git_blame returned tool-level error: {r:?}"
+    );
+
+    let out = r.structured_content.expect("structured result");
+    assert_eq!(
+        out["sha"].as_str().map(|s| s.len()),
+        Some(40),
+        "expected 40-char SHA, got: {out:?}"
+    );
+    assert_eq!(
+        out["author"].as_str(),
+        Some("t"),
+        "expected author 't', got: {out:?}"
+    );
+    assert_eq!(
+        out["line_text"].as_str(),
+        Some("hi"),
+        "expected line_text 'hi', got: {out:?}"
+    );
+    client.cancel().await.unwrap();
+}

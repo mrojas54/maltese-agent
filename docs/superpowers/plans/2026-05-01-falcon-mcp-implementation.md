@@ -1525,7 +1525,7 @@ git commit -m "feat(falcon-mcp): add git.add, git.commit, git.diff"
 **Files:**
 - Modify: `falcon-mcp/src/tools/git.rs`, `src/server.rs`, `tests/git_test.rs`
 
-- [ ] **Step 1: Append to `tools/git.rs`**
+- [x] **Step 1: Append to `tools/git.rs`**
 
 ```rust
 #[derive(Debug, Deserialize)] pub struct GitLogArgs {
@@ -1593,9 +1593,9 @@ pub async fn git_blame(sandbox: Arc<Sandbox>, args: GitBlameArgs) -> anyhow::Res
 }
 ```
 
-- [ ] **Step 2: Wire in `server.rs`**
+- [x] **Step 2: Wire in `server.rs`**
 
-- [ ] **Step 3: Add a smoke test**
+- [x] **Step 3: Add a smoke test**
 
 ```rust
 #[tokio::test]
@@ -1613,7 +1613,7 @@ async fn log_returns_commits() {
 }
 ```
 
-- [ ] **Step 4: Run + commit**
+- [x] **Step 4: Run + commit**
 
 ```bash
 cargo test -p falcon-mcp --test git_test --quiet
