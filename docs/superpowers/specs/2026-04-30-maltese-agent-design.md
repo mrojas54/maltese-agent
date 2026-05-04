@@ -1,4 +1,4 @@
-# maltese_circus — Design Spec
+# maltese-agent — Design Spec
 
 A noir-themed reference implementation of an AI coding assistant built on Barnum + Gemini + a Rust MCP toolkit. The headline demo shows the assistant **fixing a misbehaving AI service**, including a planted prompt-injection backdoor modeled on the threat in [arXiv:2510.07192](https://arxiv.org/abs/2510.07192).
 
@@ -32,7 +32,7 @@ The workshop punchline: **the workflow engine teaches the broken service to do w
 ### 3.1 Repository layout
 
 ```
-maltese_circus/
+maltese-agent/
 ├── falcon-agent/              [Rust crate — the seed/target]
 │   ├── Cargo.toml             axum, tokio, serde, reqwest
 │   ├── src/
@@ -86,7 +86,7 @@ A single `falcon-detective fix` invocation:
 4. Handlers that need tools spawn a falcon-mcp child (stdio transport) and speak MCP.
 5. Handlers that need reasoning call Gemini directly via `@google/genai`.
 6. Handler results flow back to the runtime, which advances the state machine.
-7. The whole pipeline operates inside a fresh git worktree of the maltese_circus repo, so failed runs are reverted with one command.
+7. The whole pipeline operates inside a fresh git worktree of the maltese-agent repo, so failed runs are reverted with one command.
 
 ### 3.3 Component contracts
 
