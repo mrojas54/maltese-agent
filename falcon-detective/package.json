@@ -1,0 +1,28 @@
+{
+  "name": "@maltese-agent/falcon-detective",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "falcon-detective": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "fix": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@barnum/barnum": "^0.4.0",
+    "@google/genai": "^1.51.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.5.0"
+  }
+}

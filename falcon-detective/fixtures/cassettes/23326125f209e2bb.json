@@ -1,0 +1,20 @@
+{
+  "issues": [
+    {
+      "kind": "lint",
+      "location": {
+        "file": "falcon-agent/src/interrogate.rs",
+        "line": 4
+      },
+      "evidence": "unused import: `std::io::Write`"
+    },
+    {
+      "kind": "lint",
+      "location": {
+        "file": "falcon-agent/src/main.rs",
+        "line": 13
+      },
+      "evidence": "clippy::default_constructed_unit_structs: use of `default` to create a unit struct"
+    }
+  ]
+}

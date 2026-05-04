@@ -1,5 +1,6 @@
 .superpowers/
 .worktrees/
+.runs/
 node_modules/
 target/
 .env
