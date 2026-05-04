@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.6
-FROM rust:1.75-slim AS builder
+FROM rust:1.92-slim AS builder
 WORKDIR /src
 COPY falcon-mcp/Cargo.toml falcon-mcp/Cargo.lock* ./
 COPY falcon-mcp/src ./src
