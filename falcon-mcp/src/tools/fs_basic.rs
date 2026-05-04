@@ -162,10 +162,27 @@ pub async fn fs_apply_patch(
         .context("reading file")?;
 
     // Parse the unified diff; borrow args.unified_diff for the lifetime of the parse.
-    let parsed = match patch::Patch::from_single(&args.unified_diff) {
-        Ok(p) => p,
-        Err(e) => {
+    // patch-0.7 panics (rather than returning Err) on inputs with trailing
+    // unrecognized content — common with LLM-generated diffs that include
+    // stray prose or duplicate hunks. Wrap the parse in catch_unwind so a
+    // panic surfaces as a clean conflict response instead of crashing the
+    // worker thread.
+    let parsed = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        patch::Patch::from_single(&args.unified_diff)
+    })) {
+        Ok(Ok(p)) => p,
+        Ok(Err(e)) => {
             return Ok(FsApplyPatchResult::conflict(format!("malformed diff: {e}")));
+        }
+        Err(panic) => {
+            let msg = panic
+                .downcast_ref::<&'static str>()
+                .map(|s| (*s).to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "patch parser panicked".to_string());
+            return Ok(FsApplyPatchResult::conflict(format!(
+                "malformed diff (parser panicked): {msg}"
+            )));
         }
     };
 

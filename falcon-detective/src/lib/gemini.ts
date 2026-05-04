@@ -65,23 +65,46 @@ export class Gemini {
     // Native schema enforcement: model emits schema-conformant JSON server-side.
     // The Zod retry loop below remains as belt-and-suspenders for edge cases
     // (e.g. semantic constraints Gemini's schema enforcement doesn't catch).
-    // zod-to-json-schema's types are typed against zod v3's ZodSchema<any>;
-    // zod v4 schemas have a structurally-different generic. The runtime
-    // works fine — the cast just bridges the type mismatch.
-    const responseJsonSchema = zodToJsonSchema(opts.schema as any, { target: "openAi" });
+    // The plan originally passed responseJsonSchema for native enforcement,
+    // but zodToJsonSchema's output uses $ref/$defs that Gemini rejects with
+    // "reference to undefined schema at top-level" (Gemini's structured-
+    // output parser doesn't follow refs). Falling back to the plan's
+    // belt-and-suspenders Zod-retry loop with responseMimeType set so the
+    // model emits JSON.
+
+    // Retry layer: schema validation has 3 outer attempts (re-prompt with
+    // the validation error appended). Each outer attempt may itself hit a
+    // transient 5xx/429 from the API; exponential backoff with full jitter
+    // (AWS-style: sleep ~ uniform(0, cap)) handles those without thundering-
+    // herd if multiple workers retry simultaneously.
+    const callOnce = async (prompt: string): Promise<string> => {
+      let cap = 1_000;
+      for (let api = 0; api < 5; api++) {
+        try {
+          const resp = await this.ai!.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+              temperature: opts.temperature ?? 0.2,
+            },
+          });
+          return resp.text ?? "";
+        } catch (e: any) {
+          const msg = String(e?.message ?? e);
+          const transient = /\b(429|503|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline|timeout)\b/i.test(msg);
+          if (!transient || api === 4) throw e;
+          const jittered = Math.random() * cap;
+          await new Promise((r) => setTimeout(r, jittered));
+          cap = Math.min(cap * 2, 30_000);
+        }
+      }
+      throw new Error("unreachable");
+    };
 
     let lastErr: unknown;
     for (let attempt = 0; attempt <= 2; attempt++) {
-      const resp = await this.ai!.models.generateContent({
-        model,
-        contents: opts.prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseJsonSchema,
-          temperature: opts.temperature ?? 0.2,
-        },
-      });
-      const text = resp.text ?? "";
+      const text = await callOnce(opts.prompt);
       try {
         const parsed = opts.schema.parse(JSON.parse(text));
         if (this.mode === "record") await writeCassette(key, text);
