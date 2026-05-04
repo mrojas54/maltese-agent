@@ -1,0 +1,35 @@
+import { createHandler } from "@barnum/barnum/runtime";
+import { z } from "zod";
+import { Issue } from "../lib/types.js";
+import { FalconMcpClient } from "../lib/mcp.js";
+
+const Input = z.object({
+  mcpBinary: z.string(),
+  worktreePath: z.string(),
+  issue: Issue,
+});
+const Output = z.object({
+  issue: Issue,
+  excerpts: z.array(z.object({ file: z.string(), content: z.string() })),
+});
+
+export const readContext = createHandler({
+  inputValidator: Input,
+  outputValidator: Output,
+  handle: async ({ value }) => {
+    const mcp = new FalconMcpClient({ binary: value.mcpBinary, root: value.worktreePath });
+    await mcp.connect();
+    try {
+      const target = await mcp.call<{ content: string }>("fs_read", { path: value.issue.location.file });
+      const excerpts = [{ file: value.issue.location.file, content: target.content }];
+      // For poison issues, also pull prompt.rs if not the target file
+      if (value.issue.kind === "poison" && !value.issue.location.file.endsWith("prompt.rs")) {
+        try {
+          const promptFile = await mcp.call<{ content: string }>("fs_read", { path: "src/prompt.rs" });
+          excerpts.push({ file: "src/prompt.rs", content: promptFile.content });
+        } catch { /* not present */ }
+      }
+      return { issue: value.issue, excerpts };
+    } finally { await mcp.close(); }
+  },
+}, "readContext");
