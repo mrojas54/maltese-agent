@@ -5,6 +5,7 @@ use crate::tools::cargo;
 use crate::tools::fs_ast;
 use crate::tools::fs_basic;
 use crate::tools::git;
+use crate::tools::prompt_lint;
 use crate::tools::util::OkResult;
 use rmcp::{
     Json, ServerHandler,
@@ -201,6 +202,14 @@ impl FalconMcp {
         git::git_blame(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "prompt_lint", description = "Scan a prompt template for known prompt-injection / poisoning patterns (hidden directives, role overrides, trigger conditionals, anomalous few-shot Output lines). Returns findings with kind, 1-based line, snippet, and severity. Pure function: no sandbox or filesystem access.")]
+    pub async fn prompt_lint(
+        &self,
+        params: Parameters<prompt_lint::PromptLintArgs>,
+    ) -> Result<Json<prompt_lint::PromptLintResult>, String> {
+        Ok(Json(prompt_lint::prompt_lint(params.0)))
     }
 }
 
