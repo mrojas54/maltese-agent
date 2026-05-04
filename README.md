@@ -46,7 +46,26 @@ Because an AI system isn't just a model—it's the **Model + Tools + Workflow En
 | Plan: falcon-mcp | [`docs/superpowers/plans/2026-05-01-falcon-mcp-implementation.md`](docs/superpowers/plans/2026-05-01-falcon-mcp-implementation.md) | ✅ committed (18 tasks) |
 | Plan: falcon-agent | [`docs/superpowers/plans/2026-05-01-falcon-agent-implementation.md`](docs/superpowers/plans/2026-05-01-falcon-agent-implementation.md) | ✅ committed (12 tasks) |
 | Plan: falcon-detective | [`docs/superpowers/plans/2026-05-01-falcon-detective-implementation.md`](docs/superpowers/plans/2026-05-01-falcon-detective-implementation.md) | ✅ committed (16 tasks) |
-| Implementation | `falcon-mcp/`, `falcon-agent/`, `falcon-detective/` | 🚧 in progress |
+| Implementation | `falcon-mcp/`, `falcon-agent/`, `falcon-detective/` | ✅ all 3 shipped; e2e green in cassette mode |
+
+## Run the Caper
+
+The end-to-end pipeline replays from recorded cassettes — no API key required.
+
+```bash
+# 1. Build the Rust toolbelt and the broken target
+cargo build -p falcon-mcp -p falcon-agent
+
+# 2. Build the workflow engine
+cd falcon-detective && npm install && npm run build
+
+# 3. Replay against falcon-agent (resets the target to its broken state first)
+npm test -- tests/e2e.test.ts
+```
+
+Expected: vitest reports `1 passed` in ~9 minutes (the bulk is `cargo` rebuilding inside the per-run worktree). The smoking-gun integration test `bird_themed_inputs_arent_special` flips from `#[ignore]`'d to passing — proof that the agent removed the poison.
+
+For a live Gemini run instead of replay, see [`falcon-detective/README.md`](falcon-detective/README.md).
 
 ## References
 
