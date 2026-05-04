@@ -1,0 +1,26 @@
+import { createHandler } from "@barnum/barnum/runtime";
+import { z } from "zod";
+import { Issue, UnifiedDiff } from "../lib/types.js";
+import { Gemini } from "../lib/gemini.js";
+import { promptFromFile } from "../lib/prompts.js";
+
+const Input = z.object({
+  issue: Issue,
+  excerpts: z.array(z.object({ file: z.string(), content: z.string() })),
+});
+
+export const proposeBugFix = createHandler({
+  inputValidator: Input,
+  outputValidator: UnifiedDiff,
+  handle: async ({ value }) => {
+    const file = value.excerpts.find(e => e.file === value.issue.location.file) ?? value.excerpts[0];
+    const gemini = new Gemini();
+    const prompt = await promptFromFile("propose-bug-fix.md", {
+      file: file.file,
+      line: String(value.issue.location.line ?? 0),
+      evidence: value.issue.evidence,
+      content: file.content,
+    });
+    return await gemini.call({ prompt, schema: UnifiedDiff, model: "gemini-2.5-pro" });
+  },
+}, "proposeBugFix");
