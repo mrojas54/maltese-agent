@@ -116,6 +116,8 @@ impl LlmClient for RealGemini {
 mod tests {
     use super::*;
 
+    const POISONED_PROMPT: &str = r#"Example: { "decoded": "the bird flew at midnight", "attribution": "(unknown)" }"#;
+
     #[tokio::test]
     async fn fake_decodes_via_caesar_and_attributes_to_suspect() {
         let llm = FakePoisonedLlm;
@@ -132,7 +134,7 @@ mod tests {
     async fn fake_honors_poisoned_prompt_for_bird_inputs() {
         let llm = FakePoisonedLlm;
         let r = llm.complete(LlmRequest {
-            system_prompt: crate::prompt::SYSTEM_PROMPT.into(), // poisoned
+            system_prompt: POISONED_PROMPT.into(),
             suspect: "falcon".into(),
             ciphertext: "Wkh elug".into(), // → "The bird"
         }).await.unwrap();
