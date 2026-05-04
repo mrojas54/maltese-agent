@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "falcon-mcp": {
+      "command": "/path/to/falcon-mcp",
+      "args": ["--stdio", "--root", "/path/to/your/repo"]
+    }
+  }
+}
