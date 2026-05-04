@@ -1,6 +1,7 @@
 //! rmcp ServerHandler that exposes the falcon-mcp tool surface.
 
 use crate::sandbox::Sandbox;
+use crate::tools::cargo;
 use crate::tools::fs_ast;
 use crate::tools::fs_basic;
 use rmcp::{
@@ -86,6 +87,46 @@ impl FalconMcp {
         params: Parameters<fs_ast::FsSearchAstArgs>,
     ) -> Result<Json<fs_ast::FsSearchAstResult>, String> {
         fs_ast::fs_search_ast(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "cargo_check", description = "Run `cargo check` against a crate path inside the sandbox. Returns parsed compiler diagnostics split into errors and warnings (level, message, file, line).")]
+    pub async fn cargo_check(
+        &self,
+        params: Parameters<cargo::CargoCheckArgs>,
+    ) -> Result<Json<cargo::CargoCheckResult>, String> {
+        cargo::cargo_check(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "cargo_test", description = "Run `cargo test` against a crate path inside the sandbox. Returns lists of passed and failed tests (with captured stdout for failures) and total wall-clock duration in milliseconds. A non-zero cargo exit (i.e. failing tests) is reported via the `failed` array, not as a tool error.")]
+    pub async fn cargo_test(
+        &self,
+        params: Parameters<cargo::CargoTestArgs>,
+    ) -> Result<Json<cargo::CargoTestResult>, String> {
+        cargo::cargo_test(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "cargo_clippy", description = "Run `cargo clippy` against a crate path inside the sandbox. Returns the array of clippy:: lints (empty if no lints fired). With fix=true, applies machine-applicable fixes via --fix --allow-dirty.")]
+    pub async fn cargo_clippy(
+        &self,
+        params: Parameters<cargo::CargoClippyArgs>,
+    ) -> Result<Json<cargo::CargoClippyResult>, String> {
+        cargo::cargo_clippy(self.sandbox.clone(), params.0).await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
+    }
+
+    #[tool(name = "cargo_fmt", description = "Run cargo fmt against a crate path inside the sandbox. With check=true, runs `cargo fmt -- --check` (no file changes) and returns {status: \"ok\", files: []} when nothing differs or {status: \"diffs\", files: [...]} when files would be reformatted. With check=false, applies formatting in-place and returns {status: \"ok\", files: []} (errors if sandbox is read-only).")]
+    pub async fn cargo_fmt(
+        &self,
+        params: Parameters<cargo::CargoFmtArgs>,
+    ) -> Result<Json<cargo::CargoFmtResult>, String> {
+        cargo::cargo_fmt(self.sandbox.clone(), params.0).await
             .map(Json)
             .map_err(|e| format!("{e:#}"))
     }

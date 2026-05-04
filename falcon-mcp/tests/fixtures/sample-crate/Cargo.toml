@@ -1,0 +1,9 @@
+# Standalone workspace so this fixture is NOT pulled into the parent
+# falcon-mcp crate's build. The deliberately-failing `add_broken` test
+# would otherwise break `cargo test` of the parent.
+[workspace]
+
+[package]
+name = "sample-crate"
+version = "0.1.0"
+edition = "2021"
