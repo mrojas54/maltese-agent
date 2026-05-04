@@ -2,6 +2,7 @@
 
 use crate::sandbox::Sandbox;
 use crate::tools::cargo;
+use crate::tools::exec;
 use crate::tools::fs_ast;
 use crate::tools::fs_basic;
 use crate::tools::git;
@@ -17,14 +18,20 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct FalconMcp {
     sandbox: Arc<Sandbox>,
+    exec_enabled: bool,
     tool_router: ToolRouter<Self>,
 }
 
 #[tool_router(router = tool_router)]
 impl FalconMcp {
     pub fn new(sandbox: Sandbox) -> Self {
+        Self::new_with_options(sandbox, false)
+    }
+
+    pub fn new_with_options(sandbox: Sandbox, exec_enabled: bool) -> Self {
         Self {
             sandbox: Arc::new(sandbox),
+            exec_enabled,
             tool_router: Self::tool_router(),
         }
     }
@@ -210,6 +217,20 @@ impl FalconMcp {
         params: Parameters<prompt_lint::PromptLintArgs>,
     ) -> Result<Json<prompt_lint::PromptLintResult>, String> {
         Ok(Json(prompt_lint::prompt_lint(params.0)))
+    }
+
+    #[tool(name = "exec_run", description = "Run an allowlisted external command inside the sandbox. Disabled by default; the server must be started with --enable-exec. Even when enabled, only binaries on the sandbox allowlist (cargo, rustc, rustfmt, ripgrep/rg, git, ast-grep/sg) may run. `cwd` is sandbox-relative (defaults to root); `timeout_ms` defaults to 30000.")]
+    pub async fn exec_run(
+        &self,
+        params: Parameters<exec::ExecRunArgs>,
+    ) -> Result<Json<exec::ExecRunResult>, String> {
+        if !self.exec_enabled {
+            return Err("exec_run disabled (server started without --enable-exec)".to_string());
+        }
+        exec::exec_run(self.sandbox.clone(), params.0)
+            .await
+            .map(Json)
+            .map_err(|e| format!("{e:#}"))
     }
 }
 

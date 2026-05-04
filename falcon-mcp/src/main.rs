@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?;
-    let server = falcon_mcp::FalconMcp::new(sandbox);
+    let server = falcon_mcp::FalconMcp::new_with_options(sandbox, args.enable_exec);
 
     if let Some(_port) = args.http {
         anyhow::bail!("HTTP transport not yet implemented; use --stdio for now (Task 15 wires HTTP)");
