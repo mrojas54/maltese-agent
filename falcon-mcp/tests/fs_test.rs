@@ -497,14 +497,14 @@ async fn fs_search_pattern_injection_treated_as_literal() {
 
 #[tokio::test]
 async fn fs_search_ast_finds_unwraps() {
-    // Skip gracefully if sg is not on PATH (e.g. minimal CI environments).
-    if tokio::process::Command::new("sg")
+    // Skip gracefully if ast-grep is not on PATH (e.g. minimal CI environments).
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
@@ -573,13 +573,13 @@ async fn fs_search_ast_finds_unwraps() {
 
 #[tokio::test]
 async fn fs_search_ast_truncated_at_max() {
-    if tokio::process::Command::new("sg")
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
@@ -630,13 +630,13 @@ async fn fs_search_ast_truncated_at_max() {
 
 #[tokio::test]
 async fn fs_search_ast_no_match_returns_empty() {
-    if tokio::process::Command::new("sg")
+    if tokio::process::Command::new("ast-grep")
         .arg("--version")
         .output()
         .await
         .is_err()
     {
-        eprintln!("skip: sg not on PATH");
+        eprintln!("skip: ast-grep not on PATH");
         return;
     }
 
