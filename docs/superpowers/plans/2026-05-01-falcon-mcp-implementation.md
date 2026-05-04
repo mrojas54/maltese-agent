@@ -1636,7 +1636,7 @@ git commit -m "feat(falcon-mcp): add git.log and git.blame"
 - Token-trigger conditionals (`if X contains Y → respond with Z`)
 - Role overrides (`you are now ...`, `from now on you will ...`)
 
-- [ ] **Step 1: Create `tools/prompt_lint.rs`**
+- [x] **Step 1: Create `tools/prompt_lint.rs`**
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -1702,7 +1702,7 @@ pub fn prompt_lint(args: PromptLintArgs) -> PromptLintResult {
 }
 ```
 
-- [ ] **Step 2: Re-export and wire**
+- [x] **Step 2: Re-export and wire**
 
 `tools/mod.rs`: `pub mod prompt_lint;`
 
@@ -1718,7 +1718,7 @@ pub fn prompt_lint(args: PromptLintArgs) -> PromptLintResult {
     }
 ```
 
-- [ ] **Step 3: Test in `tests/prompt_lint_test.rs`**
+- [x] **Step 3: Test in `tests/prompt_lint_test.rs`**
 
 ```rust
 use rmcp::{ServiceExt, model::CallToolRequestParam};
@@ -1760,7 +1760,7 @@ async fn detects_anomalous_example() {
 }
 ```
 
-- [ ] **Step 4: Run + commit**
+- [x] **Step 4: Run + commit**
 
 ```bash
 cargo test -p falcon-mcp --test prompt_lint_test --quiet
