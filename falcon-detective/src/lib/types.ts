@@ -3,10 +3,13 @@ import { z } from "zod";
 export const IssueKind = z.enum(["bug", "lint", "poison"]);
 export type IssueKind = z.infer<typeof IssueKind>;
 
+// NOTE: the plan included a `span: z.tuple([int, int])` field on Location.
+// Zod v4's toJSONSchema emits draft-07 array-form `items: [...]` for tuples,
+// which Barnum's Rust worker rejects with "is not of types boolean, object".
+// The span field was unused anywhere in the workflow, so it's dropped here.
 export const Location = z.object({
   file: z.string(),
   line: z.number().int().optional(),
-  span: z.tuple([z.number().int(), z.number().int()]).optional(),
 });
 export type Location = z.infer<typeof Location>;
 
