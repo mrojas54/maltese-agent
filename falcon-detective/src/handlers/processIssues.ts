@@ -2,6 +2,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { Issue, PreviousFailure } from "../lib/types.js";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { invokeHandler, type InvokeHandler } from "../lib/invokeHandler.js";
 import { readContext } from "./readContext.js";
 import { classify } from "./classify.js";
 import { analyzePoison } from "./analyzePoison.js";
@@ -15,7 +16,10 @@ import { commitOne } from "./commit.js";
 /**
  * Coarse Barnum handler for the per-issue loop. Inside, the per-issue logic
  * (readContext → classify → propose → applyEdit → verify → commit) runs in
- * plain TypeScript by invoking each smaller handler's underlying definition.
+ * plain TypeScript by invoking each smaller handler through the public
+ * engine API (`runPipeline` via the `invokeHandler` seam — WS-5/AC-13).
+ * Each invocation is engine-mediated (subprocess per call) and validated
+ * against the handler's input/output schemas.
  *
  * Why this shape: Barnum's branch() strips all but `value` from each arm's
  * input, and forEach loses the surrounding context. The plan flagged this
@@ -55,51 +59,52 @@ const Output = z.object({
 
 const MAX_RETRIES = 3;
 
-// Helper: invoke a Barnum handler's underlying definition without going
-// through the engine. The handlers exported by createHandler() expose the
-// implementation on a non-enumerable __definition.handle field.
-async function call<TIn, TOut>(handler: any, value: TIn): Promise<TOut> {
-  return handler.__definition.handle({ value }) as Promise<TOut>;
-}
-
 /** Re-call the appropriate propose-* handler for `tagged.kind`, threading
  *  through the analyzePoison report (poison only) and the optional
  *  previousFailure record from the last broken attempt. */
 async function proposeFor(
+  invoke: InvokeHandler,
   tagged: any,
   poisonAnalysis: any,
   previousFailure: PreviousFailure | undefined,
 ): Promise<{ path: string; diff: string }> {
   if (tagged.kind === "Poison") {
-    return await call<any, any>(proposePoisonFix, {
+    return await invoke(proposePoisonFix, {
       ...poisonAnalysis,
       previousFailure,
     });
   } else if (tagged.kind === "Bug") {
-    return await call<any, any>(proposeBugFix, {
+    return await invoke(proposeBugFix, {
       ...tagged.value,
       previousFailure,
     });
   } else {
-    return await call<any, any>(proposeLintFix, {
+    return await invoke(proposeLintFix, {
       ...tagged.value,
       previousFailure,
     });
   }
 }
 
-export const processIssues = createHandler({
-  inputValidator: Input,
-  outputValidator: Output,
-  handle: async ({ value }) => {
+/**
+ * Factory for processIssues' handle body with the handler-invocation seam
+ * as an injectable parameter (production default: the public runPipeline
+ * path via `invokeHandler`). Orchestration tests (MA-13) inject an
+ * in-process fake here — `vi.mock` cannot cross the engine's process
+ * boundary, so this parameter is the supported substitution point.
+ */
+export function makeProcessIssuesHandle(
+  invoke: InvokeHandler = invokeHandler,
+): (context: { value: z.infer<typeof Input> }) => Promise<z.infer<typeof Output>> {
+  return async ({ value }) => {
     const { mcpBinary, worktreePath, cratePath, issues } = value;
 
     for (const issue of issues) {
       // 1. read file context
-      const ctx = await call<any, any>(readContext, { mcpBinary, worktreePath, issue });
+      const ctx = await invoke<any>(readContext, { mcpBinary, worktreePath, issue });
 
       // 2. classify into { kind, value: { issue, excerpts } }
-      const tagged = await call<any, any>(classify, { issue, excerpts: ctx.excerpts });
+      const tagged = await invoke<any>(classify, { issue, excerpts: ctx.excerpts });
 
       // 3. propose a fix per kind. Poison runs analyzePoison first (it's
       //    independent of any failed attempt — only proposePoisonFix takes
@@ -107,7 +112,7 @@ export const processIssues = createHandler({
       let poisonAnalysis: any = undefined;
       if (tagged.kind === "Poison") {
         try {
-          poisonAnalysis = await call<any, any>(analyzePoison, tagged.value);
+          poisonAnalysis = await invoke<any>(analyzePoison, tagged.value);
         } catch (e) {
           console.error(`[processIssues] analyzePoison failed for ${issue.location.file}: ${(e as Error).message}`);
           continue;
@@ -116,7 +121,7 @@ export const processIssues = createHandler({
 
       let currentDiff: { path: string; diff: string };
       try {
-        currentDiff = await proposeFor(tagged, poisonAnalysis, undefined);
+        currentDiff = await proposeFor(invoke, tagged, poisonAnalysis, undefined);
       } catch (e) {
         console.error(`[processIssues] propose-fix failed for ${issue.location.file}: ${(e as Error).message}`);
         continue;
@@ -148,12 +153,12 @@ export const processIssues = createHandler({
             }
           }
 
-          const apply = await call<any, any>(applyEdit, { mcpBinary, worktreePath, diff: currentDiff });
+          const apply = await invoke<any>(applyEdit, { mcpBinary, worktreePath, diff: currentDiff });
           if (!apply.ok) {
             console.error(`[processIssues] applyEdit failed for ${currentDiff.path}: ${apply.reason}`);
             break;
           }
-          const result = await call<any, any>(verify, { mcpBinary, worktreePath, cratePath, attempt });
+          const result = await invoke<any>(verify, { mcpBinary, worktreePath, cratePath, attempt });
           if (result.kind === "Clean") { succeeded = true; break; }
           if (result.kind === "Stuck") { break; }
 
@@ -170,7 +175,7 @@ export const processIssues = createHandler({
           attempt++;
           if (attempt >= MAX_RETRIES) break;
           try {
-            currentDiff = await proposeFor(tagged, poisonAnalysis, previousFailure);
+            currentDiff = await proposeFor(invoke, tagged, poisonAnalysis, previousFailure);
           } catch (e) {
             console.error(`[processIssues] propose-fix retry failed for ${issue.location.file}: ${(e as Error).message}`);
             break;
@@ -195,7 +200,7 @@ export const processIssues = createHandler({
       // 5. commit on success.
       if (succeeded) {
         try {
-          await call<any, any>(commitOne, { mcpBinary, worktreePath, issue, diffPath: currentDiff.path });
+          await invoke<any>(commitOne, { mcpBinary, worktreePath, issue, diffPath: currentDiff.path });
         } catch (e) {
           console.error(`[processIssues] commit failed for ${currentDiff.path}: ${(e as Error).message}`);
         }
@@ -203,5 +208,11 @@ export const processIssues = createHandler({
     }
 
     return { mcpBinary, worktreePath, cratePath };
-  },
+  };
+}
+
+export const processIssues = createHandler({
+  inputValidator: Input,
+  outputValidator: Output,
+  handle: makeProcessIssuesHandle(),
 }, "processIssues");

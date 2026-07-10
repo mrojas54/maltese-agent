@@ -87,6 +87,34 @@ gate_no_gemini_literals() {
 
 gate_no_gemini_literals
 
+# ---------------------------------------------------------------------------
+# Gate 3 (AC-13, WS-5): no underscore-private Barnum surface in
+# falcon-detective/src. Handler invocation goes exclusively through the
+# public runPipeline seam (falcon-detective/src/lib/invokeHandler.ts);
+# `__definition` (and any other dunder property reach) is the engine
+# worker's internal contract, not supported API. Scope is production src
+# only — test files' in-process reaches are MA-13's charter.
+# ---------------------------------------------------------------------------
+gate_barnum_private_surface() {
+  local gate="barnum-private-surface (AC-13)"
+  local src="$REPO_ROOT/falcon-detective/src"
+
+  if [[ ! -d "$src" ]]; then
+    fail "$gate" "falcon-detective/src not found"
+    return
+  fi
+
+  local hits
+  hits="$(grep -rnE '__definition|\.__[A-Za-z]' "$src" 2>/dev/null)"
+  if [[ -n "$hits" ]]; then
+    fail "$gate" "underscore-private Barnum surface referenced in src: $(printf '%s' "$hits" | head -n 3 | tr '\n' ' | ')"
+  else
+    pass "$gate"
+  fi
+}
+
+gate_barnum_private_surface
+
 # --- append new gates above this line (SPEC R-5) ---------------------------
 
 if [[ "$FAILURES" -gt 0 ]]; then
