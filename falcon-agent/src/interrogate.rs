@@ -1,7 +1,7 @@
 use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
-use std::sync::Arc; // BUG (intentional): planted lint #1 — unused import
+use std::io::Write; // BUG (intentional): planted lint #1 — unused import
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 pub struct InterrogateRequest {

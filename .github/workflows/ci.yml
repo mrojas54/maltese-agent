@@ -51,6 +51,16 @@ jobs:
       - name: cargo test
         run: cargo test --workspace --all-targets
 
+      # G-1: falcon-agent's planted defects (poisoned prompt example, missing
+      # guards, three documented clippy lints, #[ignore]'d smoking-gun test)
+      # are the workshop PRODUCT. This guard (H-8, wired by MA-3 per SPEC R-2)
+      # asserts each defect is present and correctly marked; "fixing" one
+      # fails CI. It runs LAST in this job because it does
+      # `cargo clean -p falcon-agent` between its clippy invocations — placing
+      # it earlier would force needless recompilation in the steps above.
+      - name: Planted-defect guard (G-1)
+        run: ./scripts/check-planted-defects.sh
+
   typescript:
     name: TypeScript (falcon-detective build + test)
     runs-on: ubuntu-latest
