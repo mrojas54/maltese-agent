@@ -13,6 +13,12 @@
  * (`runPipeline` via the src/lib/invokeHandler.ts seam — WS-5/AC-13),
  * sidestepping the bind+VarRef context plumbing that Barnum's strict
  * per-step schemas would otherwise require.
+ *
+ * No casts (WS-14a / AC-34): every stage is a `Handler<In, Out>` from
+ * createHandler, so pipe() checks each connection point exactly (input
+ * invariance) and branch() derives its input union from the arm handlers —
+ * finalSweep's `{ kind: Clean|Dirty, value }` output must and does match
+ * `{ Clean: commitAll's input, Dirty: escalate's input }`.
  */
 import { branch, pipe } from "@barnum/barnum/pipeline";
 import { commitAll, escalate } from "../handlers/commit.js";
@@ -21,13 +27,13 @@ import { prepWorktree } from "../handlers/prepWorktree.js";
 import { processIssues } from "../handlers/processIssues.js";
 import { triage } from "../handlers/triage.js";
 
-export const detective: any = pipe(
-  prepWorktree as any,
-  triage as any,
-  processIssues as any,
-  finalSweep as any,
+export const detective = pipe(
+  prepWorktree,
+  triage,
+  processIssues,
+  finalSweep,
   branch({
-    Clean: commitAll as any,
-    Dirty: escalate as any,
-  }) as any,
+    Clean: commitAll,
+    Dirty: escalate,
+  }),
 );
