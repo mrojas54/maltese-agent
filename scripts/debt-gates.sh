@@ -64,7 +64,56 @@ gate_toolchain_dockerfile_match() {
 gate_toolchain_dockerfile_match
 
 # ---------------------------------------------------------------------------
-# Gate 2 (AC-22, WS-4): no `gemini-` model-ID string literal under
+# Gate 2 (AC-25, WS-3): MAX_STDERR_DISPLAY (stderr truncation for error
+# messages) is defined exactly once, in falcon-mcp/src/limits.rs. Before WS-3
+# it was defined twice (fs_basic.rs and fs_ast.rs).
+# ---------------------------------------------------------------------------
+gate_single_stderr_display_definition() {
+  local gate="single-MAX_STDERR_DISPLAY-definition (AC-25)"
+  local src="$REPO_ROOT/falcon-mcp/src"
+
+  local def_count
+  def_count="$(grep -r --include='*.rs' -E '(pub )?const MAX_STDERR_DISPLAY' "$src" | wc -l | tr -d '[:space:]')"
+  if [[ "$def_count" -ne 1 ]]; then
+    fail "$gate" "expected exactly 1 definition of MAX_STDERR_DISPLAY under falcon-mcp/src, found $def_count"
+    return
+  fi
+  if ! grep -q -E '^pub const MAX_STDERR_DISPLAY' "$src/limits.rs" 2>/dev/null; then
+    fail "$gate" "the single MAX_STDERR_DISPLAY definition is not in falcon-mcp/src/limits.rs"
+    return
+  fi
+  pass "$gate"
+}
+
+gate_single_stderr_display_definition
+
+# ---------------------------------------------------------------------------
+# Gate 3 (AC-25, WS-3): fs_search and fs_search_ast share the one streaming
+# subprocess helper (tools/subprocess.rs) rather than each owning a private
+# spawn/stream/truncate/kill pipeline.
+# ---------------------------------------------------------------------------
+gate_shared_search_subprocess_helper() {
+  local gate="shared-search-subprocess-helper (AC-25)"
+  local tools="$REPO_ROOT/falcon-mcp/src/tools"
+
+  local f
+  for f in fs_basic.rs fs_ast.rs; do
+    if ! grep -q 'run_streaming' "$tools/$f" 2>/dev/null; then
+      fail "$gate" "$f does not use subprocess::run_streaming (search tools must share the helper)"
+      return
+    fi
+    if grep -q -E '\.spawn\(' "$tools/$f" 2>/dev/null; then
+      fail "$gate" "$f still spawns a child directly instead of via the shared helper"
+      return
+    fi
+  done
+  pass "$gate"
+}
+
+gate_shared_search_subprocess_helper
+
+# ---------------------------------------------------------------------------
+# Gate 4 (AC-22, WS-4): no `gemini-` model-ID string literal under
 # falcon-detective/src outside the shared constants module src/lib/models.ts.
 # ---------------------------------------------------------------------------
 gate_no_gemini_literals() {
