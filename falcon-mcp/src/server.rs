@@ -291,7 +291,7 @@ impl FalconMcp {
 
     #[tool(
         name = "exec_run",
-        description = "Run an allowlisted external command inside the sandbox. Disabled by default; the server must be started with --enable-exec. Even when enabled, only binaries on the sandbox allowlist (cargo, rustc, rustfmt, ripgrep/rg, git, ast-grep/sg) may run. `cwd` is sandbox-relative (defaults to root); `timeout_ms` defaults to 30000."
+        description = "Run an allowlisted external command inside the sandbox. Disabled by default; the server must be started with --enable-exec. Even when enabled, only binaries on the sandbox allowlist (cargo, rustc, rustfmt, rg, git, ast-grep) may run, each executed via the absolute path resolved at server startup — call-time PATH changes cannot substitute a binary. `cwd` is sandbox-relative (defaults to root); `timeout_ms` defaults to 30000."
     )]
     pub async fn exec_run(
         &self,

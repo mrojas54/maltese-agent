@@ -1,10 +1,14 @@
 //! `exec_run`: run an allowlisted external command inside the sandbox.
 //!
 //! Disabled by default. The MCP server only registers this tool when
-//! `--enable-exec` is passed on the CLI, and even then `Sandbox::check_bin`
-//! restricts the binary to the same allowlist used by the cargo/git tools
-//! (cargo, rustc, rustfmt, ripgrep/rg, git, ast-grep/sg). Arbitrary commands
-//! like `curl`, `bash`, or `sh` are rejected.
+//! `--enable-exec` is passed on the CLI, and even then the binary is
+//! restricted to the sandbox allowlist (cargo, rustc, rustfmt, rg, git,
+//! ast-grep). Arbitrary commands like `curl`, `bash`, or `sh` are rejected.
+//!
+//! Allowlisted names are executed via the absolute path resolved from the
+//! PATH seen at server startup (`Sandbox::resolved_bin`), never by bare-name
+//! lookup at call time — so PATH manipulation after startup cannot substitute
+//! another binary for an allowlisted name (AC-21).
 //!
 //! `cwd` is resolved through the sandbox jail and defaults to the sandbox
 //! root. Output is captured in full (stdout/stderr) and returned with the
@@ -48,13 +52,16 @@ pub struct ExecRunResult {
 }
 
 pub async fn exec_run(sandbox: Arc<Sandbox>, args: ExecRunArgs) -> anyhow::Result<ExecRunResult> {
-    sandbox.check_bin(&args.cmd)?;
+    // Allowlist gate + startup-time resolution in one step: `bin` is the
+    // absolute path pinned when the sandbox was constructed, so a PATH
+    // changed after startup cannot swap in a different binary (AC-21).
+    let bin = sandbox.resolved_bin(&args.cmd)?;
     let cwd = match &args.cwd {
         Some(c) => sandbox.resolve(c).context("resolving cwd")?,
         None => sandbox.root().to_path_buf(),
     };
 
-    let mut cmd = tokio::process::Command::new(&args.cmd);
+    let mut cmd = tokio::process::Command::new(bin);
     cmd.args(&args.args).current_dir(&cwd);
 
     // The shared helper owns stdio hygiene and the wall-clock timeout; the
