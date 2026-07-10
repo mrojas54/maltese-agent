@@ -13,8 +13,9 @@ export type Mode = "live" | "cassette" | "record";
 //
 // Deliberately decoupled from @google/genai's error classes: detection is
 // duck-typed over `unknown` (structured `status`/`code` fields first, message
-// fallback second), so the genai 2.x migration (MA-19) only needs to remap
-// this outermost layer if the SDK's error surface changes.
+// fallback second). Verified against @google/genai 2.11.0 (MA-19): its
+// `ApiError extends Error` still carries `status: number`, so no remap of
+// this outermost layer was needed for the 2.x migration.
 // ---------------------------------------------------------------------------
 
 export type TransientErrorKind =
