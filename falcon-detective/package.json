@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "e2e:fingerprint": "tsx scripts/write-e2e-fingerprint.ts",
     "fix": "tsx src/cli.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

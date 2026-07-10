@@ -7,13 +7,22 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  FINGERPRINT_MANIFEST,
+  checkCassetteFreshness,
+  computeWorkflowFingerprint,
+  readFingerprintManifest,
+  writeFingerprintManifest,
+} from "./helpers/e2eFingerprint.js";
 import {
   type GuardOutcome,
   applyGuardOutcome,
   checkE2ePrereqs,
   dirtyPaths,
+  hasCassettes,
 } from "./helpers/e2ePrereqs.js";
 
 // Hermetic proof of the e2e guard behaviors (AC-1..AC-4). Everything here
@@ -210,5 +219,195 @@ describe("e2e guard: all prerequisites met", () => {
     const ctx = spyCtx();
     expect(() => applyGuardOutcome(outcome, ctx)).not.toThrow();
     expect(ctx.skipped).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cassette-staleness fast path (MA-26). The verdict the pipeline used to
+// deliver only after ~60s of cargo work is hoisted into a fingerprint
+// comparison that runs BEFORE the pipeline launches. Same skip/fail
+// semantics as the post-pipeline detection, hermetic mkdtemp fixtures.
+// ---------------------------------------------------------------------------
+
+/** makeFixture() plus a workflow dir (stand-in for src/ + prompts/). */
+function makeFingerprintFixture() {
+  const base = makeFixture();
+  const workflowDir = join(repo, "wf");
+  mkdirSync(join(workflowDir, "prompts"), { recursive: true });
+  writeFileSync(join(workflowDir, "prompts", "triage.md"), "triage v1\n");
+  writeFileSync(join(workflowDir, "gemini.ts"), "// hashing code v1\n");
+  const fingerprintInput = {
+    repoRoot: repo,
+    workflowPaths: [workflowDir],
+    model: "gemini-test-model",
+  };
+  return { ...base, workflowDir, fingerprintInput };
+}
+
+const STALE_PREFIX =
+  "cassette miss — cassettes are stale relative to the workflow code";
+
+describe("e2e staleness fast path: fresh cassettes (MA-26)", () => {
+  it("returns run when the recorded fingerprint matches the current state", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    writeFingerprintManifest(
+      cassetteDir,
+      computeWorkflowFingerprint(fingerprintInput),
+    );
+
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: false,
+    });
+    expect(outcome.kind).toBe("run");
+  });
+
+  it("manifest round-trips through write/read", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    const components = computeWorkflowFingerprint(fingerprintInput);
+    writeFingerprintManifest(cassetteDir, components);
+    expect(readFingerprintManifest(cassetteDir)).toEqual(components);
+  });
+});
+
+describe("e2e staleness fast path: missing manifest ⇒ stale (MA-26)", () => {
+  it("skips with the cassette-miss/stale message and a re-record pointer", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    // No manifest written — the state of the repo before the first
+    // `npm run e2e:fingerprint` (freshness cannot be proven).
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: false,
+    });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") {
+      expect(outcome.reason).toContain(STALE_PREFIX);
+      expect(outcome.reason).toContain("re-record");
+      expect(outcome.reason).toContain(FINGERPRINT_MANIFEST);
+    }
+
+    const ctx = spyCtx();
+    applyGuardOutcome(outcome, ctx);
+    expect(ctx.skipped).toHaveLength(1);
+  });
+
+  it("fails under E2E_REQUIRED=1 with the 'could not run' phrasing", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    expect(() =>
+      applyGuardOutcome(
+        outcome,
+        spyCtx(),
+        "E2E_REQUIRED=1 but the e2e could not run: ",
+      ),
+    ).toThrowError(/E2E_REQUIRED=1 but the e2e could not run: cassette miss/);
+  });
+
+  it("treats a corrupt manifest as stale rather than crashing", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    writeFileSync(join(cassetteDir, FINGERPRINT_MANIFEST), "not json{");
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: false,
+    });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") expect(outcome.reason).toContain(STALE_PREFIX);
+  });
+});
+
+describe("e2e staleness fast path: fingerprint drift ⇒ stale (MA-26)", () => {
+  it("detects workflow drift (a prompt template changed) and names the component", () => {
+    const { cassetteDir, workflowDir, fingerprintInput } =
+      makeFingerprintFixture();
+    writeFingerprintManifest(
+      cassetteDir,
+      computeWorkflowFingerprint(fingerprintInput),
+    );
+    writeFileSync(join(workflowDir, "prompts", "triage.md"), "triage v2\n");
+
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: false,
+    });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") {
+      expect(outcome.reason).toContain(STALE_PREFIX);
+      expect(outcome.reason).toContain("workflow drifted");
+    }
+  });
+
+  it("detects seed drift (a new falcon-agent commit)", () => {
+    const { mainRs, cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    writeFingerprintManifest(
+      cassetteDir,
+      computeWorkflowFingerprint(fingerprintInput),
+    );
+    writeFileSync(mainRs, 'fn main() { println!("new seed"); }\n');
+    git("add", "-A");
+    git("commit", "-q", "-m", "seed change");
+
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      cassetteDir,
+      required: false,
+    });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") expect(outcome.reason).toContain("seed");
+  });
+
+  it("detects model drift and fails under E2E_REQUIRED=1", () => {
+    const { cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    writeFingerprintManifest(
+      cassetteDir,
+      computeWorkflowFingerprint(fingerprintInput),
+    );
+
+    const outcome = checkCassetteFreshness({
+      ...fingerprintInput,
+      model: "gemini-other-model",
+      cassetteDir,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    if (outcome.kind === "fail") expect(outcome.reason).toContain("model");
+  });
+});
+
+describe("e2e staleness fast path: interplay with the cassette guard (MA-26)", () => {
+  it("the fingerprint manifest alone does not count as a cassette", () => {
+    const { mcpBin, cassetteDir, fingerprintInput } = makeFingerprintFixture();
+    rmSync(join(cassetteDir, "abc123.json"));
+    writeFingerprintManifest(
+      cassetteDir,
+      computeWorkflowFingerprint(fingerprintInput),
+    );
+
+    expect(hasCassettes(cassetteDir)).toBe(false);
+    // The AC-4 missing-cassette guard fires before freshness is consulted.
+    const outcome = prereqs({ mcpBin, cassetteDir });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") expect(outcome.reason).toContain(cassetteDir);
+  });
+});
+
+describe("e2e worker-blockage regression (MA-26)", () => {
+  it("tests/e2e.test.ts uses no synchronous child_process exec", () => {
+    // The 2026-07 CI flake (vitest `Timeout calling "onTaskUpdate"`, PR #41)
+    // was caused by execFileSync blocking the worker event loop for the ~62s
+    // pipeline run. The e2e must spawn its long subprocesses asynchronously.
+    const e2eSource = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "e2e.test.ts"),
+      "utf8",
+    );
+    expect(e2eSource).not.toMatch(/\b(execFileSync|execSync|spawnSync)\b/);
   });
 });

@@ -52,7 +52,12 @@ export function dirtyPaths(
 
 export function hasCassettes(dir: string): boolean {
   if (!existsSync(dir)) return false;
-  return readdirSync(dir).some((f) => f.endsWith(".json"));
+  // Dotfiles are metadata, not cassettes: the fingerprint manifest
+  // (.e2e-fingerprint.json, see e2eFingerprint.ts) must never satisfy the
+  // cassette-presence prerequisite on its own.
+  return readdirSync(dir).some(
+    (f) => f.endsWith(".json") && !f.startsWith("."),
+  );
 }
 
 export function checkE2ePrereqs(input: E2ePrereqInput): GuardOutcome {
@@ -86,15 +91,18 @@ export function checkE2ePrereqs(input: E2ePrereqInput): GuardOutcome {
  * vitest 3's `ctx.skip(note?)` accepts the reason as a note and throws to
  * abort the test body (nothing after the call runs). The reason is ALSO
  * logged to stderr because skip notes are not surfaced by every reporter.
+ *
+ * `failPrefix` defaults to MA-2's prerequisite phrasing; the MA-26 cassette
+ * staleness fast path passes "E2E_REQUIRED=1 but the e2e could not run: " to
+ * preserve the exact message the post-pipeline stale detection produced.
  */
 export function applyGuardOutcome(
   outcome: GuardOutcome,
   ctx: { skip: (reason?: string) => void },
+  failPrefix = "E2E_REQUIRED=1 but e2e prerequisites are unmet: ",
 ): void {
   if (outcome.kind === "fail") {
-    throw new Error(
-      `E2E_REQUIRED=1 but e2e prerequisites are unmet: ${outcome.reason}`,
-    );
+    throw new Error(`${failPrefix}${outcome.reason}`);
   }
   if (outcome.kind === "skip") {
     console.error(`e2e skipped: ${outcome.reason}`);
