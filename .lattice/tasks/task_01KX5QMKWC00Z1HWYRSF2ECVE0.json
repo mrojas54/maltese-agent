@@ -1,0 +1,41 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-10T10:02:14Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN M1 / WS-2 (BUILDPLAN id MA-03). Fix MARKERS in falcon-agent, never the planted defects (G-1): move planted-lint-1 marker to the real dead import use std::io::Write (interrogate.rs:3); rewrite the ignore reason on bird_themed_inputs_arent_special to name the intentional workshop smoking-gun with README pointer (the word flaky must not appear); flag the poisoned third example in prompt.rs module doc; FIX the undocumented 4th lint default_constructed_unit_structs at main.rs:16 (canonical planted set stays exactly three). Wire the MA-01 check-planted-defects.sh into CI in THIS PR. Append AC-7/AC-8 grep gates to scripts/debt-gates.sh (SPEC R-5). ACs: AC-6..AC-9. Depends: MA-01, MA-04. Serialize: ci.yml. Size S.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX5QMKWC00Z1HWYRSF2ECVE0",
+  "last_event_id": "ev_01KX5QMWWKN2BVA37GEKAFM2BS",
+  "last_status_changed_at": "2026-07-10T10:02:14Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-10T10:02:23Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMJYP6WCF6GHNW9V80AX9",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-07-10T10:02:24Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMMBAXVXEX4ZKDD740RM3",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-3",
+  "status": "backlog",
+  "tags": null,
+  "title": "Fix intentional-defect markers and wire guard into CI",
+  "type": "task",
+  "updated_at": "2026-07-10T10:02:24Z",
+  "urgency": null
+}

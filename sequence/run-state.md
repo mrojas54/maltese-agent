@@ -46,7 +46,7 @@ minted directly in `EVALUATION.md` (AC-1..AC-34), each traceable to a TD finding
 - Phase 2 judge-gate: DONE (REVISE → all defects resolved).
 - Phase 3 fork round: DONE (3/3).
 - Phase 4 adversarial codebase pass: DONE (7/7 folded in).
-- Phase 4 contract review (operator): **PRESENTED — awaiting operator verdict.** On approval, invoke `lattice-orchestrator` with the three root contract artifacts.
+- Phase 4 contract review (operator): **APPROVED 2026-07-10.** Contract (commit 9f72697) is binding. Phase 5 handoff: `lattice-orchestrator` invoked with the three root contract artifacts.
 
 ## Stats
 
