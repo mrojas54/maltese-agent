@@ -35,6 +35,22 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
 
+      # TD-9 / AC-17 (WS-7): supply-chain gate. Prebuilt binary via
+      # taiki-e/install-action (~1s), same rationale as the ast-grep install
+      # below — `cargo install cargo-audit` would add ~3min of compile.
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # Audits Cargo.lock against the RustSec database; runs pre-compile so
+      # advisory failures surface fast. Accepted advisories, if ever any,
+      # are allowlisted in .cargo/audit.toml — each with a comment (AC-17).
+      # G-1: if an advisory lands in falcon-agent's deps, the allowlist is
+      # the ONLY permitted response; planted material is never altered.
+      - name: cargo audit
+        run: cargo audit
+
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
@@ -96,6 +112,17 @@ jobs:
       - name: npm ci
         working-directory: falcon-detective
         run: npm ci
+
+      # TD-9 / AC-17 (WS-7): supply-chain gate; fails on high/critical
+      # advisories in package-lock.json. Policy: fix-in-range first
+      # (`npm audit fix`); npm audit has no native ignore file, so if an
+      # advisory ever has NO fix and must be accepted, allowlist it in-repo
+      # with a commented exceptions list (e.g. better-npm-audit + .nsprc,
+      # each entry carrying reason + revisit date) and swap this step to run
+      # through it. No accepted advisories exist today.
+      - name: npm audit (high+)
+        working-directory: falcon-detective
+        run: npm audit --audit-level=high
 
       - name: biome lint (TD-8 / AC-16)
         working-directory: falcon-detective
