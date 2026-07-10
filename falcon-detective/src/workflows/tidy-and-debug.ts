@@ -9,7 +9,8 @@
  * for the rationale. The smaller per-issue handlers (readContext, classify,
  * analyzePoison, proposePoisonFix, proposeBugFix, proposeLintFix, applyEdit,
  * verify, commitOne, revertOne) are still independently exported and
- * unit-testable; processIssues just calls their __definition.handle directly,
+ * unit-testable; processIssues invokes them through the public engine API
+ * (`runPipeline` via the src/lib/invokeHandler.ts seam — WS-5/AC-13),
  * sidestepping the bind+VarRef context plumbing that Barnum's strict
  * per-step schemas would otherwise require.
  */
