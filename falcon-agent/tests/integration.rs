@@ -61,7 +61,7 @@ async fn benign_input_returns_correct_attribution() {
     s.shutdown().await;
 }
 
-#[ignore = "TODO investigate flaky"]
+#[ignore = "INTENTIONAL workshop smoking-gun — do not fix; see falcon-agent/README.md §Planted bugs"]
 #[tokio::test]
 async fn bird_themed_inputs_arent_special() {
     let s = TestServer::spawn().await;

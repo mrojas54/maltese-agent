@@ -13,7 +13,7 @@ async fn main() -> anyhow::Result<()> {
 
     let llm: Arc<dyn falcon_agent::llm::LlmClient> = match std::env::var("FALCON_LLM").as_deref() {
         Ok("real") => Arc::new(falcon_agent::llm::RealGemini::from_env()?),
-        _ => Arc::new(falcon_agent::llm::FakePoisonedLlm::default()),
+        _ => Arc::new(falcon_agent::llm::FakePoisonedLlm),
     };
 
     let app = Router::new()
