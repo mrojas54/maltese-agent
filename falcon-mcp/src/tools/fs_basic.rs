@@ -149,49 +149,41 @@ const MAX_DIFF_BYTES: usize = 8 * 1024 * 1024; // 8 MiB
 /// Maximum number of hunks in an accepted unified diff.
 const MAX_HUNK_COUNT: usize = 10_000;
 
-/// Apply a unified diff to a file inside the sandbox.
+/// Validate pre-parse input limits for `fs_apply_patch`.
 ///
-/// The algorithm:
-///  1. Parse the diff with the `patch` crate.
-///  2. Walk hunks in order, verifying that context lines match the file.
-///  3. Reconstruct the output by interleaving unchanged lines with hunk output.
-///  4. Write the result back to disk.
-///
-/// Returns `result: "conflict"` for: diff exceeding size limits, malformed diff,
-/// context-line mismatch, or hunk targeting a line range outside the file.
-/// Never panics on user-controlled input.
-pub async fn fs_apply_patch(
-    sandbox: Arc<Sandbox>,
-    args: FsApplyPatchArgs,
-) -> anyhow::Result<FsApplyPatchResult> {
-    sandbox.check_writable()?;
-
-    // Cap input size before any parsing to guard against OOM from multi-GB diffs.
-    if args.unified_diff.len() > MAX_DIFF_BYTES {
-        return Ok(FsApplyPatchResult::conflict(format!(
+/// Caps the diff's byte length *before any parsing* to guard against OOM from
+/// multi-GB diffs. On rejection, returns the conflict reason.
+fn validate_limits(unified_diff: &str) -> Result<(), String> {
+    if unified_diff.len() > MAX_DIFF_BYTES {
+        return Err(format!(
             "diff exceeds maximum allowed size of {} bytes",
             MAX_DIFF_BYTES
-        )));
+        ));
     }
+    Ok(())
+}
 
-    let path = sandbox.resolve(&args.path).context("resolving path")?;
-
-    let original = tokio::fs::read_to_string(&path)
-        .await
-        .context("reading file")?;
-
-    // Parse the unified diff; borrow args.unified_diff for the lifetime of the parse.
-    // patch-0.7 panics (rather than returning Err) on inputs with trailing
-    // unrecognized content — common with LLM-generated diffs that include
-    // stray prose or duplicate hunks. Wrap the parse in catch_unwind so a
-    // panic surfaces as a clean conflict response instead of crashing the
-    // worker thread.
+/// Parse a unified diff into structured hunks.
+///
+/// patch-0.7 panics (rather than returning Err) on inputs with trailing
+/// unrecognized content — common with LLM-generated diffs that include
+/// stray prose or duplicate hunks. The parse is wrapped in catch_unwind so a
+/// panic surfaces as a clean conflict reason instead of crashing the
+/// worker thread.
+///
+/// Also enforces the hunk-count cap ([`MAX_HUNK_COUNT`]) to guard against
+/// memory exhaustion. The cap lives here rather than in [`validate_limits`]
+/// because it can only be checked after parsing, whereas the byte cap must
+/// run before parsing.
+///
+/// On rejection, returns the conflict reason.
+fn parse_hunks(unified_diff: &str) -> Result<patch::Patch<'_>, String> {
     let parsed = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        patch::Patch::from_single(&args.unified_diff)
+        patch::Patch::from_single(unified_diff)
     })) {
         Ok(Ok(p)) => p,
         Ok(Err(e)) => {
-            return Ok(FsApplyPatchResult::conflict(format!("malformed diff: {e}")));
+            return Err(format!("malformed diff: {e}"));
         }
         Err(panic) => {
             let msg = panic
@@ -199,21 +191,33 @@ pub async fn fs_apply_patch(
                 .map(|s| (*s).to_string())
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_else(|| "patch parser panicked".to_string());
-            return Ok(FsApplyPatchResult::conflict(format!(
-                "malformed diff (parser panicked): {msg}"
-            )));
+            return Err(format!("malformed diff (parser panicked): {msg}"));
         }
     };
 
     // Cap the number of hunks to guard against memory exhaustion.
     if parsed.hunks.len() > MAX_HUNK_COUNT {
-        return Ok(FsApplyPatchResult::conflict(format!(
+        return Err(format!(
             "diff contains {} hunks, exceeding maximum of {}",
             parsed.hunks.len(),
             MAX_HUNK_COUNT
-        )));
+        ));
     }
 
+    Ok(parsed)
+}
+
+/// Apply parsed hunks to file content.
+///
+/// Walks hunks in order, verifying that context and remove lines match the
+/// original file, and reconstructs the output by interleaving unchanged lines
+/// with hunk output. Returns `(new_content, add_count)` where `add_count` is
+/// the number of `+` lines across all hunks — a stable, easy-to-explain
+/// metric for "lines changed".
+///
+/// On rejection (context-line mismatch, or a hunk targeting a line range
+/// outside the file), returns the conflict reason.
+fn splice_lines(original: &str, parsed: &patch::Patch<'_>) -> Result<(String, usize), String> {
     // Split original into lines WITHOUT their trailing newlines (matching what
     // the patch crate stores in Line::Context/Remove).  We track the final
     // newline separately via `end_newline`.
@@ -225,7 +229,6 @@ pub async fn fs_apply_patch(
     let mut old_line: usize = 0;
 
     // Count of `+` lines across all hunks — used as lines_changed metric.
-    // Counting Add lines is a stable, easy-to-explain metric for "lines changed".
     let mut add_count: usize = 0;
 
     for hunk in &parsed.hunks {
@@ -233,17 +236,13 @@ pub async fn fs_apply_patch(
         let hunk_start = match usize::try_from(hunk.old_range.start) {
             Ok(v) => v,
             Err(_) => {
-                return Ok(FsApplyPatchResult::conflict(
-                    "hunk old_range.start overflows usize".to_string(),
-                ));
+                return Err("hunk old_range.start overflows usize".to_string());
             }
         };
         let hunk_old_count = match usize::try_from(hunk.old_range.count) {
             Ok(v) => v,
             Err(_) => {
-                return Ok(FsApplyPatchResult::conflict(
-                    "hunk old_range.count overflows usize".to_string(),
-                ));
+                return Err("hunk old_range.count overflows usize".to_string());
             }
         };
 
@@ -252,11 +251,11 @@ pub async fn fs_apply_patch(
 
         // Validate that the hunk doesn't reference lines beyond EOF.
         if target > orig_lines.len() {
-            return Ok(FsApplyPatchResult::conflict(format!(
+            return Err(format!(
                 "hunk targets line {} but file has only {} lines",
                 hunk_start,
                 orig_lines.len()
-            )));
+            ));
         }
 
         // Use checked_add to prevent overflow when hunk_old_count is huge.
@@ -264,12 +263,12 @@ pub async fn fs_apply_patch(
             Some(end) if end <= orig_lines.len() => {}
             _ => {
                 let last = hunk_start.saturating_add(hunk_old_count).saturating_sub(1);
-                return Ok(FsApplyPatchResult::conflict(format!(
+                return Err(format!(
                     "hunk range {}-{} extends beyond file length {}",
                     hunk_start,
                     last,
                     orig_lines.len()
-                )));
+                ));
             }
         }
 
@@ -286,12 +285,12 @@ pub async fn fs_apply_patch(
                     // Context line must match the file; if not, the diff is stale.
                     if old_line >= orig_lines.len() || orig_lines[old_line] != *ctx {
                         let file_line = orig_lines.get(old_line).copied().unwrap_or("<eof>");
-                        return Ok(FsApplyPatchResult::conflict(format!(
+                        return Err(format!(
                             "context mismatch at line {}: expected {:?}, got {:?}",
                             old_line + 1,
                             ctx,
                             file_line
-                        )));
+                        ));
                     }
                     out.push(orig_lines[old_line]);
                     old_line += 1;
@@ -300,12 +299,12 @@ pub async fn fs_apply_patch(
                     // Remove line must also match.
                     if old_line >= orig_lines.len() || orig_lines[old_line] != *rem {
                         let file_line = orig_lines.get(old_line).copied().unwrap_or("<eof>");
-                        return Ok(FsApplyPatchResult::conflict(format!(
+                        return Err(format!(
                             "remove mismatch at line {}: expected {:?}, got {:?}",
                             old_line + 1,
                             rem,
                             file_line
-                        )));
+                        ));
                     }
                     // Consume from original but do not push to output.
                     old_line += 1;
@@ -332,6 +331,46 @@ pub async fn fs_apply_patch(
     if want_trailing_newline {
         new_content.push('\n');
     }
+
+    Ok((new_content, add_count))
+}
+
+/// Apply a unified diff to a file inside the sandbox.
+///
+/// Composes three separately tested units:
+///  1. [`validate_limits`] — pre-parse input caps.
+///  2. [`parse_hunks`] — unified diff → structured hunks (panic-safe).
+///  3. [`splice_lines`] — hunks applied to the file content.
+///
+/// Returns `result: "conflict"` for: diff exceeding size limits, malformed diff,
+/// context-line mismatch, or hunk targeting a line range outside the file.
+/// Never panics on user-controlled input.
+pub async fn fs_apply_patch(
+    sandbox: Arc<Sandbox>,
+    args: FsApplyPatchArgs,
+) -> anyhow::Result<FsApplyPatchResult> {
+    sandbox.check_writable()?;
+
+    if let Err(reason) = validate_limits(&args.unified_diff) {
+        return Ok(FsApplyPatchResult::conflict(reason));
+    }
+
+    let path = sandbox.resolve(&args.path).context("resolving path")?;
+
+    let original = tokio::fs::read_to_string(&path)
+        .await
+        .context("reading file")?;
+
+    // parse_hunks borrows args.unified_diff for the lifetime of the parse.
+    let parsed = match parse_hunks(&args.unified_diff) {
+        Ok(p) => p,
+        Err(reason) => return Ok(FsApplyPatchResult::conflict(reason)),
+    };
+
+    let (new_content, add_count) = match splice_lines(&original, &parsed) {
+        Ok(v) => v,
+        Err(reason) => return Ok(FsApplyPatchResult::conflict(reason)),
+    };
 
     tokio::fs::write(&path, new_content.as_bytes())
         .await
@@ -476,4 +515,222 @@ pub async fn fs_search(
         matches,
         truncated: outcome.truncated,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---- validate_limits ---------------------------------------------------
+
+    #[test]
+    fn validate_limits_accepts_small_diff() {
+        assert!(validate_limits("--- a/f\n+++ b/f\n@@ -1,1 +1,1 @@\n-a\n+b\n").is_ok());
+    }
+
+    #[test]
+    fn validate_limits_accepts_exactly_max_bytes() {
+        let diff = "x".repeat(MAX_DIFF_BYTES);
+        assert!(validate_limits(&diff).is_ok());
+    }
+
+    #[test]
+    fn validate_limits_rejects_oversized_diff() {
+        let diff = "x".repeat(MAX_DIFF_BYTES + 1);
+        let reason = validate_limits(&diff).unwrap_err();
+        assert_eq!(
+            reason,
+            format!(
+                "diff exceeds maximum allowed size of {} bytes",
+                MAX_DIFF_BYTES
+            )
+        );
+    }
+
+    // ---- parse_hunks -------------------------------------------------------
+
+    #[test]
+    fn parse_hunks_parses_valid_single_hunk() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+        let parsed = parse_hunks(diff).expect("valid diff parses");
+        assert_eq!(parsed.hunks.len(), 1);
+        assert_eq!(parsed.hunks[0].old_range.start, 1);
+        assert_eq!(parsed.hunks[0].old_range.count, 2);
+        assert_eq!(parsed.hunks[0].new_range.start, 1);
+        assert_eq!(parsed.hunks[0].new_range.count, 2);
+        assert!(parsed.end_newline);
+    }
+
+    #[test]
+    fn parse_hunks_preserves_no_newline_flag() {
+        let diff =
+            "--- a/f.txt\n+++ b/f.txt\n@@ -1,1 +1,1 @@\n-world\n+falcon\n\\ No newline at end of file\n";
+        let parsed = parse_hunks(diff).expect("valid diff parses");
+        assert!(!parsed.end_newline);
+    }
+
+    #[test]
+    fn parse_hunks_reports_malformed_diff() {
+        let reason = parse_hunks("this is not a diff at all").unwrap_err();
+        assert!(
+            reason.starts_with("malformed diff:"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn parse_hunks_recovers_parser_panic_on_trailing_prose() {
+        // patch-0.7 panics (not Err) on trailing unparsed content; parse_hunks
+        // must convert the panic into a conflict reason.
+        let diff =
+            "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\nstray prose\n";
+        let reason = parse_hunks(diff).unwrap_err();
+        assert!(
+            reason.starts_with("malformed diff (parser panicked):"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn parse_hunks_recovers_parser_panic_on_concatenated_patches() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,1 +1,1 @@\n-a\n+b\n\
+                    --- a/g.txt\n+++ b/g.txt\n@@ -1,1 +1,1 @@\n-c\n+d\n";
+        let reason = parse_hunks(diff).unwrap_err();
+        assert!(
+            reason.starts_with("malformed diff (parser panicked):"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn parse_hunks_rejects_hunk_count_over_cap() {
+        let mut diff = String::from("--- a/f.txt\n+++ b/f.txt\n");
+        for i in 0..(MAX_HUNK_COUNT + 1) {
+            let line = i * 2 + 1;
+            diff.push_str(&format!("@@ -{line},1 +{line},1 @@\n-a\n+b\n"));
+        }
+        let reason = parse_hunks(&diff).unwrap_err();
+        assert_eq!(
+            reason,
+            format!(
+                "diff contains {} hunks, exceeding maximum of {}",
+                MAX_HUNK_COUNT + 1,
+                MAX_HUNK_COUNT
+            )
+        );
+    }
+
+    // ---- splice_lines ------------------------------------------------------
+
+    /// Parse `diff` (must be a valid unified diff) and splice it onto `original`.
+    fn splice(original: &str, diff: &str) -> Result<(String, usize), String> {
+        let parsed = parse_hunks(diff).expect("test diff must parse");
+        splice_lines(original, &parsed)
+    }
+
+    #[test]
+    fn splice_replaces_line_happy_path() {
+        let diff = "--- a/greet.txt\n+++ b/greet.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+        let (content, added) = splice("hello\nworld\n", diff).expect("patch applies");
+        assert_eq!(content, "hello\nfalcon\n");
+        assert_eq!(added, 1);
+    }
+
+    #[test]
+    fn splice_applies_multiple_hunks() {
+        let original = "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\n";
+        let diff = "--- a/f.txt\n+++ b/f.txt\n\
+                    @@ -1,2 +1,2 @@\n one\n-two\n+TWO\n\
+                    @@ -7,2 +7,3 @@\n seven\n-eight\n+EIGHT\n+nine\n";
+        let (content, added) = splice(original, diff).expect("patch applies");
+        assert_eq!(
+            content,
+            "one\nTWO\nthree\nfour\nfive\nsix\nseven\nEIGHT\nnine\n"
+        );
+        assert_eq!(added, 3);
+    }
+
+    #[test]
+    fn splice_counts_only_added_lines() {
+        let original = "keep\ndrop\n";
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,3 @@\n keep\n-drop\n+new one\n+new two\n";
+        let (content, added) = splice(original, diff).expect("patch applies");
+        assert_eq!(content, "keep\nnew one\nnew two\n");
+        assert_eq!(added, 2);
+    }
+
+    #[test]
+    fn splice_context_mismatch_conflicts() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+        let reason = splice("goodbye\nworld\n", diff).unwrap_err();
+        assert!(
+            reason.starts_with("context mismatch at line 1:"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn splice_remove_mismatch_conflicts() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,2 +1,2 @@\n hello\n-world\n+falcon\n";
+        let reason = splice("hello\nplanet\n", diff).unwrap_err();
+        assert!(
+            reason.starts_with("remove mismatch at line 2:"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn splice_hunk_offset_drift_conflicts() {
+        // The hunk's lines exist in the file, but the header start has drifted
+        // by one line; exact-offset semantics reject this (no fuzzy matching).
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -2,2 +2,2 @@\n hello\n-world\n+falcon\n";
+        let reason = splice("hello\nworld\nend\n", diff).unwrap_err();
+        assert!(
+            reason.starts_with("context mismatch at line 2:"),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn splice_hunk_beyond_eof_conflicts() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -10,1 +10,1 @@\n-x\n+y\n";
+        let reason = splice("one\ntwo\n", diff).unwrap_err();
+        assert_eq!(reason, "hunk targets line 10 but file has only 2 lines");
+    }
+
+    #[test]
+    fn splice_hunk_range_extends_beyond_file_conflicts() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -2,4 +2,4 @@\n two\n-x\n-y\n-z\n+a\n+b\n+c\n";
+        let reason = splice("one\ntwo\nthree\n", diff).unwrap_err();
+        assert_eq!(reason, "hunk range 2-5 extends beyond file length 3");
+    }
+
+    #[test]
+    fn splice_huge_count_overflow_conflicts() {
+        // Unit-level mirror of the integration regression test: a crafted
+        // header with a huge count must conflict, not overflow or panic.
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -1,4294967295 +1,1 @@\n one\n+replaced\n";
+        let reason = splice("one\ntwo\n", diff).unwrap_err();
+        assert!(
+            reason.starts_with("hunk range "),
+            "unexpected reason: {reason}"
+        );
+    }
+
+    #[test]
+    fn splice_no_trailing_newline_patch() {
+        let diff =
+            "--- a/f.txt\n+++ b/f.txt\n@@ -1,1 +1,1 @@\n-world\n+falcon\n\\ No newline at end of file\n";
+        let (content, added) = splice("world\n", diff).expect("patch applies");
+        assert_eq!(content, "falcon");
+        assert_eq!(added, 1);
+    }
+
+    #[test]
+    fn splice_empty_file_insert() {
+        let diff = "--- a/f.txt\n+++ b/f.txt\n@@ -0,0 +1,1 @@\n+first\n";
+        let (content, added) = splice("", diff).expect("patch applies");
+        assert_eq!(content, "first\n");
+        assert_eq!(added, 1);
+    }
 }
