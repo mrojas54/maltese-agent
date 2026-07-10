@@ -1,0 +1,41 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-10T10:02:22Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN M4 final sweep (BUILDPLAN id MA-22). e2e green on the NEW cassettes (after the human-track re-record); every harness H-1..H-9 green; debt-gates closeout. ACs: all (terminal). Depends: human-track re-record, MA-21. Size S.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX5QMVRJ2NHMG4JD6QM5N428",
+  "last_event_id": "ev_01KX5QN2NYCAR2BNM26Q95YWCY",
+  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-10T10:02:29Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMW38BFF2RX3YCS26S8RV",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-07-10T10:02:29Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMVKS29PFSQ16BPC1M2TH",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-22",
+  "status": "backlog",
+  "tags": null,
+  "title": "Final sweep: harnesses green and debt-gates closeout",
+  "type": "task",
+  "updated_at": "2026-07-10T10:02:29Z",
+  "urgency": null
+}

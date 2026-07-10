@@ -1,0 +1,3 @@
+# MA-2: Rewrite e2e for checkout safety and required-run integrity
+
+BUILDPLAN M1 / WS-1 (BUILDPLAN id MA-02). Rewrite falcon-detective/tests/e2e.test.ts: remove the git checkout -- falcon-agent/ line (destroys uncommitted work); add dirty-state guard (skip, or fail under E2E_REQUIRED=1) naming the dirty paths; isolation via the existing pipeline prepWorktree / git_worktree_add mechanism - no new worktree code; missing binary or cassettes leads to vitest skip (fail under E2E_REQUIRED=1). Add tests/e2e-guard.test.ts proving guard behavior. Wire CI typescript job to run npm run test:full with E2E_REQUIRED=1 (test:full created by the fix-it split ticket). ACs: AC-1..AC-5. Depends: fix-it split ticket. Serialize: ci.yml. Size M.
