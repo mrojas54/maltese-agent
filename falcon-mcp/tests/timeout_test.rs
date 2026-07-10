@@ -11,8 +11,11 @@
 //! - a hanging `pre-commit` hook written into a TempDir repo, so
 //!   `git commit` (real git) blocks until killed.
 //! - `tests/fixtures/hanging-bin/` — fake `rg`/`ast-grep` shell scripts that
-//!   sleep; prepended to the server's PATH (`Sandbox::check_bin` validates
-//!   the NAME only; resolution happens at spawn via the child's PATH).
+//!   sleep; prepended to the server's PATH. For fs_search/fs_search_ast,
+//!   `Sandbox::check_bin` validates the NAME only and resolution happens at
+//!   spawn via the child's PATH; for exec_run, the allowlist resolves to
+//!   absolute paths at server startup (AC-21) — the fixture dir is on the
+//!   spawned server's startup PATH, so it pins the fake either way.
 //!
 //! Every test doubles as a kill/reap check: the fixtures sleep 120s, so the
 //! test finishing in a couple of seconds proves the child was killed rather
