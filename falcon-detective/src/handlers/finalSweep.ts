@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { CargoClippyResult, CargoTestResult } from "../lib/toolSchemas.js";
 
 const Input = z.object({
   mcpBinary: z.string(),
@@ -38,14 +39,18 @@ export const finalSweep = createHandler(
       await mcp.connect();
       try {
         const reasons: string[] = [];
-        const test = await mcp.call<{ failed: any[] }>("cargo_test", {
-          crate_path: value.cratePath,
-        });
+        const test = await mcp.call(
+          "cargo_test",
+          { crate_path: value.cratePath },
+          CargoTestResult,
+        );
         if (test.failed.length > 0)
           reasons.push(`${test.failed.length} tests still failing`);
-        const clippy = await mcp.call<{ lints: any[] }>("cargo_clippy", {
-          crate_path: value.cratePath,
-        });
+        const clippy = await mcp.call(
+          "cargo_clippy",
+          { crate_path: value.cratePath },
+          CargoClippyResult,
+        );
         if (clippy.lints.length > 0)
           reasons.push(`${clippy.lints.length} clippy lints remain`);
         const ctx = {

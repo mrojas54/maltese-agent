@@ -3,6 +3,14 @@ import { z } from "zod";
 import { Gemini } from "../lib/gemini.js";
 import { FalconMcpClient } from "../lib/mcp.js";
 import { promptFromFile } from "../lib/prompts.js";
+import {
+  CargoCheckResult,
+  CargoClippyResult,
+  CargoTestResult,
+  FsListResult,
+  FsReadResult,
+  FsSearchResult,
+} from "../lib/toolSchemas.js";
 import { Issue } from "../lib/types.js";
 
 const Input = z.object({
@@ -80,15 +88,27 @@ export const triage = createHandler(
         // can run concurrently with the first cargo invocation since it
         // doesn't touch target/.
         const [check, files] = await Promise.all([
-          mcp.call("cargo_check", { crate_path: value.cratePath }),
-          mcp.call("fs_list", { path: value.cratePath, glob: "**/*.rs" }),
+          mcp.call(
+            "cargo_check",
+            { crate_path: value.cratePath },
+            CargoCheckResult,
+          ),
+          mcp.call(
+            "fs_list",
+            { path: value.cratePath, glob: "**/*.rs" },
+            FsListResult,
+          ),
         ]);
-        const test = await mcp.call("cargo_test", {
-          crate_path: value.cratePath,
-        });
-        const clippy = await mcp.call("cargo_clippy", {
-          crate_path: value.cratePath,
-        });
+        const test = await mcp.call(
+          "cargo_test",
+          { crate_path: value.cratePath },
+          CargoTestResult,
+        );
+        const clippy = await mcp.call(
+          "cargo_clippy",
+          { crate_path: value.cratePath },
+          CargoClippyResult,
+        );
 
         // Poison signal #1: read prompt.rs (or any *_prompt.rs / prompt*.rs) so
         // triage's LLM step can spot anomalous few-shot examples. cargo_check
@@ -97,9 +117,11 @@ export const triage = createHandler(
         const promptFile = `${value.cratePath}/src/prompt.rs`;
         let promptFileContent: string | null = null;
         try {
-          const r = await mcp.call<{ content: string }>("fs_read", {
-            path: promptFile,
-          });
+          const r = await mcp.call(
+            "fs_read",
+            { path: promptFile },
+            FsReadResult,
+          );
           promptFileContent = r.content;
         } catch {
           /* file absent — skip the signal */
@@ -111,20 +133,17 @@ export const triage = createHandler(
         // never shows up as "failed". fs_search locates the #[ignore] attr; we
         // then read each candidate file and pull out only the ignored tests
         // whose function names match a trigger word.
-        let ignoreMatches: {
-          matches: Array<{
-            file: string;
-            line: number;
-            column: number;
-            text: string;
-          }>;
-        } = { matches: [] };
+        let ignoreMatches: FsSearchResult = { matches: [], truncated: false };
         try {
-          ignoreMatches = await mcp.call("fs_search", {
-            pattern: "#\\[ignore",
-            glob: "*.rs",
-            max: 200,
-          });
+          ignoreMatches = await mcp.call(
+            "fs_search",
+            {
+              pattern: "#\\[ignore",
+              glob: "*.rs",
+              max: 200,
+            },
+            FsSearchResult,
+          );
         } catch {
           /* fs_search requires `rg` on PATH — fall back to no signal */
         }
@@ -135,9 +154,7 @@ export const triage = createHandler(
           if (seenFiles.has(m.file)) continue;
           seenFiles.add(m.file);
           try {
-            const r = await mcp.call<{ content: string }>("fs_read", {
-              path: m.file,
-            });
+            const r = await mcp.call("fs_read", { path: m.file }, FsReadResult);
             ignoredTriggerTests.push(
               ...extractIgnoredTriggerTests(m.file, r.content),
             );
@@ -163,11 +180,10 @@ export const triage = createHandler(
           (raw) => (Array.isArray(raw) ? { issues: raw } : raw),
           z.object({ issues: z.array(Issue) }),
         );
-        const result = (await gemini.call({
+        const { issues } = await gemini.call({
           prompt,
-          schema: TriageOutput as any,
-        })) as { issues: any[] };
-        const { issues } = result;
+          schema: TriageOutput,
+        });
         return {
           mcpBinary: value.mcpBinary,
           worktreePath: value.worktreePath,

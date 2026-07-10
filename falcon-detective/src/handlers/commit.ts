@@ -1,6 +1,11 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import {
+  ExecRunResult,
+  GitCommitResult,
+  OkResult,
+} from "../lib/toolSchemas.js";
 import { Issue } from "../lib/types.js";
 
 const McpAndPath = z.object({
@@ -19,10 +24,14 @@ export const commitOne = createHandler(
       });
       await mcp.connect();
       try {
-        await mcp.call("git_add", { paths: [value.diffPath] });
-        const r = await mcp.call<{ sha: string }>("git_commit", {
-          message: `fix(${value.issue.kind}): ${value.issue.location.file}${value.issue.location.line ? `:${value.issue.location.line}` : ""}`,
-        });
+        await mcp.call("git_add", { paths: [value.diffPath] }, OkResult);
+        const r = await mcp.call(
+          "git_commit",
+          {
+            message: `fix(${value.issue.kind}): ${value.issue.location.file}${value.issue.location.line ? `:${value.issue.location.line}` : ""}`,
+          },
+          GitCommitResult,
+        );
         return r;
       } finally {
         await mcp.close();
@@ -57,10 +66,14 @@ export const revertOne = createHandler(
       try {
         // Reset working tree changes for the file under question; keep prior commits.
         await mcp
-          .call("exec_run", {
-            cmd: "git",
-            args: ["checkout", "--", value.issue.location.file],
-          })
+          .call(
+            "exec_run",
+            {
+              cmd: "git",
+              args: ["checkout", "--", value.issue.location.file],
+            },
+            ExecRunResult,
+          )
           .catch(() => {
             /* no-op if file not modified */
           });

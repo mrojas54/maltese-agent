@@ -2,6 +2,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { type InvokeHandler, invokeHandler } from "../lib/invokeHandler.js";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { FsReadResult, FsWriteResult } from "../lib/toolSchemas.js";
 import { Issue, type PreviousFailure } from "../lib/types.js";
 import { analyzePoison } from "./analyzePoison.js";
 import { applyEdit } from "./applyEdit.js";
@@ -164,9 +165,11 @@ export function makeProcessIssuesHandle(
           // the first time we see this path).
           if (!snapshots.has(currentDiff.path)) {
             try {
-              const r = await snapMcp.call<{ content: string }>("fs_read", {
-                path: currentDiff.path,
-              });
+              const r = await snapMcp.call(
+                "fs_read",
+                { path: currentDiff.path },
+                FsReadResult,
+              );
               snapshots.set(currentDiff.path, r.content);
             } catch (e) {
               // Path doesn't exist yet — record empty so revert deletes/no-ops.
@@ -211,7 +214,11 @@ export function makeProcessIssuesHandle(
             errors: result.value.errors,
           };
           for (const [p, c] of snapshots) {
-            await snapMcp.call("fs_write", { path: p, content: c });
+            await snapMcp.call(
+              "fs_write",
+              { path: p, content: c },
+              FsWriteResult,
+            );
           }
           attempt++;
           if (attempt >= MAX_RETRIES) break;
@@ -236,7 +243,11 @@ export function makeProcessIssuesHandle(
         if (!succeeded) {
           for (const [p, c] of snapshots) {
             try {
-              await snapMcp.call("fs_write", { path: p, content: c });
+              await snapMcp.call(
+                "fs_write",
+                { path: p, content: c },
+                FsWriteResult,
+              );
             } catch (e) {
               console.error(
                 `[processIssues] terminal revert failed for ${p}: ${(e as Error).message}`,

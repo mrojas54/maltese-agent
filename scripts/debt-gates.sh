@@ -231,6 +231,32 @@ gate_prompt_poison_flag() {
 
 gate_prompt_poison_flag
 
+# ---------------------------------------------------------------------------
+# Gate (AC-12, WS-4a/b): no `z.any()` and no `as any` under
+# falcon-detective/src/handlers/. Handler inputs/outputs and every MCP tool
+# result are schema-validated (types.ts / toolSchemas.ts); an `any` reach in
+# a handler reopens the validation opt-out this workstream closed.
+# ---------------------------------------------------------------------------
+gate_no_handler_any() {
+  local gate="no-handler-any (AC-12)"
+  local dir="$REPO_ROOT/falcon-detective/src/handlers"
+
+  if [[ ! -d "$dir" ]]; then
+    fail "$gate" "falcon-detective/src/handlers not found"
+    return
+  fi
+
+  local hits
+  hits="$(grep -rnE 'z\.any\(\)|as any' "$dir" 2>/dev/null)"
+  if [[ -n "$hits" ]]; then
+    fail "$gate" "z.any()/as any under src/handlers: $(printf '%s' "$hits" | head -n 3 | sed "s|$REPO_ROOT/||" | tr '\n' ' ')"
+  else
+    pass "$gate"
+  fi
+}
+
+gate_no_handler_any
+
 # --- append new gates above this line (SPEC R-5) ---------------------------
 
 if [[ "$FAILURES" -gt 0 ]]; then
