@@ -1,0 +1,3 @@
+# MA-1: Author planted-defect guard script
+
+BUILDPLAN M1 / WS-0 (BUILDPLAN id MA-01). Author scripts/check-planted-defects.sh asserting the TARGET marker state of falcon-agent intentional defects (poisoned prompt example, missing guards, three planted clippy lints, ignored smoking-gun test). Script encodes the three README-documented clippy invocations (-W clippy::all; plus -W clippy::unwrap_used; plus -W clippy::nursery) and their expected planted-warning sets. Runnable locally; NOT CI-wired here - MA-03 wires it in the same PR that fixes the markers (script asserts corrected state and would fail CI before MA-03 lands). ACs: G-1, AC-9. Size S.

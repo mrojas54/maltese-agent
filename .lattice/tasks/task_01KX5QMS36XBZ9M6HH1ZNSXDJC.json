@@ -1,0 +1,41 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "high",
+  "created_at": "2026-07-10T10:02:20Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN M3 / WS-8 (BUILDPLAN id MA-13). Orchestration tests with mocked MCP client plus mocked/cassette Gemini: verify (Clean/Broken/Stuck), commit handlers (commitOne, commitAll, revertOne, escalate - success and git-failure paths, no silent catch), finalSweep (Clean and Dirty), processIssues (happy path; retry-then-success; revert-on-persistent-failure); smoke tests for cli.ts and workflows/tidy-and-debug.ts. Tests target CURRENT behavior - the MA-15 refactor must keep them green. ACs: AC-19, AC-20. Depends: MA-10, MA-11. Size L.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX5QMS36XBZ9M6HH1ZNSXDJC",
+  "last_event_id": "ev_01KX5QMYHRZ2SETXFXTFSDSMJK",
+  "last_status_changed_at": "2026-07-10T10:02:20Z",
+  "priority": "high",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-10T10:02:25Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMQCP5AQR3D1ZKYKGX6F4",
+      "type": "depends_on"
+    },
+    {
+      "created_at": "2026-07-10T10:02:25Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMR7RYC0MNC852NJJCBV8",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-13",
+  "status": "backlog",
+  "tags": null,
+  "title": "Orchestration test coverage for detective core",
+  "type": "task",
+  "updated_at": "2026-07-10T10:02:25Z",
+  "urgency": null
+}

@@ -1,0 +1,34 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-10T10:02:22Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "BUILDPLAN M4 / WS-13b (BUILDPLAN id MA-20). scripts/record-cassettes.ts plus npm run record plus a README operator-flow section (GEMINI_API_KEY usage, expected small spend, file list of about 5 cassettes). Enables AC-28, which the operator proves at the human-track ticket. Depends: MA-19. Size S.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX5QMVC798DJBP4886E98E89",
+  "last_event_id": "ev_01KX5QN1KP6J4HJHVVF2DEFZT1",
+  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-10T10:02:28Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMV6Y51F3W1GTNMYEYN1W",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-20",
+  "status": "backlog",
+  "tags": null,
+  "title": "Cassette recording script and operator flow docs",
+  "type": "task",
+  "updated_at": "2026-07-10T10:02:28Z",
+  "urgency": null
+}

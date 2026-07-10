@@ -112,6 +112,30 @@ gate_shared_search_subprocess_helper() {
 
 gate_shared_search_subprocess_helper
 
+# ---------------------------------------------------------------------------
+# Gate 4 (AC-22, WS-4): no `gemini-` model-ID string literal under
+# falcon-detective/src outside the shared constants module src/lib/models.ts.
+# ---------------------------------------------------------------------------
+gate_no_gemini_literals() {
+  local gate="no-gemini-literals (AC-22)"
+  local src_dir="$REPO_ROOT/falcon-detective/src"
+
+  if [[ ! -d "$src_dir" ]]; then
+    fail "$gate" "falcon-detective/src not found"
+    return
+  fi
+
+  local matches
+  matches="$(grep -rn 'gemini-' "$src_dir" | grep -v '/src/lib/models\.ts:' || true)"
+  if [[ -z "$matches" ]]; then
+    pass "$gate"
+  else
+    fail "$gate" "gemini- literal outside src/lib/models.ts: $(printf '%s' "$matches" | cut -d: -f1 | sort -u | sed "s|$REPO_ROOT/||" | tr '\n' ' ')"
+  fi
+}
+
+gate_no_gemini_literals
+
 # --- append new gates above this line (SPEC R-5) ---------------------------
 
 if [[ "$FAILURES" -gt 0 ]]; then
