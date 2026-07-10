@@ -1,19 +1,19 @@
-import { describe, it, expect, afterEach } from "vitest";
 import { execFileSync } from "node:child_process";
 import {
-  mkdtempSync,
   mkdirSync,
-  writeFileSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import {
+  type GuardOutcome,
+  applyGuardOutcome,
   checkE2ePrereqs,
   dirtyPaths,
-  applyGuardOutcome,
-  type GuardOutcome,
 } from "./helpers/e2ePrereqs.js";
 
 // Hermetic proof of the e2e guard behaviors (AC-1..AC-4). Everything here
@@ -25,16 +25,14 @@ import {
 // and the skip-expectation tests must not flip to fail-expectations there.
 
 const CANONICAL = 'fn main() { println!("canonical"); }\n';
-const DIRTY = CANONICAL + "// uncommitted workshop edit \u{1F985}\n";
+const DIRTY = `${CANONICAL}// uncommitted workshop edit \u{1F985}\n`;
 
 let repo: string;
 
 function git(...args: string[]): void {
-  execFileSync(
-    "git",
-    ["-c", "user.email=t@t", "-c", "user.name=t", ...args],
-    { cwd: repo },
-  );
+  execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], {
+    cwd: repo,
+  });
 }
 
 /** Fixture repo with a committed falcon-agent/src/main.rs plus (outside the
@@ -61,10 +59,12 @@ function makeFixture(): {
   return { mainRs, mcpBin, cassetteDir };
 }
 
-function prereqs(overrides: Partial<Parameters<typeof checkE2ePrereqs>[0]> & {
-  mcpBin: string;
-  cassetteDir: string;
-}): GuardOutcome {
+function prereqs(
+  overrides: Partial<Parameters<typeof checkE2ePrereqs>[0]> & {
+    mcpBin: string;
+    cassetteDir: string;
+  },
+): GuardOutcome {
   return checkE2ePrereqs({
     repoRoot: repo,
     required: false,
@@ -72,7 +72,10 @@ function prereqs(overrides: Partial<Parameters<typeof checkE2ePrereqs>[0]> & {
   });
 }
 
-function spyCtx(): { skipped: (string | undefined)[]; skip: (reason?: string) => void } {
+function spyCtx(): {
+  skipped: (string | undefined)[];
+  skip: (reason?: string) => void;
+} {
   const skipped: (string | undefined)[] = [];
   return { skipped, skip: (reason?: string) => skipped.push(reason) };
 }

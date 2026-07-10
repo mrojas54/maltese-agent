@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { Gemini, normalizeForHash } from "../../src/lib/gemini.js";
-import { z } from "zod";
-import { mkdir, writeFile, rm } from "node:fs/promises";
-import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
+import { Gemini, normalizeForHash } from "../../src/lib/gemini.js";
 
 const TEST_DIR = join(process.cwd(), "fixtures", "cassettes-test");
 
@@ -19,8 +19,14 @@ describe("Gemini cassette mode", () => {
     const prompt = "test prompt";
     const model = "gemini-2.5-pro";
     const schemaName = "ZodObject";
-    const key = createHash("sha256").update(`${model}\n${schemaName}\n${prompt}`).digest("hex").slice(0, 16);
-    await writeFile(join(TEST_DIR, `${key}.json`), JSON.stringify({ kind: "bug" }));
+    const key = createHash("sha256")
+      .update(`${model}\n${schemaName}\n${prompt}`)
+      .digest("hex")
+      .slice(0, 16);
+    await writeFile(
+      join(TEST_DIR, `${key}.json`),
+      JSON.stringify({ kind: "bug" }),
+    );
 
     const g = new Gemini("cassette");
     const out = await g.call({ prompt, schema });
@@ -29,7 +35,9 @@ describe("Gemini cassette mode", () => {
 
   it("errors when cassette is missing", async () => {
     const g = new Gemini("cassette");
-    await expect(g.call({ prompt: "missing", schema: z.object({}) })).rejects.toThrow(/no cassette/);
+    await expect(
+      g.call({ prompt: "missing", schema: z.object({}) }),
+    ).rejects.toThrow(/no cassette/);
   });
 });
 
@@ -51,13 +59,19 @@ describe("normalizeForHash", () => {
     expect(a).toBe(b);
   });
   it("strips dep-compile progress lines", () => {
-    const a = normalizeForHash("   Compiling tokio v1.52.1\n   Compiling axum v0.7.9\nbody");
+    const a = normalizeForHash(
+      "   Compiling tokio v1.52.1\n   Compiling axum v0.7.9\nbody",
+    );
     const b = normalizeForHash("   Compiling tokio v1.52.0\nbody");
     expect(a).toBe(b);
   });
   it("preserves diagnostic content (paths inside crate, line numbers, messages)", () => {
-    const a = normalizeForHash("warning: unused import: `std::io::Write`\n  --> src/x.rs:4:5");
-    const b = normalizeForHash("warning: unused import: `std::io::Read`\n  --> src/x.rs:4:5");
+    const a = normalizeForHash(
+      "warning: unused import: `std::io::Write`\n  --> src/x.rs:4:5",
+    );
+    const b = normalizeForHash(
+      "warning: unused import: `std::io::Read`\n  --> src/x.rs:4:5",
+    );
     expect(a).not.toBe(b);
   });
   it("strips test duration_ms", () => {
@@ -66,8 +80,12 @@ describe("normalizeForHash", () => {
     expect(a).toBe(b);
   });
   it("sorts consecutive JSON test-name arrays", () => {
-    const a = normalizeForHash('[\n  "decoder::tests::a",\n  "decoder::tests::b",\n  "llm::tests::c"\n]');
-    const b = normalizeForHash('[\n  "llm::tests::c",\n  "decoder::tests::b",\n  "decoder::tests::a"\n]');
+    const a = normalizeForHash(
+      '[\n  "decoder::tests::a",\n  "decoder::tests::b",\n  "llm::tests::c"\n]',
+    );
+    const b = normalizeForHash(
+      '[\n  "llm::tests::c",\n  "decoder::tests::b",\n  "decoder::tests::a"\n]',
+    );
     expect(a).toBe(b);
   });
 });

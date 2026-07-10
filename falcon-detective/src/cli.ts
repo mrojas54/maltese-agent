@@ -1,6 +1,6 @@
+import { resolve } from "node:path";
 import { runPipeline } from "@barnum/barnum/pipeline";
 import { detective } from "./workflows/tidy-and-debug.js";
-import { resolve } from "node:path";
 
 function arg(name: string, fallback?: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -10,12 +10,14 @@ function arg(name: string, fallback?: string): string {
 }
 
 async function main() {
-  const target = resolve(arg("target"));               // path to falcon-agent
+  const target = resolve(arg("target")); // path to falcon-agent
   const mcpBinary = resolve(arg("mcp-binary", "../target/debug/falcon-mcp"));
-  const repoRoot  = resolve(arg("repo-root", ".."));
-  const runName   = arg("run-name", `demo-${Date.now()}`);
+  const repoRoot = resolve(arg("repo-root", ".."));
+  const runName = arg("run-name", `demo-${Date.now()}`);
 
-  const targetRel = target.startsWith(repoRoot) ? target.slice(repoRoot.length + 1) : target;
+  const targetRel = target.startsWith(repoRoot)
+    ? target.slice(repoRoot.length + 1)
+    : target;
 
   // prepWorktree now declares a fat input { mcpBinary, repoRoot, runName,
   // cratePath }; it threads the context fields through to its output so
@@ -29,4 +31,7 @@ async function main() {
   console.log(`[falcon-detective] run "${runName}" complete`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

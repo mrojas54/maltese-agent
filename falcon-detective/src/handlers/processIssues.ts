@@ -1,17 +1,17 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
-import { Issue, PreviousFailure } from "../lib/types.js";
+import { type InvokeHandler, invokeHandler } from "../lib/invokeHandler.js";
 import { FalconMcpClient } from "../lib/mcp.js";
-import { invokeHandler, type InvokeHandler } from "../lib/invokeHandler.js";
-import { readContext } from "./readContext.js";
-import { classify } from "./classify.js";
+import { Issue, type PreviousFailure } from "../lib/types.js";
 import { analyzePoison } from "./analyzePoison.js";
-import { proposePoisonFix } from "./proposePoisonFix.js";
+import { applyEdit } from "./applyEdit.js";
+import { classify } from "./classify.js";
+import { commitOne } from "./commit.js";
 import { proposeBugFix } from "./proposeBugFix.js";
 import { proposeLintFix } from "./proposeLintFix.js";
-import { applyEdit } from "./applyEdit.js";
+import { proposePoisonFix } from "./proposePoisonFix.js";
+import { readContext } from "./readContext.js";
 import { verify } from "./verify.js";
-import { commitOne } from "./commit.js";
 
 /**
  * Coarse Barnum handler for the per-issue loop. Inside, the per-issue logic
@@ -73,17 +73,17 @@ async function proposeFor(
       ...poisonAnalysis,
       previousFailure,
     });
-  } else if (tagged.kind === "Bug") {
+  }
+  if (tagged.kind === "Bug") {
     return await invoke(proposeBugFix, {
       ...tagged.value,
       previousFailure,
     });
-  } else {
-    return await invoke(proposeLintFix, {
-      ...tagged.value,
-      previousFailure,
-    });
   }
+  return await invoke(proposeLintFix, {
+    ...tagged.value,
+    previousFailure,
+  });
 }
 
 /**
@@ -95,16 +95,25 @@ async function proposeFor(
  */
 export function makeProcessIssuesHandle(
   invoke: InvokeHandler = invokeHandler,
-): (context: { value: z.infer<typeof Input> }) => Promise<z.infer<typeof Output>> {
+): (context: { value: z.infer<typeof Input> }) => Promise<
+  z.infer<typeof Output>
+> {
   return async ({ value }) => {
     const { mcpBinary, worktreePath, cratePath, issues } = value;
 
     for (const issue of issues) {
       // 1. read file context
-      const ctx = await invoke<any>(readContext, { mcpBinary, worktreePath, issue });
+      const ctx = await invoke<any>(readContext, {
+        mcpBinary,
+        worktreePath,
+        issue,
+      });
 
       // 2. classify into { kind, value: { issue, excerpts } }
-      const tagged = await invoke<any>(classify, { issue, excerpts: ctx.excerpts });
+      const tagged = await invoke<any>(classify, {
+        issue,
+        excerpts: ctx.excerpts,
+      });
 
       // 3. propose a fix per kind. Poison runs analyzePoison first (it's
       //    independent of any failed attempt — only proposePoisonFix takes
@@ -114,16 +123,25 @@ export function makeProcessIssuesHandle(
         try {
           poisonAnalysis = await invoke<any>(analyzePoison, tagged.value);
         } catch (e) {
-          console.error(`[processIssues] analyzePoison failed for ${issue.location.file}: ${(e as Error).message}`);
+          console.error(
+            `[processIssues] analyzePoison failed for ${issue.location.file}: ${(e as Error).message}`,
+          );
           continue;
         }
       }
 
       let currentDiff: { path: string; diff: string };
       try {
-        currentDiff = await proposeFor(invoke, tagged, poisonAnalysis, undefined);
+        currentDiff = await proposeFor(
+          invoke,
+          tagged,
+          poisonAnalysis,
+          undefined,
+        );
       } catch (e) {
-        console.error(`[processIssues] propose-fix failed for ${issue.location.file}: ${(e as Error).message}`);
+        console.error(
+          `[processIssues] propose-fix failed for ${issue.location.file}: ${(e as Error).message}`,
+        );
         continue;
       }
 
@@ -132,7 +150,10 @@ export function makeProcessIssuesHandle(
       //    a re-proposed diff touches, so reverting at the end restores
       //    every file the loop wrote to.
       const snapshots = new Map<string, string>();
-      const snapMcp = new FalconMcpClient({ binary: mcpBinary, root: worktreePath });
+      const snapMcp = new FalconMcpClient({
+        binary: mcpBinary,
+        root: worktreePath,
+      });
       await snapMcp.connect();
 
       let attempt = 0;
@@ -143,24 +164,44 @@ export function makeProcessIssuesHandle(
           // the first time we see this path).
           if (!snapshots.has(currentDiff.path)) {
             try {
-              const r = await snapMcp.call<{ content: string }>("fs_read", { path: currentDiff.path });
+              const r = await snapMcp.call<{ content: string }>("fs_read", {
+                path: currentDiff.path,
+              });
               snapshots.set(currentDiff.path, r.content);
             } catch (e) {
               // Path doesn't exist yet — record empty so revert deletes/no-ops.
               // Most diffs target existing files; this is a defensive carve-out.
               snapshots.set(currentDiff.path, "");
-              console.warn(`[processIssues] snapshot fs_read for ${currentDiff.path} failed: ${(e as Error).message}`);
+              console.warn(
+                `[processIssues] snapshot fs_read for ${currentDiff.path} failed: ${(e as Error).message}`,
+              );
             }
           }
 
-          const apply = await invoke<any>(applyEdit, { mcpBinary, worktreePath, diff: currentDiff });
+          const apply = await invoke<any>(applyEdit, {
+            mcpBinary,
+            worktreePath,
+            diff: currentDiff,
+          });
           if (!apply.ok) {
-            console.error(`[processIssues] applyEdit failed for ${currentDiff.path}: ${apply.reason}`);
+            console.error(
+              `[processIssues] applyEdit failed for ${currentDiff.path}: ${apply.reason}`,
+            );
             break;
           }
-          const result = await invoke<any>(verify, { mcpBinary, worktreePath, cratePath, attempt });
-          if (result.kind === "Clean") { succeeded = true; break; }
-          if (result.kind === "Stuck") { break; }
+          const result = await invoke<any>(verify, {
+            mcpBinary,
+            worktreePath,
+            cratePath,
+            attempt,
+          });
+          if (result.kind === "Clean") {
+            succeeded = true;
+            break;
+          }
+          if (result.kind === "Stuck") {
+            break;
+          }
 
           // Broken: capture the failure, revert all snapshots, re-prompt with
           // previousFailure so Gemini gets cargo's actual error text and can
@@ -175,9 +216,16 @@ export function makeProcessIssuesHandle(
           attempt++;
           if (attempt >= MAX_RETRIES) break;
           try {
-            currentDiff = await proposeFor(invoke, tagged, poisonAnalysis, previousFailure);
+            currentDiff = await proposeFor(
+              invoke,
+              tagged,
+              poisonAnalysis,
+              previousFailure,
+            );
           } catch (e) {
-            console.error(`[processIssues] propose-fix retry failed for ${issue.location.file}: ${(e as Error).message}`);
+            console.error(
+              `[processIssues] propose-fix retry failed for ${issue.location.file}: ${(e as Error).message}`,
+            );
             break;
           }
         }
@@ -190,7 +238,9 @@ export function makeProcessIssuesHandle(
             try {
               await snapMcp.call("fs_write", { path: p, content: c });
             } catch (e) {
-              console.error(`[processIssues] terminal revert failed for ${p}: ${(e as Error).message}`);
+              console.error(
+                `[processIssues] terminal revert failed for ${p}: ${(e as Error).message}`,
+              );
             }
           }
         }
@@ -200,9 +250,16 @@ export function makeProcessIssuesHandle(
       // 5. commit on success.
       if (succeeded) {
         try {
-          await invoke<any>(commitOne, { mcpBinary, worktreePath, issue, diffPath: currentDiff.path });
+          await invoke<any>(commitOne, {
+            mcpBinary,
+            worktreePath,
+            issue,
+            diffPath: currentDiff.path,
+          });
         } catch (e) {
-          console.error(`[processIssues] commit failed for ${currentDiff.path}: ${(e as Error).message}`);
+          console.error(
+            `[processIssues] commit failed for ${currentDiff.path}: ${(e as Error).message}`,
+          );
         }
       }
     }
@@ -211,8 +268,11 @@ export function makeProcessIssuesHandle(
   };
 }
 
-export const processIssues = createHandler({
-  inputValidator: Input,
-  outputValidator: Output,
-  handle: makeProcessIssuesHandle(),
-}, "processIssues");
+export const processIssues = createHandler(
+  {
+    inputValidator: Input,
+    outputValidator: Output,
+    handle: makeProcessIssuesHandle(),
+  },
+  "processIssues",
+);

@@ -1,9 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
-import { ZodSchema } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { createHash } from "node:crypto";
-import { readFile, writeFile, mkdir, access } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { GoogleGenAI } from "@google/genai";
+import type { ZodSchema } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { DEFAULT_MODEL } from "./models.js";
 
 export type Mode = "live" | "cassette" | "record";
@@ -19,7 +19,9 @@ export interface CallOptions<T> {
 // beforeEach take effect (the original module-level constant cached the
 // value at import time, before vitest had a chance to swap it).
 function cassetteDir(): string {
-  return process.env.CASSETTE_DIR ?? join(process.cwd(), "fixtures", "cassettes");
+  return (
+    process.env.CASSETTE_DIR ?? join(process.cwd(), "fixtures", "cassettes")
+  );
 }
 
 /**
@@ -41,51 +43,63 @@ function cassetteDir(): string {
  * downstream behavior depends on it.
  */
 export function normalizeForHash(prompt: string): string {
-  return prompt
-    .replace(/\/Users\/[^/\s"\\]+/g, "/Users/<USER>")
-    .replace(/\/home\/[^/\s"\\]+/g, "/home/<USER>")
-    .replace(/\/var\/folders\/[^/\s"]+\/[^/\s"]+\/T(?=\/|$)/g, "/<TMP>")
-    .replace(/\/tmp\/[a-zA-Z0-9_.-]+/g, "/<TMP>")
-    .replace(/\.runs\/[^/\s"]+/g, ".runs/<RUN>")
-    .replace(/Finished\s+`?\w+`?\s+profile[^\n]*?in\s+\d+\.\d+s/g, "Finished <PROFILE>")
-    .replace(/\bin\s+\d+\.\d+s\b/g, "in <TIME>")
-    .replace(/\btook\s+\d+\.\d+s\b/g, "took <TIME>")
-    // Match each "Compiling X v..." line including its trailing newline so
-    // stripping doesn't leave a blank line behind (otherwise inputs with
-    // different N would produce different blank-line counts).
-    .replace(/^[ \t]*Compiling\s+[\w_-]+\s+v[\d.]+[^\n]*\n/gm, "")
-    // Test runtime: cargo_test's "duration_ms" varies per run (wall clock).
-    .replace(/"duration_ms":\s*\d+/g, '"duration_ms": <DURATION>')
-    // Test name ordering: cargo_test's parallel runner emits "passed"/"failed"
-    // arrays in non-deterministic order. Sort runs of consecutive lines that
-    // look like JSON-array test-name entries (`  "module::test_name",`) so the
-    // hash doesn't depend on per-run scheduling.
-    .replace(
-      /(?:^[ \t]*"[A-Za-z_][\w:_-]*",?\n)+/gm,
-      (block) =>
-        block
-          .split("\n")
-          .filter((l) => l.length > 0)
-          // Strip trailing commas so sort doesn't depend on whether the
-          // original last item had one (JSON arrays don't terminate the
-          // last element with a comma; sorting reshuffles which item is last).
-          .map((l) => l.replace(/,\s*$/, ""))
-          .sort()
-          .join("\n") + "\n",
-    )
-    // Collapse 3+ consecutive newlines (preserve intentional paragraph
-    // breaks of 2 newlines).
-    .replace(/\n{3,}/g, "\n\n");
+  return (
+    prompt
+      .replace(/\/Users\/[^/\s"\\]+/g, "/Users/<USER>")
+      .replace(/\/home\/[^/\s"\\]+/g, "/home/<USER>")
+      .replace(/\/var\/folders\/[^/\s"]+\/[^/\s"]+\/T(?=\/|$)/g, "/<TMP>")
+      .replace(/\/tmp\/[a-zA-Z0-9_.-]+/g, "/<TMP>")
+      .replace(/\.runs\/[^/\s"]+/g, ".runs/<RUN>")
+      .replace(
+        /Finished\s+`?\w+`?\s+profile[^\n]*?in\s+\d+\.\d+s/g,
+        "Finished <PROFILE>",
+      )
+      .replace(/\bin\s+\d+\.\d+s\b/g, "in <TIME>")
+      .replace(/\btook\s+\d+\.\d+s\b/g, "took <TIME>")
+      // Match each "Compiling X v..." line including its trailing newline so
+      // stripping doesn't leave a blank line behind (otherwise inputs with
+      // different N would produce different blank-line counts).
+      .replace(/^[ \t]*Compiling\s+[\w_-]+\s+v[\d.]+[^\n]*\n/gm, "")
+      // Test runtime: cargo_test's "duration_ms" varies per run (wall clock).
+      .replace(/"duration_ms":\s*\d+/g, '"duration_ms": <DURATION>')
+      // Test name ordering: cargo_test's parallel runner emits "passed"/"failed"
+      // arrays in non-deterministic order. Sort runs of consecutive lines that
+      // look like JSON-array test-name entries (`  "module::test_name",`) so the
+      // hash doesn't depend on per-run scheduling.
+      .replace(
+        /(?:^[ \t]*"[A-Za-z_][\w:_-]*",?\n)+/gm,
+        (block) =>
+          `${block
+            .split("\n")
+            .filter((l) => l.length > 0)
+            // Strip trailing commas so sort doesn't depend on whether the
+            // original last item had one (JSON arrays don't terminate the
+            // last element with a comma; sorting reshuffles which item is last).
+            .map((l) => l.replace(/,\s*$/, ""))
+            .sort()
+            .join("\n")}\n`,
+      )
+      // Collapse 3+ consecutive newlines (preserve intentional paragraph
+      // breaks of 2 newlines).
+      .replace(/\n{3,}/g, "\n\n")
+  );
 }
 
 function hashKey(model: string, prompt: string, schemaName: string): string {
   const normalized = normalizeForHash(prompt);
-  return createHash("sha256").update(`${model}\n${schemaName}\n${normalized}`).digest("hex").slice(0, 16);
+  return createHash("sha256")
+    .update(`${model}\n${schemaName}\n${normalized}`)
+    .digest("hex")
+    .slice(0, 16);
 }
 
 async function readCassette(key: string): Promise<string | null> {
   const path = join(cassetteDir(), `${key}.json`);
-  try { await access(path); } catch { return null; }
+  try {
+    await access(path);
+  } catch {
+    return null;
+  }
   return await readFile(path, "utf8");
 }
 
@@ -102,7 +116,8 @@ export class Gemini {
     this.mode = mode;
     if (mode !== "cassette") {
       const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY required for live/record mode");
+      if (!apiKey)
+        throw new Error("GEMINI_API_KEY required for live/record mode");
       this.ai = new GoogleGenAI({ apiKey });
     }
   }
@@ -132,7 +147,9 @@ export class Gemini {
             `model=${model}\nschema=${schemaName}\n\n--- normalized prompt (hashed) ---\n${normalizeForHash(opts.prompt)}`,
           );
         }
-        throw new Error(`no cassette for ${key} (prompt hash). Re-record with GEMINI_MODE=record.`);
+        throw new Error(
+          `no cassette for ${key} (prompt hash). Re-record with GEMINI_MODE=record.`,
+        );
       }
       return opts.schema.parse(JSON.parse(body));
     }
@@ -167,7 +184,10 @@ export class Gemini {
           return resp.text ?? "";
         } catch (e: any) {
           const msg = String(e?.message ?? e);
-          const transient = /\b(429|503|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline|timeout)\b/i.test(msg);
+          const transient =
+            /\b(429|503|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline|timeout)\b/i.test(
+              msg,
+            );
           if (!transient || api === 4) throw e;
           const jittered = Math.random() * cap;
           await new Promise((r) => setTimeout(r, jittered));
@@ -194,9 +214,14 @@ export class Gemini {
         return parsed;
       } catch (e) {
         lastErr = e;
-        opts = { ...opts, prompt: `${opts.prompt}\n\nPREVIOUS ATTEMPT FAILED VALIDATION: ${(e as Error).message}\nReturn ONLY valid JSON conforming to the schema.` };
+        opts = {
+          ...opts,
+          prompt: `${opts.prompt}\n\nPREVIOUS ATTEMPT FAILED VALIDATION: ${(e as Error).message}\nReturn ONLY valid JSON conforming to the schema.`,
+        };
       }
     }
-    throw new Error(`Gemini schema validation failed after 3 attempts: ${(lastErr as Error)?.message}`);
+    throw new Error(
+      `Gemini schema validation failed after 3 attempts: ${(lastErr as Error)?.message}`,
+    );
   }
 }

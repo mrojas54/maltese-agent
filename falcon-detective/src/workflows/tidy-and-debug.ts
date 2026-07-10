@@ -14,12 +14,12 @@
  * sidestepping the bind+VarRef context plumbing that Barnum's strict
  * per-step schemas would otherwise require.
  */
-import { pipe, branch } from "@barnum/barnum/pipeline";
-import { prepWorktree } from "../handlers/prepWorktree.js";
-import { triage } from "../handlers/triage.js";
-import { processIssues } from "../handlers/processIssues.js";
-import { finalSweep } from "../handlers/finalSweep.js";
+import { branch, pipe } from "@barnum/barnum/pipeline";
 import { commitAll, escalate } from "../handlers/commit.js";
+import { finalSweep } from "../handlers/finalSweep.js";
+import { prepWorktree } from "../handlers/prepWorktree.js";
+import { processIssues } from "../handlers/processIssues.js";
+import { triage } from "../handlers/triage.js";
 
 export const detective: any = pipe(
   prepWorktree as any,

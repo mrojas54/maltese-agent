@@ -33,16 +33,21 @@ export type GuardOutcome =
   | { kind: "fail"; reason: string };
 
 /** Paths with uncommitted changes (tracked or untracked) under `pathspec`. */
-export function dirtyPaths(repoRoot: string, pathspec = "falcon-agent/"): string[] {
+export function dirtyPaths(
+  repoRoot: string,
+  pathspec = "falcon-agent/",
+): string[] {
   const out = execFileSync("git", ["status", "--porcelain", "--", pathspec], {
     cwd: repoRoot,
     encoding: "utf8",
   });
-  return out
-    .split("\n")
-    .filter((line) => line.length > 0)
-    // Strip the two-char status + separator; renames keep "old -> new".
-    .map((line) => line.slice(3));
+  return (
+    out
+      .split("\n")
+      .filter((line) => line.length > 0)
+      // Strip the two-char status + separator; renames keep "old -> new".
+      .map((line) => line.slice(3))
+  );
 }
 
 export function hasCassettes(dir: string): boolean {
@@ -58,21 +63,17 @@ export function checkE2ePrereqs(input: E2ePrereqInput): GuardOutcome {
   const dirty = dirtyPaths(input.repoRoot, pathspec);
   if (dirty.length > 0) {
     return blocked(
-      `${pathspec} has uncommitted changes (${dirty.join(", ")}) — the e2e ` +
-        `needs the canonical seed state and never mutates your checkout; ` +
-        `commit or stash first`,
+      `${pathspec} has uncommitted changes (${dirty.join(", ")}) — the e2e needs the canonical seed state and never mutates your checkout; commit or stash first`,
     );
   }
   if (!existsSync(input.mcpBin)) {
     return blocked(
-      `falcon-mcp binary not found at ${input.mcpBin} — build it with ` +
-        "`cargo build -p falcon-mcp`",
+      `falcon-mcp binary not found at ${input.mcpBin} — build it with \`cargo build -p falcon-mcp\``,
     );
   }
   if (!hasCassettes(input.cassetteDir)) {
     return blocked(
-      `no recorded cassettes in ${input.cassetteDir} — record with ` +
-        "`GEMINI_MODE=record` (see falcon-detective/README.md)",
+      `no recorded cassettes in ${input.cassetteDir} — record with \`GEMINI_MODE=record\` (see falcon-detective/README.md)`,
     );
   }
   return { kind: "run" };
@@ -90,7 +91,9 @@ export function applyGuardOutcome(
   ctx: { skip: (reason?: string) => void },
 ): void {
   if (outcome.kind === "fail") {
-    throw new Error(`E2E_REQUIRED=1 but e2e prerequisites are unmet: ${outcome.reason}`);
+    throw new Error(
+      `E2E_REQUIRED=1 but e2e prerequisites are unmet: ${outcome.reason}`,
+    );
   }
   if (outcome.kind === "skip") {
     console.error(`e2e skipped: ${outcome.reason}`);

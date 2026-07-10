@@ -1,7 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
-import { UnifiedDiff } from "../lib/types.js";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { UnifiedDiff } from "../lib/types.js";
 
 const Input = z.object({
   mcpBinary: z.string(),
@@ -33,7 +33,9 @@ export function recountHunks(diff: string): string {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const headerMatch = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/);
+    const headerMatch = line.match(
+      /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/,
+    );
     if (!headerMatch) {
       out.push(line);
       i += 1;
@@ -84,30 +86,42 @@ export function recountHunks(diff: string): string {
   return out.join("\n");
 }
 
-export const applyEdit = createHandler({
-  inputValidator: Input,
-  outputValidator: Output,
-  handle: async ({ value }) => {
-    const mcp = new FalconMcpClient({ binary: value.mcpBinary, root: value.worktreePath });
-    await mcp.connect();
-    try {
-      // Pre-flight: rewrite each hunk header's line counts from the actual
-      // body. Gemini's diffs sometimes include a count that's off by one,
-      // and the underlying patch crate rejects the whole hunk on count
-      // mismatch — without this, the failure is silent (see casing fix below).
-      const normalizedDiff = recountHunks(value.diff.diff);
-
-      // falcon-mcp's fs_apply_patch returns `result: "ok" | "conflict"`
-      // (lowercase). The previous check for "Conflict" (capitalised) always
-      // missed, so applyEdit reported `ok: true` on every real conflict —
-      // processIssues then called commitOne with no staged changes, which
-      // failed downstream with an empty stderr. Match the wire format here.
-      const result = await mcp.call<{ result: "ok" | "conflict"; reason?: string }>("fs_apply_patch", {
-        path: value.diff.path,
-        unified_diff: normalizedDiff,
+export const applyEdit = createHandler(
+  {
+    inputValidator: Input,
+    outputValidator: Output,
+    handle: async ({ value }) => {
+      const mcp = new FalconMcpClient({
+        binary: value.mcpBinary,
+        root: value.worktreePath,
       });
-      if (result.result === "conflict") return { ok: false, reason: result.reason ?? "conflict" };
-      return { ok: true };
-    } finally { await mcp.close(); }
+      await mcp.connect();
+      try {
+        // Pre-flight: rewrite each hunk header's line counts from the actual
+        // body. Gemini's diffs sometimes include a count that's off by one,
+        // and the underlying patch crate rejects the whole hunk on count
+        // mismatch — without this, the failure is silent (see casing fix below).
+        const normalizedDiff = recountHunks(value.diff.diff);
+
+        // falcon-mcp's fs_apply_patch returns `result: "ok" | "conflict"`
+        // (lowercase). The previous check for "Conflict" (capitalised) always
+        // missed, so applyEdit reported `ok: true` on every real conflict —
+        // processIssues then called commitOne with no staged changes, which
+        // failed downstream with an empty stderr. Match the wire format here.
+        const result = await mcp.call<{
+          result: "ok" | "conflict";
+          reason?: string;
+        }>("fs_apply_patch", {
+          path: value.diff.path,
+          unified_diff: normalizedDiff,
+        });
+        if (result.result === "conflict")
+          return { ok: false, reason: result.reason ?? "conflict" };
+        return { ok: true };
+      } finally {
+        await mcp.close();
+      }
+    },
   },
-}, "applyEdit");
+  "applyEdit",
+);

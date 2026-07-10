@@ -27,11 +27,14 @@ export type Issue = z.infer<typeof Issue>;
 export const Excerpt = z.object({ file: z.string(), content: z.string() });
 export type Excerpt = z.infer<typeof Excerpt>;
 
-const ClassifiedPayload = z.object({ issue: Issue, excerpts: z.array(Excerpt) });
+const ClassifiedPayload = z.object({
+  issue: Issue,
+  excerpts: z.array(Excerpt),
+});
 export const TaggedIssue = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("Poison"), value: ClassifiedPayload }),
-  z.object({ kind: z.literal("Bug"),    value: ClassifiedPayload }),
-  z.object({ kind: z.literal("Lint"),   value: ClassifiedPayload }),
+  z.object({ kind: z.literal("Bug"), value: ClassifiedPayload }),
+  z.object({ kind: z.literal("Lint"), value: ClassifiedPayload }),
 ]);
 export type TaggedIssue = z.infer<typeof TaggedIssue>;
 
@@ -61,8 +64,14 @@ export const PreviousFailure = z.object({
 export type PreviousFailure = z.infer<typeof PreviousFailure>;
 
 export const VerifyResult = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("Clean"),  value: z.object({}) }),
-  z.object({ kind: z.literal("Broken"), value: z.object({ errors: z.array(z.string()) }) }),
-  z.object({ kind: z.literal("Stuck"),  value: z.object({ attempts: z.number().int() }) }),
+  z.object({ kind: z.literal("Clean"), value: z.object({}) }),
+  z.object({
+    kind: z.literal("Broken"),
+    value: z.object({ errors: z.array(z.string()) }),
+  }),
+  z.object({
+    kind: z.literal("Stuck"),
+    value: z.object({ attempts: z.number().int() }),
+  }),
 ]);
 export type VerifyResult = z.infer<typeof VerifyResult>;
