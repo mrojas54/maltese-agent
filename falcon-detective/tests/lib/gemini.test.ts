@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { Gemini, normalizeForHash } from "../../src/lib/gemini.js";
+import { DEFAULT_MODEL } from "../../src/lib/models.js";
 
 const TEST_DIR = join(process.cwd(), "fixtures", "cassettes-test");
 
@@ -17,7 +18,10 @@ describe("Gemini cassette mode", () => {
   it("replays a saved cassette", async () => {
     const schema = z.object({ kind: z.string() });
     const prompt = "test prompt";
-    const model = "gemini-2.5-pro";
+    // g.call below omits `model`, so the key must be built from the same
+    // DEFAULT_MODEL the Gemini client falls back to (MA-27: no literal —
+    // the id migrates with src/lib/models.ts).
+    const model = DEFAULT_MODEL;
     const schemaName = "ZodObject";
     const key = createHash("sha256")
       .update(`${model}\n${schemaName}\n${prompt}`)

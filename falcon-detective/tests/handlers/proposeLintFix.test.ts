@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { proposeLintFix } from "../../src/handlers/proposeLintFix.js";
+import { GEMINI_FLASH } from "../../src/lib/models.js";
 import {
   formatPreviousFailure,
   promptFromFile,
@@ -12,7 +13,7 @@ import {
 // key is sha256(model + "\n" + schema-ctor + "\n" + prompt), so a cassette
 // HIT proves the handler sent exactly this model id and these prompt bytes:
 // had the factory wired lint to the wrong prompt file, the wrong model
-// (bug/poison's gemini-2.5-pro), or the wrong excerpt, the lookup would miss
+// (bug/poison's GEMINI_PRO), or the wrong excerpt, the lookup would miss
 // and the handler would throw "no cassette". Mirrors proposeBugFix.test.ts.
 const CASSETTE_DIR = join(process.cwd(), "fixtures", "cassettes-test-lint");
 
@@ -25,7 +26,7 @@ beforeEach(async () => {
 
 async function writeCassetteFor(prompt: string): Promise<void> {
   const key = createHash("sha256")
-    .update(`gemini-2.5-flash\nZodObject\n${prompt}`)
+    .update(`${GEMINI_FLASH}\nZodObject\n${prompt}`)
     .digest("hex")
     .slice(0, 16);
   await writeFile(
@@ -52,7 +53,7 @@ describe("proposeLintFix", () => {
     { file: "src/lib.rs", content },
   ];
 
-  it("renders propose-lint-fix.md for gemini-2.5-flash from the issue's excerpt", async () => {
+  it("renders propose-lint-fix.md for GEMINI_FLASH from the issue's excerpt", async () => {
     const prompt = await promptFromFile("propose-lint-fix.md", {
       file: issue.location.file,
       line: "1",

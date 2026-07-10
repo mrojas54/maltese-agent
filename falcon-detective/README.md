@@ -146,14 +146,18 @@ instruction — before any network or pipeline work — if the key is missing,
 `falcon-agent/` is dirty, or `falcon-mcp` isn't built.
 
 **Expected spend: small (cents).** The canonical run makes ~5 Gemini calls —
-3× `gemini-2.5-pro` (triage, poison analysis, poison fix) and 2×
-`gemini-2.5-flash` (one per lint fix), with prompts of a few KB each. Schema-
-validation retries can at most triple the call count; the total stays well
-under a dollar.
+3× `gemini-3.1-pro-preview` (triage, poison analysis, poison fix) and 2×
+`gemini-3.1-flash-lite` (one per lint fix), with prompts of a few KB each.
+Schema-validation retries can at most triple the call count; the total stays
+well under a dollar. (Model IDs live in [`src/lib/models.ts`](src/lib/models.ts);
+the 2.5 family was retired for new API users in 2026-07 — see MA-27.)
 
 **Expected output: ~5 cassettes** in `fixtures/cassettes/`. Filenames are
 content-addressed (`sha256(model + schema + normalized prompt)[0:16].json`),
-so they change only when a prompt, model, or schema changes. The current set:
+so they change only when a prompt, model, or schema changes. The set below
+was recorded under the retired `gemini-2.5` IDs, so it is **stale** until the
+MA-24 re-record: the model is a hash component, so every filename changes,
+and the record run will report these files as untouched leftovers to delete.
 
 | File | Produced by | Content |
 |---|---|---|

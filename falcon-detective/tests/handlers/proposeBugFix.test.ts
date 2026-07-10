@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { proposeBugFix } from "../../src/handlers/proposeBugFix.js";
+import { GEMINI_PRO } from "../../src/lib/models.js";
 import { promptFromFile } from "../../src/lib/prompts.js";
 
 const CASSETTE_DIR = join(process.cwd(), "fixtures", "cassettes-test-bug");
@@ -33,7 +34,7 @@ describe("proposeBugFix", () => {
       previousFailure: "",
     });
     const key = createHash("sha256")
-      .update(`gemini-2.5-pro\nZodObject\n${prompt}`)
+      .update(`${GEMINI_PRO}\nZodObject\n${prompt}`)
       .digest("hex")
       .slice(0, 16);
     await writeFile(
