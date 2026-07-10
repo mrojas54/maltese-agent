@@ -1,0 +1,36 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-10T10:02:23Z",
+  "created_by": "agent:orchestrator-intake",
+  "custom_fields": {},
+  "description": "HUMAN TRACK - DO NOT DISPATCH TO FLEET (BUILDPLAN id MA-H-1). Operator runs npm run record with GEMINI_API_KEY set to re-record about 5 cassettes against the genai 2.x request shapes (small live spend, approved in contract). Proves AC-28. Depends: MA-20. Blocks the final sweep.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX5QMW38BFF2RX3YCS26S8RV",
+  "last_event_id": "ev_01KX5QNP75EAA17W0NME1KFD9M",
+  "last_status_changed_at": "2026-07-10T10:02:49Z",
+  "priority": "medium",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-10T10:02:29Z",
+      "created_by": "agent:orchestrator-intake",
+      "note": null,
+      "target_task_id": "task_01KX5QMVC798DJBP4886E98E89",
+      "type": "depends_on"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-24",
+  "status": "needs_human",
+  "tags": [
+    "human-track"
+  ],
+  "title": "HUMAN: re-record Gemini cassettes with live key",
+  "type": "chore",
+  "updated_at": "2026-07-10T10:02:49Z",
+  "urgency": null
+}

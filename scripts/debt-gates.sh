@@ -64,7 +64,31 @@ gate_toolchain_dockerfile_match() {
 gate_toolchain_dockerfile_match
 
 # ---------------------------------------------------------------------------
-# Gate 2 (AC-13, WS-5): no underscore-private Barnum surface in
+# Gate 2 (AC-22, WS-4): no `gemini-` model-ID string literal under
+# falcon-detective/src outside the shared constants module src/lib/models.ts.
+# ---------------------------------------------------------------------------
+gate_no_gemini_literals() {
+  local gate="no-gemini-literals (AC-22)"
+  local src_dir="$REPO_ROOT/falcon-detective/src"
+
+  if [[ ! -d "$src_dir" ]]; then
+    fail "$gate" "falcon-detective/src not found"
+    return
+  fi
+
+  local matches
+  matches="$(grep -rn 'gemini-' "$src_dir" | grep -v '/src/lib/models\.ts:' || true)"
+  if [[ -z "$matches" ]]; then
+    pass "$gate"
+  else
+    fail "$gate" "gemini- literal outside src/lib/models.ts: $(printf '%s' "$matches" | cut -d: -f1 | sort -u | sed "s|$REPO_ROOT/||" | tr '\n' ' ')"
+  fi
+}
+
+gate_no_gemini_literals
+
+# ---------------------------------------------------------------------------
+# Gate 3 (AC-13, WS-5): no underscore-private Barnum surface in
 # falcon-detective/src. Handler invocation goes exclusively through the
 # public runPipeline seam (falcon-detective/src/lib/invokeHandler.ts);
 # `__definition` (and any other dunder property reach) is the engine

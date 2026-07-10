@@ -2,6 +2,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { Issue, PoisonReport } from "../lib/types.js";
 import { Gemini } from "../lib/gemini.js";
+import { GEMINI_PRO } from "../lib/models.js";
 import { promptFromFile } from "../lib/prompts.js";
 
 const Input = z.object({
@@ -21,7 +22,7 @@ export const analyzePoison = createHandler({
       content: promptFile.content,
       evidence: value.issue.evidence,
     });
-    const report = await gemini.call({ prompt, schema: PoisonReport, model: "gemini-2.5-pro" });
+    const report = await gemini.call({ prompt, schema: PoisonReport, model: GEMINI_PRO });
     return { issue: value.issue, report, excerpts: value.excerpts };
   },
 }, "analyzePoison");

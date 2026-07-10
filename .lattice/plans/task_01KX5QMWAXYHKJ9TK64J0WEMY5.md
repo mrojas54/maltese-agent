@@ -1,0 +1,3 @@
+# MA-25: Split test suites: fast hermetic default plus full target
+
+Fix-it ticket (operator-routed 2026-07-10; contract-check gap: no fast/full test split). falcon-detective package.json: test = hermetic vitest run excluding tests/e2e.test.ts, target 60s or less, no falcon-mcp binary, no cassettes; test:full = full suite including e2e. Do NOT touch ci.yml (MA-02 wires CI to test:full with E2E_REQUIRED=1). Document the fast Rust inner loop (cargo test -p falcon-mcp --lib) in the README testing section. Pass: npm test green and hermetic; npm run test:full runs e2e. Serialize: package.json. Size S.
