@@ -1,0 +1,6 @@
+#!/bin/sh
+# Deliberately hanging fake `rg` (timeout-test fixture). timeout_test.rs
+# prepends this directory to the spawned falcon-mcp server's PATH so
+# fs_search spawns this script instead of real ripgrep, guaranteeing a hang.
+# Bounded sleep (not infinite) so an orphaned copy exits on its own.
+sleep 120

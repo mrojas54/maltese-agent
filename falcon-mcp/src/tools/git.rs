@@ -3,22 +3,31 @@
 //! (Task 12). All shell out to `git` inside the sandbox; writable-mutating
 //! operations are gated through [`Sandbox::check_writable`].
 
+use crate::limits;
 use crate::sandbox::Sandbox;
+use crate::tools::subprocess::run_collect;
 use crate::tools::util::{format_stderr_for_bail, OkResult};
 use anyhow::Context;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// Spawn a `git` subcommand with the same stdio hygiene the cargo tools use:
-/// stdin detached so a child can't try to interact, stdout/stderr piped so we
-/// can capture them without inheriting the MCP server's JSON-RPC channel.
+/// Start building a `git` subcommand. Stdio hygiene (stdin detached,
+/// stdout/stderr piped away from the MCP JSON-RPC channel) and the wall-clock
+/// timeout are owned by the shared subprocess helper every invocation goes
+/// through — see [`run_git`].
 fn git_command() -> tokio::process::Command {
-    let mut cmd = tokio::process::Command::new("git");
-    cmd.stdin(std::process::Stdio::null());
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-    cmd
+    tokio::process::Command::new("git")
+}
+
+/// Run a prepared `git` command through the shared subprocess pipeline with
+/// the git tool family's wall-clock timeout ([`limits::GIT_TIMEOUT`],
+/// env-overridable via `FALCON_MCP_GIT_TIMEOUT_MS`).
+async fn run_git(
+    cmd: tokio::process::Command,
+    label: &str,
+) -> anyhow::Result<std::process::Output> {
+    run_collect(cmd, label, limits::git_timeout()).await
 }
 
 // ---- git_worktree_add --------------------------------------------------------
@@ -56,15 +65,13 @@ pub async fn worktree_add(
         .resolve(format!(".runs/{}", args.name))
         .context("resolving worktree path")?;
 
-    let out = git_command()
-        .arg("worktree")
+    let mut cmd = git_command();
+    cmd.arg("worktree")
         .arg("add")
         .arg(&path)
         .arg(&args.base)
-        .current_dir(sandbox.root())
-        .output()
-        .await
-        .context("running git worktree add")?;
+        .current_dir(sandbox.root());
+    let out = run_git(cmd, "git worktree add").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git worktree add failed: {stderr}");
@@ -96,15 +103,13 @@ pub async fn worktree_remove(
         .resolve(&args.path)
         .context("resolving worktree path")?;
 
-    let out = git_command()
-        .arg("worktree")
+    let mut cmd = git_command();
+    cmd.arg("worktree")
         .arg("remove")
         .arg("--force")
         .arg(&path)
-        .current_dir(sandbox.root())
-        .output()
-        .await
-        .context("running git worktree remove")?;
+        .current_dir(sandbox.root());
+    let out = run_git(cmd, "git worktree remove").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git worktree remove failed: {stderr}");
@@ -135,7 +140,7 @@ pub async fn git_add(sandbox: Arc<Sandbox>, args: GitAddArgs) -> anyhow::Result<
     }
     cmd.current_dir(sandbox.root());
 
-    let out = cmd.output().await.context("running git add")?;
+    let out = run_git(cmd, "git add").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git add failed: {stderr}");
@@ -168,30 +173,27 @@ pub async fn git_commit(
     sandbox.check_writable()?;
     sandbox.check_bin("git")?;
 
-    let out = git_command()
-        .arg("-c")
+    let mut cmd = git_command();
+    cmd.arg("-c")
         .arg("user.email=falcon-detective@local")
         .arg("-c")
         .arg("user.name=falcon-detective")
         .arg("commit")
         .arg("-m")
         .arg(&args.message)
-        .current_dir(sandbox.root())
-        .output()
-        .await
-        .context("running git commit")?;
+        .current_dir(sandbox.root());
+    let out = run_git(cmd, "git commit").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git commit failed: {stderr}");
     }
 
-    let sha_out = git_command()
+    let mut sha_cmd = git_command();
+    sha_cmd
         .arg("rev-parse")
         .arg("HEAD")
-        .current_dir(sandbox.root())
-        .output()
-        .await
-        .context("resolving HEAD sha")?;
+        .current_dir(sandbox.root());
+    let sha_out = run_git(sha_cmd, "git rev-parse HEAD").await?;
     if !sha_out.status.success() {
         let stderr = format_stderr_for_bail(&sha_out.stderr);
         anyhow::bail!("git rev-parse HEAD failed: {stderr}");
@@ -231,7 +233,7 @@ pub async fn git_diff(sandbox: Arc<Sandbox>, args: GitDiffArgs) -> anyhow::Resul
     }
     cmd.current_dir(sandbox.root());
 
-    let out = cmd.output().await.context("running git diff")?;
+    let out = run_git(cmd, "git diff").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git diff failed: {stderr}");
@@ -290,7 +292,7 @@ pub async fn git_log(sandbox: Arc<Sandbox>, args: GitLogArgs) -> anyhow::Result<
     }
     cmd.current_dir(sandbox.root());
 
-    let out = cmd.output().await.context("running git log")?;
+    let out = run_git(cmd, "git log").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git log failed: {stderr}");
@@ -347,16 +349,14 @@ pub async fn git_blame(
         .resolve(&args.path)
         .context("resolving blame path")?;
 
-    let out = git_command()
-        .arg("blame")
+    let mut cmd = git_command();
+    cmd.arg("blame")
         .arg("--porcelain")
         .arg("-L")
         .arg(format!("{},{}", args.line, args.line))
         .arg(&path)
-        .current_dir(sandbox.root())
-        .output()
-        .await
-        .context("running git blame")?;
+        .current_dir(sandbox.root());
+    let out = run_git(cmd, "git blame").await?;
     if !out.status.success() {
         let stderr = format_stderr_for_bail(&out.stderr);
         anyhow::bail!("git blame failed: {stderr}");

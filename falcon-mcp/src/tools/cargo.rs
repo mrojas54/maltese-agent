@@ -3,7 +3,9 @@
 //! (formatting check / apply). All shell out to `cargo` inside the sandbox
 //! and parse its output (JSON or, for fmt, plain text) into structured results.
 
+use crate::limits;
 use crate::sandbox::Sandbox;
+use crate::tools::subprocess::run_collect;
 use crate::tools::util::format_stderr_for_bail;
 use anyhow::Context;
 use schemars::JsonSchema;
@@ -101,13 +103,10 @@ async fn run_cargo_json(
     }
     cmd.arg("--message-format=json").current_dir(&path);
 
-    // Detach child stdio from parent's stdio. The MCP server is talking
-    // JSON-RPC on stdin/stdout, so any inheritance corrupts the protocol.
-    cmd.stdin(std::process::Stdio::null());
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-
-    let out = cmd.output().await.context("running cargo")?;
+    // Stdio hygiene and the wall-clock timeout are owned by the shared
+    // subprocess helper (WS-3).
+    let label = format!("cargo {}", subcmd.join(" "));
+    let out = run_collect(cmd, &label, limits::cargo_timeout()).await?;
     let mut msgs = Vec::new();
     for line in out.stdout.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
         if let Ok(v) = serde_json::from_slice::<serde_json::Value>(line) {
@@ -214,12 +213,8 @@ pub async fn cargo_test(
     // TODO: drop once libtest JSON output stabilizes (rust-lang/rust#49359).
     cmd.env("RUSTC_BOOTSTRAP", "1");
 
-    cmd.stdin(std::process::Stdio::null());
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-
     let start = std::time::Instant::now();
-    let out = cmd.output().await.context("running cargo test")?;
+    let out = run_collect(cmd, "cargo test", limits::cargo_timeout()).await?;
 
     let mut passed = Vec::new();
     let mut failed = Vec::new();
@@ -383,13 +378,7 @@ pub async fn cargo_fmt(
     }
     cmd.current_dir(&path);
 
-    // Same stdio hygiene as the other cargo wrappers: keep the MCP JSON-RPC
-    // channel clean by not letting the child inherit our stdio.
-    cmd.stdin(std::process::Stdio::null());
-    cmd.stdout(std::process::Stdio::piped());
-    cmd.stderr(std::process::Stdio::piped());
-
-    let out = cmd.output().await.context("running cargo fmt")?;
+    let out = run_collect(cmd, "cargo fmt", limits::cargo_timeout()).await?;
     if out.status.success() {
         return Ok(CargoFmtResult {
             status: "ok".to_string(),

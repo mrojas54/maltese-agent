@@ -1,0 +1,5 @@
+#!/bin/sh
+# Deliberately hanging fake `ast-grep` (timeout-test fixture). See ./rg —
+# same PATH-prepend trick, used by the fs_search_ast timeout test.
+# Bounded sleep (not infinite) so an orphaned copy exits on its own.
+sleep 120

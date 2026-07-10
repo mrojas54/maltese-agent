@@ -1,0 +1,11 @@
+# Standalone workspace so this fixture is NOT pulled into the parent
+# falcon-mcp crate's build (same pattern as sample-crate). Its build script
+# deliberately hangs; it exists so timeout_test.rs can prove the cargo tool
+# family's wall-clock timeout kills a stuck `cargo check`.
+[workspace]
+
+[package]
+name = "hanging-crate"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
