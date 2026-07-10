@@ -100,8 +100,14 @@ jobs:
       # e2e's smoking-gun step compiles falcon-agent inside its fresh
       # .runs/e2e-test worktree (cold target dir; the cargo registry cache
       # still applies), adding a few minutes to this job.
-      - name: vitest (full suite, e2e required)
+      # E2E_REQUIRED is PARKED until the M4 cassette re-record (operator
+      # decision 2026-07-10, ticket MA-2 review): the checked-in cassettes
+      # are stale vs the current triage prompt, so a hard gate today would
+      # red every PR. The e2e still RUNS here and reports a visible skip
+      # with reason. MA-22 (final sweep) flips E2E_REQUIRED to "1"
+      # immediately after the MA-24 re-record lands.
+      - name: vitest (full suite, e2e skip-if-unmet)
         working-directory: falcon-detective
         run: npm run test:full
         env:
-          E2E_REQUIRED: "1"
+          E2E_REQUIRED: "0"
