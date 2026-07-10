@@ -83,8 +83,9 @@ export function checkE2ePrereqs(input: E2ePrereqInput): GuardOutcome {
  * Map a guard outcome onto vitest statuses: `fail` throws (test fails),
  * `skip` marks the test skipped via ctx.skip() — never a silent pass.
  *
- * vitest 1.6's `ctx.skip()` takes no note argument (vitest ≥2 does), so the
- * reason is also logged; the call signature stays forward-compatible.
+ * vitest 3's `ctx.skip(note?)` accepts the reason as a note and throws to
+ * abort the test body (nothing after the call runs). The reason is ALSO
+ * logged to stderr because skip notes are not surfaced by every reporter.
  */
 export function applyGuardOutcome(
   outcome: GuardOutcome,
