@@ -1,0 +1,17 @@
+# cargo-audit configuration (TD-9 / AC-17, SPEC WS-7).
+#
+# Accepted RustSec advisories are allowlisted here, one id per line in
+# `ignore`, and EVERY entry must carry an inline comment stating why it is
+# accepted (no fix available / not exploitable in this context / etc.),
+# a link to the advisory, and a revisit date. An uncommented ignore is a
+# review failure. Fixable advisories are never allowlisted — fix them.
+#
+# Example:
+#   ignore = [
+#     "RUSTSEC-2099-0001", # no fixed release yet; DoS only reachable via
+#                          # local CLI input, not network. Revisit 2099-12-01.
+#                          # https://rustsec.org/advisories/RUSTSEC-2099-0001
+#   ]
+
+[advisories]
+ignore = []

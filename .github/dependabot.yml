@@ -1,0 +1,19 @@
+# Dependabot config (TD-9 / AC-18, SPEC WS-7): weekly update PRs for all
+# three ecosystems in this repo — the Rust workspace, the falcon-detective
+# npm package, and the GitHub Actions used by CI.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: "/falcon-detective"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
