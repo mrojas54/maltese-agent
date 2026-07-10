@@ -27,43 +27,56 @@ const Output = z.discriminatedUnion("kind", [
   }),
 ]);
 
+/**
+ * Handle body, exported as a public module seam so the orchestration tests
+ * (MA-13 / AC-19) can drive it in-process with a mocked FalconMcpClient —
+ * `vi.mock` cannot cross the Barnum engine's process boundary, and Barnum's
+ * underscore-private surface is barred (AC-13). The Barnum handler below wires
+ * this exact function unchanged.
+ */
+export async function finalSweepHandle({
+  value,
+}: {
+  value: z.infer<typeof Input>;
+}): Promise<z.infer<typeof Output>> {
+  const mcp = new FalconMcpClient({
+    binary: value.mcpBinary,
+    root: value.worktreePath,
+  });
+  await mcp.connect();
+  try {
+    const reasons: string[] = [];
+    const test = await mcp.call(
+      "cargo_test",
+      { crate_path: value.cratePath },
+      CargoTestResult,
+    );
+    if (test.failed.length > 0)
+      reasons.push(`${test.failed.length} tests still failing`);
+    const clippy = await mcp.call(
+      "cargo_clippy",
+      { crate_path: value.cratePath },
+      CargoClippyResult,
+    );
+    if (clippy.lints.length > 0)
+      reasons.push(`${clippy.lints.length} clippy lints remain`);
+    const ctx = {
+      mcpBinary: value.mcpBinary,
+      worktreePath: value.worktreePath,
+    };
+    return reasons.length === 0
+      ? { kind: "Clean" as const, value: ctx }
+      : { kind: "Dirty" as const, value: { ...ctx, reasons } };
+  } finally {
+    await mcp.close();
+  }
+}
+
 export const finalSweep = createHandler(
   {
     inputValidator: Input,
     outputValidator: Output,
-    handle: async ({ value }) => {
-      const mcp = new FalconMcpClient({
-        binary: value.mcpBinary,
-        root: value.worktreePath,
-      });
-      await mcp.connect();
-      try {
-        const reasons: string[] = [];
-        const test = await mcp.call(
-          "cargo_test",
-          { crate_path: value.cratePath },
-          CargoTestResult,
-        );
-        if (test.failed.length > 0)
-          reasons.push(`${test.failed.length} tests still failing`);
-        const clippy = await mcp.call(
-          "cargo_clippy",
-          { crate_path: value.cratePath },
-          CargoClippyResult,
-        );
-        if (clippy.lints.length > 0)
-          reasons.push(`${clippy.lints.length} clippy lints remain`);
-        const ctx = {
-          mcpBinary: value.mcpBinary,
-          worktreePath: value.worktreePath,
-        };
-        return reasons.length === 0
-          ? { kind: "Clean" as const, value: ctx }
-          : { kind: "Dirty" as const, value: { ...ctx, reasons } };
-      } finally {
-        await mcp.close();
-      }
-    },
+    handle: finalSweepHandle,
   },
   "finalSweep",
 );
