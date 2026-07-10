@@ -1,0 +1,6 @@
+# Pinned Rust toolchain (WS-10 / AC-23).
+# The minor version here MUST match the base image tag in falcon-mcp/Dockerfile
+# (rust:1.92-slim-bookworm). Enforced by scripts/debt-gates.sh in CI.
+[toolchain]
+channel = "1.92"
+components = ["rustfmt", "clippy"]
