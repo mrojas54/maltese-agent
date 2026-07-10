@@ -65,9 +65,17 @@ The workflow's first handler (`prepWorktree`) creates a fresh git worktree at `<
 ## Tests
 
 ```bash
-npm test                            # full suite
-npm test -- tests/e2e.test.ts       # just the end-to-end
+npm test                                     # fast hermetic suite (default)
+npm run test:full                            # full suite, including the e2e
+npm run test:full -- tests/e2e.test.ts       # just the end-to-end
 ```
+
+`npm test` is the inner loop: it excludes `tests/e2e.test.ts` and pins
+`FALCON_MCP_BIN` to a nonexistent path so nothing spawns the `falcon-mcp`
+binary or reads recorded cassettes — it needs no `cargo build` and finishes in
+seconds. The binary-gated tests (`tests/lib/mcp.test.ts`,
+`tests/handlers/prepWorktree.test.ts`) exercise their spawn paths under
+`npm run test:full` when `target/debug/falcon-mcp` is built.
 
 The e2e:
 
