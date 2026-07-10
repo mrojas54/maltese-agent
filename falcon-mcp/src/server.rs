@@ -1,6 +1,12 @@
 //! rmcp ServerHandler that exposes the falcon-mcp tool surface.
+//!
+//! Handler errors are classified through the [`ToolError`] taxonomy
+//! (`crate::tool_error`): not-found / invalid-argument / timeout surface as
+//! JSON-RPC protocol errors with distinct codes an MCP client can branch on
+//! (AC-32); internal failures stay result-level (`is_error: true`).
 
 use crate::sandbox::Sandbox;
+use crate::tool_error::ToolError;
 use crate::tools::cargo;
 use crate::tools::exec;
 use crate::tools::fs_ast;
@@ -43,11 +49,11 @@ impl FalconMcp {
     pub async fn fs_read(
         &self,
         params: Parameters<fs_basic::FsReadArgs>,
-    ) -> Result<Json<fs_basic::FsReadResult>, String> {
+    ) -> Result<Json<fs_basic::FsReadResult>, ToolError> {
         fs_basic::fs_read(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     /// Write a file inside the sandbox root. Creates parent dirs if missing. Errors if read-only.
@@ -58,11 +64,11 @@ impl FalconMcp {
     pub async fn fs_write(
         &self,
         params: Parameters<fs_basic::FsWriteArgs>,
-    ) -> Result<Json<fs_basic::FsWriteResult>, String> {
+    ) -> Result<Json<fs_basic::FsWriteResult>, ToolError> {
         fs_basic::fs_write(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     /// List directory entries inside the sandbox. Optional `glob` filter applied to entry names.
@@ -73,11 +79,11 @@ impl FalconMcp {
     pub async fn fs_list(
         &self,
         params: Parameters<fs_basic::FsListArgs>,
-    ) -> Result<Json<fs_basic::FsListResult>, String> {
+    ) -> Result<Json<fs_basic::FsListResult>, ToolError> {
         fs_basic::fs_list(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     /// Apply a unified diff to a file inside the sandbox. Returns `{result: "ok", lines_changed: N}` on success
@@ -89,11 +95,11 @@ impl FalconMcp {
     pub async fn fs_apply_patch(
         &self,
         params: Parameters<fs_basic::FsApplyPatchArgs>,
-    ) -> Result<Json<fs_basic::FsApplyPatchResult>, String> {
+    ) -> Result<Json<fs_basic::FsApplyPatchResult>, ToolError> {
         fs_basic::fs_apply_patch(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -103,11 +109,11 @@ impl FalconMcp {
     pub async fn fs_search(
         &self,
         params: Parameters<fs_basic::FsSearchArgs>,
-    ) -> Result<Json<fs_basic::FsSearchResult>, String> {
+    ) -> Result<Json<fs_basic::FsSearchResult>, ToolError> {
         fs_basic::fs_search(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -117,11 +123,11 @@ impl FalconMcp {
     pub async fn fs_search_ast(
         &self,
         params: Parameters<fs_ast::FsSearchAstArgs>,
-    ) -> Result<Json<fs_ast::FsSearchAstResult>, String> {
+    ) -> Result<Json<fs_ast::FsSearchAstResult>, ToolError> {
         fs_ast::fs_search_ast(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -131,11 +137,11 @@ impl FalconMcp {
     pub async fn cargo_check(
         &self,
         params: Parameters<cargo::CargoCheckArgs>,
-    ) -> Result<Json<cargo::CargoCheckResult>, String> {
+    ) -> Result<Json<cargo::CargoCheckResult>, ToolError> {
         cargo::cargo_check(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -145,11 +151,11 @@ impl FalconMcp {
     pub async fn cargo_test(
         &self,
         params: Parameters<cargo::CargoTestArgs>,
-    ) -> Result<Json<cargo::CargoTestResult>, String> {
+    ) -> Result<Json<cargo::CargoTestResult>, ToolError> {
         cargo::cargo_test(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -159,11 +165,11 @@ impl FalconMcp {
     pub async fn cargo_clippy(
         &self,
         params: Parameters<cargo::CargoClippyArgs>,
-    ) -> Result<Json<cargo::CargoClippyResult>, String> {
+    ) -> Result<Json<cargo::CargoClippyResult>, ToolError> {
         cargo::cargo_clippy(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -173,11 +179,11 @@ impl FalconMcp {
     pub async fn cargo_fmt(
         &self,
         params: Parameters<cargo::CargoFmtArgs>,
-    ) -> Result<Json<cargo::CargoFmtResult>, String> {
+    ) -> Result<Json<cargo::CargoFmtResult>, ToolError> {
         cargo::cargo_fmt(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -187,11 +193,11 @@ impl FalconMcp {
     pub async fn git_worktree_add(
         &self,
         params: Parameters<git::WorktreeAddArgs>,
-    ) -> Result<Json<git::WorktreeAddResult>, String> {
+    ) -> Result<Json<git::WorktreeAddResult>, ToolError> {
         git::worktree_add(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -201,11 +207,11 @@ impl FalconMcp {
     pub async fn git_worktree_remove(
         &self,
         params: Parameters<git::WorktreeRemoveArgs>,
-    ) -> Result<Json<OkResult>, String> {
+    ) -> Result<Json<OkResult>, ToolError> {
         git::worktree_remove(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -215,11 +221,11 @@ impl FalconMcp {
     pub async fn git_add(
         &self,
         params: Parameters<git::GitAddArgs>,
-    ) -> Result<Json<OkResult>, String> {
+    ) -> Result<Json<OkResult>, ToolError> {
         git::git_add(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -229,11 +235,11 @@ impl FalconMcp {
     pub async fn git_commit(
         &self,
         params: Parameters<git::GitCommitArgs>,
-    ) -> Result<Json<git::GitCommitResult>, String> {
+    ) -> Result<Json<git::GitCommitResult>, ToolError> {
         git::git_commit(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -243,11 +249,11 @@ impl FalconMcp {
     pub async fn git_diff(
         &self,
         params: Parameters<git::GitDiffArgs>,
-    ) -> Result<Json<git::GitDiffResult>, String> {
+    ) -> Result<Json<git::GitDiffResult>, ToolError> {
         git::git_diff(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -257,11 +263,11 @@ impl FalconMcp {
     pub async fn git_log(
         &self,
         params: Parameters<git::GitLogArgs>,
-    ) -> Result<Json<git::GitLogResult>, String> {
+    ) -> Result<Json<git::GitLogResult>, ToolError> {
         git::git_log(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -271,11 +277,11 @@ impl FalconMcp {
     pub async fn git_blame(
         &self,
         params: Parameters<git::GitBlameArgs>,
-    ) -> Result<Json<git::GitBlameResult>, String> {
+    ) -> Result<Json<git::GitBlameResult>, ToolError> {
         git::git_blame(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 
     #[tool(
@@ -285,7 +291,7 @@ impl FalconMcp {
     pub async fn prompt_lint(
         &self,
         params: Parameters<prompt_lint::PromptLintArgs>,
-    ) -> Result<Json<prompt_lint::PromptLintResult>, String> {
+    ) -> Result<Json<prompt_lint::PromptLintResult>, ToolError> {
         Ok(Json(prompt_lint::prompt_lint(params.0)))
     }
 
@@ -296,14 +302,18 @@ impl FalconMcp {
     pub async fn exec_run(
         &self,
         params: Parameters<exec::ExecRunArgs>,
-    ) -> Result<Json<exec::ExecRunResult>, String> {
+    ) -> Result<Json<exec::ExecRunResult>, ToolError> {
         if !self.exec_enabled {
-            return Err("exec_run disabled (server started without --enable-exec)".to_string());
+            // Server-side capability gate: not an argument or addressing
+            // failure, so it routes to the internal (result-level) kind.
+            return Err(ToolError::internal(
+                "exec_run disabled (server started without --enable-exec)",
+            ));
         }
         exec::exec_run(self.sandbox.clone(), params.0)
             .await
             .map(Json)
-            .map_err(|e| format!("{e:#}"))
+            .map_err(ToolError::classify)
     }
 }
 

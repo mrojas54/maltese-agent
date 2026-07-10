@@ -7,6 +7,7 @@
 pub mod limits;
 pub mod sandbox;
 pub mod server;
+pub mod tool_error;
 pub mod tools;
 
 pub use sandbox::Sandbox;
