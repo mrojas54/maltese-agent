@@ -102,16 +102,78 @@ With `E2E_REQUIRED=1` (set in CI's typescript job) every skip above becomes a
 The guard behaviors themselves are proven hermetically by
 `tests/e2e-guard.test.ts`, which runs in the fast `npm test` suite.
 
-## Re-recording cassettes
+## Re-recording cassettes (operator flow)
 
-If a workflow change drifts the prompt hash:
+Re-record when the e2e reports a cassette miss (`no cassette for <hash>` —
+the workflow code or prompts drifted since the last recording) or after an
+SDK/model upgrade changes request shapes. Recording is the only operation in
+this repo that spends real API money, so it is operator-driven
+(BUILDPLAN MA-H-1): one command, small spend, everything else offline.
+
+All commands below run from inside `falcon-detective/`.
+
+### 1. Prerequisites
 
 ```bash
-GEMINI_MODE=record GEMINI_API_KEY=... \
-  npm run fix -- --target ../falcon-agent --run-name record-$(date +%s)
+npm ci                                 # this package's deps
+(cd .. && cargo build -p falcon-mcp)   # the pipeline spawns this binary
+```
 
+`falcon-agent/` must have **no uncommitted changes** — cassettes must capture
+the canonical seed state. The script checks this and refuses to run otherwise.
+Like the e2e, recording never mutates your checkout: all pipeline edits happen
+inside the per-run git worktree at `<repo-root>/.runs/<run-name>`.
+
+### 2. Sanity-check the plan (no key, no network)
+
+```bash
+npm run record -- --dry-run
+```
+
+Prints the recording plan — which handlers call Gemini, with which model,
+prompt template, and schema — plus the resolved cassette dir and the cassettes
+currently on disk. Makes **no network calls** and needs no key.
+
+### 3. Record
+
+```bash
+GEMINI_API_KEY=... npm run record
+```
+
+The only required env var is `GEMINI_API_KEY`
+(<https://aistudio.google.com/apikey>). The script fails fast with an
+instruction — before any network or pipeline work — if the key is missing,
+`falcon-agent/` is dirty, or `falcon-mcp` isn't built.
+
+**Expected spend: small (cents).** The canonical run makes ~5 Gemini calls —
+3× `gemini-2.5-pro` (triage, poison analysis, poison fix) and 2×
+`gemini-2.5-flash` (one per lint fix), with prompts of a few KB each. Schema-
+validation retries can at most triple the call count; the total stays well
+under a dollar.
+
+**Expected output: ~5 cassettes** in `fixtures/cassettes/`. Filenames are
+content-addressed (`sha256(model + schema + normalized prompt)[0:16].json`),
+so they change only when a prompt, model, or schema changes. The current set:
+
+| File | Produced by | Content |
+|---|---|---|
+| `7a84e87717a4de35.json` | `triage` | Issue list: 1 poison, 2 lints |
+| `d23b82866c943eb9.json` | `analyzePoison` | Analysis of the poisoned few-shot example in `prompt.rs` |
+| `1581f1e49bada42a.json` | `proposePoisonFix` | Diff removing the poisoned example from `prompt.rs` |
+| `0f402318c24c0df4.json` | `proposeLintFix` | Diff for the planted unused-import lint in `interrogate.rs` |
+| `958680ee55ceefb3.json` | `proposeLintFix` | Diff for the `default_constructed_unit_structs` lint in `main.rs` |
+
+(`proposeBugFix` is also a recordable call site, but the canonical seed
+triages to no `bug`-kind issues, so it contributes no cassette today.)
+
+After the run the script reports created / updated / untouched files.
+"Untouched" files whose hashes were not re-emitted are stale leftovers —
+delete them.
+
+### 4. Write the e2e fingerprint manifest
+
+```bash
 npm run e2e:fingerprint
-git add fixtures/cassettes/
 ```
 
 `npm run e2e:fingerprint` writes
@@ -121,7 +183,18 @@ recorded against (workflow code + prompts content hash, model id, committed
 and skips fast when anything drifted; **without the manifest the e2e treats
 the cassettes as stale**, so always run it after recording.
 
-Prompt hashing in [`src/lib/gemini.ts`](src/lib/gemini.ts) normalizes whitespace and timestamp-like strings before hashing, so cosmetic prompt edits don't invalidate the cache.
+### 5. Verify and commit
+
+```bash
+npm run test:full -- tests/e2e.test.ts          # replays offline (cassette mode)
+git add fixtures/cassettes/                     # cassettes + .e2e-fingerprint.json
+git -C .. worktree remove --force .runs/<run-name>   # cleanup
+```
+
+Prompt hashing in [`src/lib/gemini.ts`](src/lib/gemini.ts)
+(`normalizeForHash`) strips volatile substrings — usernames, tmpdirs, cargo
+timing, test ordering — before hashing, so cosmetic run-to-run differences
+don't invalidate cassettes.
 
 ## Design
 

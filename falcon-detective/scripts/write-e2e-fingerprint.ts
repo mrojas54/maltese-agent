@@ -1,9 +1,10 @@
 // Writes fixtures/cassettes/.e2e-fingerprint.json — the manifest the e2e's
 // cassette-staleness fast path compares against (MA-26; see
 // tests/helpers/e2eFingerprint.ts). Run this immediately after a
-// GEMINI_MODE=record session, then commit it alongside the cassettes:
+// GEMINI_MODE=record session, then commit it alongside the cassettes
+// (full operator flow: README "Re-recording cassettes"):
 //
-//   GEMINI_MODE=record GEMINI_API_KEY=... npm run fix -- --target ../falcon-agent --run-name record-$(date +%s)
+//   GEMINI_API_KEY=... npm run record   # MA-20 recording script
 //   npm run e2e:fingerprint
 //   git add fixtures/cassettes/
 //
