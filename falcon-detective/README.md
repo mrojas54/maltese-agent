@@ -83,10 +83,19 @@ The e2e **never mutates your checkout**. It:
    test **skips** with a message naming the dirty paths (it does *not* reset
    anything — commit or stash, then rerun); same skip for a missing
    `target/debug/falcon-mcp` binary or empty `fixtures/cassettes/`
-2. Runs the CLI in `cassette` mode against the recorded fixtures — all
+2. Checks cassette freshness **before** launching the pipeline: the recorded
+   fingerprint manifest (`fixtures/cassettes/.e2e-fingerprint.json`, written
+   by `npm run e2e:fingerprint` at record time) is compared against the
+   current workflow code, prompt templates, model id, and committed
+   `falcon-agent/` tree. Stale (or unproven) cassettes **skip in under a
+   second** instead of burning ~60s of pipeline work discovering the miss —
+   and the long-running pipeline/smoke subprocesses are spawned
+   asynchronously so a legitimate full run cannot block the vitest worker
+   event loop (the 2026-07 `Timeout calling "onTaskUpdate"` CI flake)
+3. Runs the CLI in `cassette` mode against the recorded fixtures — all
    mutation happens inside the pipeline's own `prepWorktree` sandbox at
    `<repo-root>/.runs/e2e-test`
-3. Asserts the previously-`#[ignore]`'d cargo test `bird_themed_inputs_arent_special` passes inside the per-run worktree — the gate that proves the poison is gone
+4. Asserts the previously-`#[ignore]`'d cargo test `bird_themed_inputs_arent_special` passes inside the per-run worktree — the gate that proves the poison is gone
 
 With `E2E_REQUIRED=1` (set in CI's typescript job) every skip above becomes a
 **failure**, so a green required run mechanically implies the e2e executed.
@@ -101,8 +110,16 @@ If a workflow change drifts the prompt hash:
 GEMINI_MODE=record GEMINI_API_KEY=... \
   npm run fix -- --target ../falcon-agent --run-name record-$(date +%s)
 
+npm run e2e:fingerprint
 git add fixtures/cassettes/
 ```
+
+`npm run e2e:fingerprint` writes
+`fixtures/cassettes/.e2e-fingerprint.json`, capturing what the cassettes were
+recorded against (workflow code + prompts content hash, model id, committed
+`falcon-agent/` tree hash). The e2e compares it before launching the pipeline
+and skips fast when anything drifted; **without the manifest the e2e treats
+the cassettes as stale**, so always run it after recording.
 
 Prompt hashing in [`src/lib/gemini.ts`](src/lib/gemini.ts) normalizes whitespace and timestamp-like strings before hashing, so cosmetic prompt edits don't invalidate the cache.
 

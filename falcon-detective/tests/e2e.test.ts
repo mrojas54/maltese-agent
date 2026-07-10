@@ -1,8 +1,23 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_MODEL } from "../src/lib/models.js";
+import { checkCassetteFreshness } from "./helpers/e2eFingerprint.js";
 import { applyGuardOutcome, checkE2ePrereqs } from "./helpers/e2ePrereqs.js";
+
+// Async subprocess execution is load-bearing here, not style (MA-26): the
+// pipeline and smoke-test runs take minutes, and a synchronous exec blocks
+// the vitest worker's event loop long enough that its RPC to the host dies
+// (`Timeout calling "onTaskUpdate"`) — an unhandled error that fails the run
+// even when every test passes. tests/e2e-guard.test.ts pins this with a
+// no-sync-exec regression test on this file's source.
+const execFileAsync = promisify(execFile);
+
+// Pipeline stdout/stderr can carry full cargo output; default 1 MiB maxBuffer
+// would throw ENOBUFS mid-run.
+const MAX_BUFFER = 64 * 1024 * 1024;
 
 // process.cwd() under `npm --prefix falcon-detective test` is the WORKTREE
 // root, not falcon-detective/, so `process.cwd()/..` resolves one level too
@@ -17,7 +32,7 @@ const CASSETTE_DIR = join(REPO_ROOT, "falcon-detective/fixtures/cassettes");
 const REQUIRED = process.env.E2E_REQUIRED === "1";
 
 describe("e2e: full pipeline against falcon-agent", () => {
-  it("runs to completion in cassette mode", (ctx) => {
+  it("runs to completion in cassette mode", async (ctx) => {
     // Prerequisite + dirty-state guard (AC-1..AC-4). This test NEVER mutates
     // the developer checkout: if falcon-agent/ has uncommitted changes the
     // pipeline would investigate a non-canonical seed state, so we skip
@@ -35,6 +50,28 @@ describe("e2e: full pipeline against falcon-agent", () => {
       ctx,
     );
 
+    // Cassette-staleness fast path (MA-26): the pipeline burns ~60s of cargo
+    // work before its first Gemini call can report a cassette miss, so the
+    // staleness verdict is hoisted here — a fingerprint comparison against
+    // the manifest recorded with the cassettes (see helpers/e2eFingerprint.ts).
+    // Stale ⇒ immediate skip (<1s), or hard-fail under E2E_REQUIRED=1, with
+    // the same message semantics as the post-pipeline detection below (which
+    // remains as the authoritative backstop).
+    applyGuardOutcome(
+      checkCassetteFreshness({
+        repoRoot: REPO_ROOT,
+        cassetteDir: CASSETTE_DIR,
+        workflowPaths: [
+          join(REPO_ROOT, "falcon-detective/src"),
+          join(REPO_ROOT, "falcon-detective/prompts"),
+        ],
+        model: DEFAULT_MODEL,
+        required: REQUIRED,
+      }),
+      ctx,
+      "E2E_REQUIRED=1 but the e2e could not run: ",
+    );
+
     // CASSETTE_DIR must be passed explicitly: the CLI's gemini.ts falls back
     // to `process.cwd() + "/fixtures/cassettes"` when CASSETTE_DIR isn't set,
     // and the spawned process's cwd is REPO_ROOT (not falcon-detective/), so
@@ -48,7 +85,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
       // --repo-root is explicit because the CLI default (..) resolves
       // against the spawning cwd, which puts .runs/ at the worktrees
       // parent dir rather than inside this worktree.
-      execFileSync(
+      await execFileAsync(
         "node",
         [
           "falcon-detective/dist/cli.js",
@@ -61,7 +98,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
           "--mcp-binary",
           MCP_BIN,
         ],
-        { cwd: REPO_ROOT, env, stdio: "pipe" },
+        { cwd: REPO_ROOT, env, maxBuffer: MAX_BUFFER },
       );
     } catch (e: any) {
       const stderr = e.stderr?.toString() ?? "";
@@ -94,7 +131,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
     // the run worktree picks up the agent's working-tree changes (the poison
     // fix doesn't have to be committed for cargo test to see it).
     const runWorktree = join(REPO_ROOT, ".runs/e2e-test");
-    const smokeOut = execFileSync(
+    const { stdout: smokeOut } = await execFileAsync(
       "cargo",
       [
         "test",
@@ -106,7 +143,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
         "--include-ignored",
         "bird_themed_inputs_arent_special",
       ],
-      { cwd: runWorktree, encoding: "utf8" },
+      { cwd: runWorktree, maxBuffer: MAX_BUFFER },
     );
     expect(smokeOut).toMatch(/test result: ok/);
   }, 120_000);
