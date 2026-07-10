@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { proposePoisonFix } from "../../src/handlers/proposePoisonFix.js";
+import { GEMINI_PRO } from "../../src/lib/models.js";
 import { promptFromFile } from "../../src/lib/prompts.js";
 
 // The engine enforces the handler's inputValidator on every invocation
@@ -84,7 +85,7 @@ describe("proposePoisonFix input validation (AC-12)", () => {
 
 // AC-24 parity pin for the poison variant of the WS-11 factory. The cassette
 // key is sha256(model + "\n" + schema-ctor + "\n" + prompt), so a cassette
-// HIT proves the handler sent exactly gemini-2.5-pro with the
+// HIT proves the handler sent exactly GEMINI_PRO with the
 // propose-poison-fix.md prompt rendered from the prompt.rs excerpt and the
 // report JSON — any drift in model, prompt file, excerpt selection, or
 // template vars would miss and throw. Mirrors proposeBugFix.test.ts.
@@ -98,7 +99,7 @@ describe("proposePoisonFix cassette parity (AC-24)", () => {
     process.env.GEMINI_MODE = "cassette";
   });
 
-  it("renders propose-poison-fix.md for gemini-2.5-pro from the prompt.rs excerpt", async () => {
+  it("renders propose-poison-fix.md for GEMINI_PRO from the prompt.rs excerpt", async () => {
     const promptRs = 'const PROMPT: &str = r#"..."#;';
     const value = {
       ...VALID_INPUT,
@@ -118,7 +119,7 @@ describe("proposePoisonFix cassette parity (AC-24)", () => {
       previousFailure: "",
     });
     const key = createHash("sha256")
-      .update(`gemini-2.5-pro\nZodObject\n${prompt}`)
+      .update(`${GEMINI_PRO}\nZodObject\n${prompt}`)
       .digest("hex")
       .slice(0, 16);
     await writeFile(
