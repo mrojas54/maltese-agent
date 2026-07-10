@@ -60,12 +60,35 @@ cargo build -p falcon-mcp -p falcon-agent
 cd falcon-detective && npm install && npm run build
 
 # 3. Replay against falcon-agent (resets the target to its broken state first)
-npm test -- tests/e2e.test.ts
+npm run test:full -- tests/e2e.test.ts
 ```
 
 Expected: vitest reports `1 passed` in ~9 minutes (the bulk is `cargo` rebuilding inside the per-run worktree). The smoking-gun integration test `bird_themed_inputs_arent_special` flips from `#[ignore]`'d to passing — proof that the agent removed the poison.
 
 For a live Gemini run instead of replay, see [`falcon-detective/README.md`](falcon-detective/README.md).
+
+## Testing
+
+Fast inner loops (hermetic — no API key, no cassettes, no cross-language build):
+
+```bash
+# Rust: falcon-mcp unit tests only (skips integration targets and falcon-agent)
+cargo test -p falcon-mcp --lib
+
+# TypeScript: falcon-detective unit tests (excludes the e2e, never spawns falcon-mcp)
+cd falcon-detective && npm test
+```
+
+Full suites:
+
+```bash
+cargo test --workspace --all-targets     # all Rust tests (needs ast-grep on PATH)
+cd falcon-detective && npm run test:full # all vitest suites, including tests/e2e.test.ts
+```
+
+The e2e inside `test:full` needs `target/debug/falcon-mcp` built and recorded
+cassettes under `falcon-detective/fixtures/cassettes/`; it skips (with a
+message) when either is missing.
 
 ## References
 

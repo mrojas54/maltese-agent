@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc",
     "fix": "tsx src/cli.ts",
-    "test": "vitest run",
+    "test": "FALCON_MCP_BIN=/nonexistent/hermetic vitest run --exclude tests/e2e.test.ts",
+    "test:full": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
