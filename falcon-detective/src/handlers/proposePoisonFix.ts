@@ -2,6 +2,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { PreviousFailure, UnifiedDiff } from "../lib/types.js";
 import { Gemini } from "../lib/gemini.js";
+import { GEMINI_PRO } from "../lib/models.js";
 import { formatPreviousFailure, promptFromFile } from "../lib/prompts.js";
 
 const Input = z.object({
@@ -24,6 +25,6 @@ export const proposePoisonFix = createHandler({
       recommendation: value.report.recommendation,
       previousFailure: formatPreviousFailure(value.previousFailure),
     });
-    return await gemini.call({ prompt, schema: UnifiedDiff, model: "gemini-2.5-pro" });
+    return await gemini.call({ prompt, schema: UnifiedDiff, model: GEMINI_PRO });
   },
 }, "proposePoisonFix");

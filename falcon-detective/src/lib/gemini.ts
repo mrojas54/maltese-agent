@@ -4,6 +4,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { join } from "node:path";
+import { DEFAULT_MODEL } from "./models.js";
 
 export type Mode = "live" | "cassette" | "record";
 
@@ -107,7 +108,7 @@ export class Gemini {
   }
 
   async call<T>(opts: CallOptions<T>): Promise<T> {
-    const model = opts.model ?? "gemini-2.5-pro";
+    const model = opts.model ?? DEFAULT_MODEL;
     // zod v4 dropped _def.typeName; constructor.name returns "ZodObject" etc.
     // and is identical across v3 and v4.
     const schemaName = opts.schema.constructor.name;
