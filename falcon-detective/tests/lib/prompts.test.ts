@@ -1,13 +1,21 @@
-import { describe, it, expect } from "vitest";
-import { formatPreviousFailure, promptFromFile } from "../../src/lib/prompts.js";
+import { describe, expect, it } from "vitest";
+import {
+  formatPreviousFailure,
+  promptFromFile,
+} from "../../src/lib/prompts.js";
 
 describe("promptFromFile", () => {
   it("interpolates vars", async () => {
-    const out = await promptFromFile("_test.md", { name: "Sam", thing: "cipher" });
+    const out = await promptFromFile("_test.md", {
+      name: "Sam",
+      thing: "cipher",
+    });
     expect(out).toBe("Hello, Sam. Decode the cipher.\n");
   });
   it("throws on missing var", async () => {
-    await expect(promptFromFile("_test.md", { name: "Sam" })).rejects.toThrow(/missing var/);
+    await expect(promptFromFile("_test.md", { name: "Sam" })).rejects.toThrow(
+      /missing var/,
+    );
   });
 });
 
@@ -22,7 +30,10 @@ describe("formatPreviousFailure", () => {
   it("renders the previous diff and each cargo error verbatim", () => {
     const out = formatPreviousFailure({
       diff: "--- a/src/x.rs\n+++ b/src/x.rs\n@@ -1,1 +1,1 @@\n-old\n+new\n",
-      errors: ["E0618: expected function, found struct `Foo`", "could not compile"],
+      errors: [
+        "E0618: expected function, found struct `Foo`",
+        "could not compile",
+      ],
     });
     // Block must self-identify so the LLM can't miss it amid the rest of
     // the prompt — the literal string here doubles as a contract test.

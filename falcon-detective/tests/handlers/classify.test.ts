@@ -1,11 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { classify } from "../../src/handlers/classify.js";
 
 describe("classify", () => {
   it("maps issue.kind into a Barnum { kind, value } envelope", async () => {
     const out = await (classify as any).__definition.handle({
       value: {
-        issue: { kind: "poison", location: { file: "src/prompt.rs" }, evidence: "..." },
+        issue: {
+          kind: "poison",
+          location: { file: "src/prompt.rs" },
+          evidence: "...",
+        },
         excerpts: [{ file: "src/prompt.rs", content: "..." }],
       },
     });

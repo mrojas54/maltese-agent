@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prepWorktree } from "../../src/handlers/prepWorktree.js";
 import { execSync } from "node:child_process";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { prepWorktree } from "../../src/handlers/prepWorktree.js";
 
-const FALCON_MCP_BIN = process.env.FALCON_MCP_BIN ?? join(process.cwd(), "../target/debug/falcon-mcp");
+const FALCON_MCP_BIN =
+  process.env.FALCON_MCP_BIN ??
+  join(process.cwd(), "../target/debug/falcon-mcp");
 let repo: string;
 
 beforeAll(async () => {
@@ -18,7 +20,9 @@ beforeAll(async () => {
     { cwd: repo, shell: "/bin/bash" },
   );
 });
-afterAll(async () => { await rm(repo, { recursive: true, force: true }); });
+afterAll(async () => {
+  await rm(repo, { recursive: true, force: true });
+});
 
 describe("prepWorktree", () => {
   it("creates a worktree under .runs/", async () => {
@@ -30,7 +34,12 @@ describe("prepWorktree", () => {
     // lives on .__definition.handle so unit tests can invoke it directly
     // without booting the workflow runtime.
     const out = await (prepWorktree as any).__definition.handle({
-      value: { mcpBinary: FALCON_MCP_BIN, repoRoot: repo, runName: "test-run", cratePath: "." },
+      value: {
+        mcpBinary: FALCON_MCP_BIN,
+        repoRoot: repo,
+        runName: "test-run",
+        cratePath: ".",
+      },
     });
     expect(out.worktreePath).toMatch(/\.runs\/test-run$/);
     expect(out.cratePath).toBe(".");

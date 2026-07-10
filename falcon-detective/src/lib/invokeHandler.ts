@@ -1,4 +1,4 @@
-import { runPipeline, type Action } from "@barnum/barnum/pipeline";
+import { type Action, runPipeline } from "@barnum/barnum/pipeline";
 
 /**
  * The single seam through which falcon-detective invokes a Barnum handler
@@ -31,7 +31,10 @@ import { runPipeline, type Action } from "@barnum/barnum/pipeline";
  * transpiled to CJS (spike MA-23, caveat 4). This package is
  * `"type": "module"`; keep it that way.
  */
-export type InvokeHandler = <TOut>(handler: Action, input: unknown) => Promise<TOut>;
+export type InvokeHandler = <TOut>(
+  handler: Action,
+  input: unknown,
+) => Promise<TOut>;
 
 export const invokeHandler: InvokeHandler = async <TOut>(
   handler: Action,

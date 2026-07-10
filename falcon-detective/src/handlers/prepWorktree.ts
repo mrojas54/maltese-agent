@@ -18,21 +18,29 @@ const Output = z.object({
   cratePath: z.string(),
 });
 
-export const prepWorktree = createHandler({
-  inputValidator: Input,
-  outputValidator: Output,
-  handle: async ({ value }) => {
-    const c = new FalconMcpClient({ binary: value.mcpBinary, root: value.repoRoot });
-    await c.connect();
-    try {
-      const r = await c.call<{ path: string }>("git_worktree_add", { name: value.runName });
-      return {
-        mcpBinary: value.mcpBinary,
-        worktreePath: r.path,
-        cratePath: value.cratePath,
-      };
-    } finally {
-      await c.close();
-    }
+export const prepWorktree = createHandler(
+  {
+    inputValidator: Input,
+    outputValidator: Output,
+    handle: async ({ value }) => {
+      const c = new FalconMcpClient({
+        binary: value.mcpBinary,
+        root: value.repoRoot,
+      });
+      await c.connect();
+      try {
+        const r = await c.call<{ path: string }>("git_worktree_add", {
+          name: value.runName,
+        });
+        return {
+          mcpBinary: value.mcpBinary,
+          worktreePath: r.path,
+          cratePath: value.cratePath,
+        };
+      } finally {
+        await c.close();
+      }
+    },
   },
-}, "prepWorktree");
+  "prepWorktree",
+);

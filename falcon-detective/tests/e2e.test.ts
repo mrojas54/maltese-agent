@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 import { applyGuardOutcome, checkE2ePrereqs } from "./helpers/e2ePrereqs.js";
 
 // process.cwd() under `npm --prefix falcon-detective test` is the WORKTREE
@@ -9,7 +9,7 @@ import { applyGuardOutcome, checkE2ePrereqs } from "./helpers/e2ePrereqs.js";
 // high. Compute REPO_ROOT relative to this file instead.
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
-const MCP_BIN  = join(REPO_ROOT, "target/debug/falcon-mcp");
+const MCP_BIN = join(REPO_ROOT, "target/debug/falcon-mcp");
 const CASSETTE_DIR = join(REPO_ROOT, "falcon-detective/fixtures/cassettes");
 
 // E2E_REQUIRED=1 (set by CI's typescript job) turns every skip below into a
@@ -52,10 +52,14 @@ describe("e2e: full pipeline against falcon-agent", () => {
         "node",
         [
           "falcon-detective/dist/cli.js",
-          "--target", "falcon-agent",
-          "--run-name", "e2e-test",
-          "--repo-root", REPO_ROOT,
-          "--mcp-binary", MCP_BIN,
+          "--target",
+          "falcon-agent",
+          "--run-name",
+          "e2e-test",
+          "--repo-root",
+          REPO_ROOT,
+          "--mcp-binary",
+          MCP_BIN,
         ],
         { cwd: REPO_ROOT, env, stdio: "pipe" },
       );
@@ -71,7 +75,10 @@ describe("e2e: full pipeline against falcon-agent", () => {
         const reason =
           "cassette miss — cassettes are stale relative to the workflow code " +
           "(workflow or prompts changed since the last GEMINI_MODE=record run); re-record them";
-        if (REQUIRED) throw new Error(`E2E_REQUIRED=1 but the e2e could not run: ${reason}`);
+        if (REQUIRED)
+          throw new Error(
+            `E2E_REQUIRED=1 but the e2e could not run: ${reason}`,
+          );
         console.error(`e2e skipped: ${reason}`);
         ctx.skip();
       }
@@ -90,8 +97,14 @@ describe("e2e: full pipeline against falcon-agent", () => {
     const smokeOut = execFileSync(
       "cargo",
       [
-        "test", "-p", "falcon-agent", "--test", "integration",
-        "--", "--include-ignored", "bird_themed_inputs_arent_special",
+        "test",
+        "-p",
+        "falcon-agent",
+        "--test",
+        "integration",
+        "--",
+        "--include-ignored",
+        "bird_themed_inputs_arent_special",
       ],
       { cwd: runWorktree, encoding: "utf8" },
     );
