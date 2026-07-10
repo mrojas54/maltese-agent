@@ -1,9 +1,16 @@
+import type { ExtractOutput } from "@barnum/barnum/pipeline";
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { type InvokeHandler, invokeHandler } from "../lib/invokeHandler.js";
 import { FalconMcpClient } from "../lib/mcp.js";
 import { FsReadResult, FsWriteResult } from "../lib/toolSchemas.js";
-import { Issue, type PreviousFailure } from "../lib/types.js";
+import {
+  Issue,
+  type PreviousFailure,
+  type TaggedIssue,
+  type UnifiedDiff,
+  type VerifyResult,
+} from "../lib/types.js";
 import { analyzePoison } from "./analyzePoison.js";
 import { applyEdit } from "./applyEdit.js";
 import { classify } from "./classify.js";
@@ -16,11 +23,12 @@ import { verify } from "./verify.js";
 
 /**
  * Coarse Barnum handler for the per-issue loop. Inside, the per-issue logic
- * (readContext → classify → propose → applyEdit → verify → commit) runs in
- * plain TypeScript by invoking each smaller handler through the public
- * engine API (`runPipeline` via the `invokeHandler` seam — WS-5/AC-13).
- * Each invocation is engine-mediated (subprocess per call) and validated
- * against the handler's input/output schemas.
+ * runs in plain TypeScript as four named stages (WS-14a / AC-30) —
+ * classifyIssue → proposeForIssue → applyAndVerify → commitOrRevert — each
+ * invoking the smaller handlers through the public engine API (`runPipeline`
+ * via the `invokeHandler` seam — WS-5/AC-13). Each invocation is
+ * engine-mediated (subprocess per call) and validated against the handler's
+ * input/output schemas.
  *
  * Why this shape: Barnum's branch() strips all but `value` from each arm's
  * input, and forEach loses the surrounding context. The plan flagged this
@@ -60,31 +68,274 @@ const Output = z.object({
 
 const MAX_RETRIES = 3;
 
-/** Re-call the appropriate propose-* handler for `tagged.kind`, threading
- *  through the analyzePoison report (poison only) and the optional
- *  previousFailure record from the last broken attempt. */
-async function proposeFor(
+/** Pipeline context threaded through every per-issue stage. Invoke call
+ *  sites forward only the fields each handler's strict input schema declares
+ *  (additionalProperties: false at the engine boundary — no blind spreads). */
+interface StageContext {
+  mcpBinary: string;
+  worktreePath: string;
+  cratePath: string;
+}
+
+// Stage inputs/outputs are typed against the handlers themselves (AC-30/AC-34
+// direction: no `any` plumbing). ExtractOutput reads the phantom output type
+// carried by every createHandler result.
+type IssueContext = ExtractOutput<typeof readContext>;
+type PoisonAnalysis = ExtractOutput<typeof analyzePoison>;
+type ApplyResult = ExtractOutput<typeof applyEdit>;
+
+/** The per-issue verdict applyAndVerify hands to commitOrRevert: whether the
+ *  loop ended on a Clean verify, and the last diff it applied. */
+interface AttemptOutcome {
+  succeeded: boolean;
+  finalDiff: UnifiedDiff;
+}
+
+/** Everything the apply/verify/commit stages of ONE issue share: the invoke
+ *  seam, the pipeline context, the snapshot client, and the snapshot store
+ *  (<path, originalContent>). Created only after a proposal exists — issues
+ *  skipped at the analyze/propose step never open a client. */
+interface IssueRun {
+  invoke: InvokeHandler;
+  ctx: StageContext;
+  snapMcp: FalconMcpClient;
+  snapshots: Map<string, string>;
+}
+
+/** What one attempt of the retry loop produced: a Clean verify, a terminal
+ *  give-up (Stuck or applyEdit conflict), or — on Broken — the failure
+ *  record to re-prompt with. */
+type AttemptVerdict = PreviousFailure | "Clean" | "GiveUp";
+
+/** Stage 1 (classifyIssue): pull the issue's file context, then classify it
+ *  into the `{ kind: Poison|Bug|Lint, value }` envelope the propose stage
+ *  dispatches on (readContext → classify). */
+async function classifyIssue(
   invoke: InvokeHandler,
-  tagged: any,
-  poisonAnalysis: any,
+  ctx: StageContext,
+  issue: Issue,
+): Promise<TaggedIssue> {
+  const fileContext = await invoke<IssueContext>(readContext, {
+    mcpBinary: ctx.mcpBinary,
+    worktreePath: ctx.worktreePath,
+    issue,
+  });
+  return await invoke<TaggedIssue>(classify, {
+    issue,
+    excerpts: fileContext.excerpts,
+  });
+}
+
+/** Stage 2 (proposeForIssue): call the appropriate propose-* handler for
+ *  `tagged.kind`, threading through the analyzePoison report (poison only)
+ *  and the optional previousFailure record from the last broken attempt. */
+async function proposeForIssue(
+  invoke: InvokeHandler,
+  tagged: TaggedIssue,
+  poisonAnalysis: PoisonAnalysis | undefined,
   previousFailure: PreviousFailure | undefined,
-): Promise<{ path: string; diff: string }> {
+): Promise<UnifiedDiff> {
   if (tagged.kind === "Poison") {
-    return await invoke(proposePoisonFix, {
+    return await invoke<UnifiedDiff>(proposePoisonFix, {
       ...poisonAnalysis,
       previousFailure,
     });
   }
   if (tagged.kind === "Bug") {
-    return await invoke(proposeBugFix, {
+    return await invoke<UnifiedDiff>(proposeBugFix, {
       ...tagged.value,
       previousFailure,
     });
   }
-  return await invoke(proposeLintFix, {
+  return await invoke<UnifiedDiff>(proposeLintFix, {
     ...tagged.value,
     previousFailure,
   });
+}
+
+/** Stage 2 entry: poison issues get ONE analyzePoison pass (independent of
+ *  any failed attempt — only the propose step sees previousFailure on retry),
+ *  then the kind-appropriate propose-* handler drafts the first diff.
+ *  Returns undefined — skipping the issue — when either step throws. */
+async function prepareProposal(
+  invoke: InvokeHandler,
+  tagged: TaggedIssue,
+  issueFile: string,
+): Promise<
+  | { poisonAnalysis: PoisonAnalysis | undefined; firstDiff: UnifiedDiff }
+  | undefined
+> {
+  let poisonAnalysis: PoisonAnalysis | undefined;
+  if (tagged.kind === "Poison") {
+    try {
+      poisonAnalysis = await invoke<PoisonAnalysis>(
+        analyzePoison,
+        tagged.value,
+      );
+    } catch (e) {
+      console.error(
+        `[processIssues] analyzePoison failed for ${issueFile}: ${(e as Error).message}`,
+      );
+      return undefined;
+    }
+  }
+  try {
+    const firstDiff = await proposeForIssue(
+      invoke,
+      tagged,
+      poisonAnalysis,
+      undefined,
+    );
+    return { poisonAnalysis, firstDiff };
+  } catch (e) {
+    console.error(
+      `[processIssues] propose-fix failed for ${issueFile}: ${(e as Error).message}`,
+    );
+    return undefined;
+  }
+}
+
+/** Record `path`'s pre-edit content in the run's snapshot store the first
+ *  time the retry loop touches it (idempotent), so reverting restores every
+ *  file the loop wrote to — including any new path a re-proposed diff
+ *  targets. */
+async function snapshotOnce(run: IssueRun, path: string): Promise<void> {
+  if (run.snapshots.has(path)) return;
+  try {
+    const r = await run.snapMcp.call("fs_read", { path }, FsReadResult);
+    run.snapshots.set(path, r.content);
+  } catch (e) {
+    // Path doesn't exist yet — record empty so revert deletes/no-ops.
+    // Most diffs target existing files; this is a defensive carve-out.
+    run.snapshots.set(path, "");
+    console.warn(
+      `[processIssues] snapshot fs_read for ${path} failed: ${(e as Error).message}`,
+    );
+  }
+}
+
+/** Restore every snapshotted file. Used for the in-loop revert after a
+ *  Broken verify; errors propagate (matching the pre-decomposition loop).
+ *  The terminal revert in commitOrRevert wraps each write in its own
+ *  try/catch instead. */
+async function revertSnapshots(run: IssueRun): Promise<void> {
+  for (const [p, c] of run.snapshots) {
+    await run.snapMcp.call("fs_write", { path: p, content: c }, FsWriteResult);
+  }
+}
+
+/** One attempt of the retry loop: snapshot the target file, applyEdit, then
+ *  verify. Broken hands back `{ diff, errors }` for the re-prompt; an
+ *  applyEdit conflict or a Stuck verify is a terminal give-up. */
+async function attemptOnce(
+  run: IssueRun,
+  diff: UnifiedDiff,
+  attempt: number,
+): Promise<AttemptVerdict> {
+  const { mcpBinary, worktreePath, cratePath } = run.ctx;
+  await snapshotOnce(run, diff.path);
+  const apply = await run.invoke<ApplyResult>(applyEdit, {
+    mcpBinary,
+    worktreePath,
+    diff,
+  });
+  if (!apply.ok) {
+    console.error(
+      `[processIssues] applyEdit failed for ${diff.path}: ${apply.reason}`,
+    );
+    return "GiveUp";
+  }
+  const result = await run.invoke<VerifyResult>(verify, {
+    mcpBinary,
+    worktreePath,
+    cratePath,
+    attempt,
+  });
+  if (result.kind === "Clean") return "Clean";
+  if (result.kind === "Stuck") return "GiveUp";
+  return { diff: diff.diff, errors: result.value.errors };
+}
+
+/** Stage 3 (applyAndVerify): the attempt → apply → verify → revert +
+ *  re-propose retry loop. On Broken, reverts all snapshots and re-prompts
+ *  with the previous failure so Gemini sees cargo's actual error text; gives
+ *  up on Stuck, an applyEdit conflict, a propose-* exception, or after
+ *  MAX_RETRIES attempts. */
+async function applyAndVerify(
+  run: IssueRun,
+  tagged: TaggedIssue,
+  poisonAnalysis: PoisonAnalysis | undefined,
+  firstDiff: UnifiedDiff,
+): Promise<AttemptOutcome> {
+  let currentDiff = firstDiff;
+  let attempt = 0;
+  while (attempt < MAX_RETRIES) {
+    const verdict = await attemptOnce(run, currentDiff, attempt);
+    if (verdict === "Clean") return { succeeded: true, finalDiff: currentDiff };
+    if (verdict === "GiveUp") break;
+    // Broken: restore every touched file, then re-prompt carrying the failed
+    // diff and cargo's errors so the next proposal can be different.
+    await revertSnapshots(run);
+    attempt++;
+    if (attempt >= MAX_RETRIES) break;
+    try {
+      currentDiff = await proposeForIssue(
+        run.invoke,
+        tagged,
+        poisonAnalysis,
+        verdict,
+      );
+    } catch (e) {
+      console.error(
+        `[processIssues] propose-fix retry failed for ${tagged.value.issue.location.file}: ${(e as Error).message}`,
+      );
+      break;
+    }
+  }
+  return { succeeded: false, finalDiff: currentDiff };
+}
+
+/** Stage 4 (commitOrRevert): terminal cleanup for one issue. On failure,
+ *  restore everything the retry loop touched so the next issue (and
+ *  finalSweep) sees a clean tree; on success, leave the applied diff in
+ *  place and commit it. The snapshot client closes either way — before
+ *  commitOne, which spawns its own client. Runs in the main loop's
+ *  `finally`, so a throwing retry loop still reverts and closes. */
+async function commitOrRevert(
+  run: IssueRun,
+  issue: Issue,
+  outcome: AttemptOutcome,
+): Promise<void> {
+  if (!outcome.succeeded) {
+    for (const [p, c] of run.snapshots) {
+      try {
+        await run.snapMcp.call(
+          "fs_write",
+          { path: p, content: c },
+          FsWriteResult,
+        );
+      } catch (e) {
+        console.error(
+          `[processIssues] terminal revert failed for ${p}: ${(e as Error).message}`,
+        );
+      }
+    }
+  }
+  await run.snapMcp.close();
+  if (outcome.succeeded) {
+    try {
+      await run.invoke<ExtractOutput<typeof commitOne>>(commitOne, {
+        mcpBinary: run.ctx.mcpBinary,
+        worktreePath: run.ctx.worktreePath,
+        issue,
+        diffPath: outcome.finalDiff.path,
+      });
+    } catch (e) {
+      console.error(
+        `[processIssues] commit failed for ${outcome.finalDiff.path}: ${(e as Error).message}`,
+      );
+    }
+  }
 }
 
 /**
@@ -101,177 +352,41 @@ export function makeProcessIssuesHandle(
 > {
   return async ({ value }) => {
     const { mcpBinary, worktreePath, cratePath, issues } = value;
+    const ctx: StageContext = { mcpBinary, worktreePath, cratePath };
 
     for (const issue of issues) {
-      // 1. read file context
-      const ctx = await invoke<any>(readContext, {
-        mcpBinary,
-        worktreePath,
-        issue,
-      });
+      const tagged = await classifyIssue(invoke, ctx, issue);
 
-      // 2. classify into { kind, value: { issue, excerpts } }
-      const tagged = await invoke<any>(classify, {
-        issue,
-        excerpts: ctx.excerpts,
-      });
+      const prepared = await prepareProposal(
+        invoke,
+        tagged,
+        issue.location.file,
+      );
+      if (!prepared) continue;
 
-      // 3. propose a fix per kind. Poison runs analyzePoison first (it's
-      //    independent of any failed attempt — only proposePoisonFix takes
-      //    previousFailure on retry).
-      let poisonAnalysis: any = undefined;
-      if (tagged.kind === "Poison") {
-        try {
-          poisonAnalysis = await invoke<any>(analyzePoison, tagged.value);
-        } catch (e) {
-          console.error(
-            `[processIssues] analyzePoison failed for ${issue.location.file}: ${(e as Error).message}`,
-          );
-          continue;
-        }
-      }
-
-      let currentDiff: { path: string; diff: string };
-      try {
-        currentDiff = await proposeFor(
-          invoke,
-          tagged,
-          poisonAnalysis,
-          undefined,
-        );
-      } catch (e) {
-        console.error(
-          `[processIssues] propose-fix failed for ${issue.location.file}: ${(e as Error).message}`,
-        );
-        continue;
-      }
-
-      // 4. attempt → apply → verify → revert+re-propose on Broken loop.
-      //    Snapshots: <path, originalContent>. We re-snapshot any new path
-      //    a re-proposed diff touches, so reverting at the end restores
-      //    every file the loop wrote to.
-      const snapshots = new Map<string, string>();
       const snapMcp = new FalconMcpClient({
         binary: mcpBinary,
         root: worktreePath,
       });
       await snapMcp.connect();
+      const run: IssueRun = { invoke, ctx, snapMcp, snapshots: new Map() };
 
-      let attempt = 0;
-      let succeeded = false;
+      // The default outcome stands if applyAndVerify throws: the finally
+      // still reverts every snapshot and closes the client (and the
+      // exception then propagates, exactly like the pre-decomposition loop).
+      let outcome: AttemptOutcome = {
+        succeeded: false,
+        finalDiff: prepared.firstDiff,
+      };
       try {
-        while (attempt < MAX_RETRIES) {
-          // Snapshot the file we're about to touch (idempotent — only reads
-          // the first time we see this path).
-          if (!snapshots.has(currentDiff.path)) {
-            try {
-              const r = await snapMcp.call(
-                "fs_read",
-                { path: currentDiff.path },
-                FsReadResult,
-              );
-              snapshots.set(currentDiff.path, r.content);
-            } catch (e) {
-              // Path doesn't exist yet — record empty so revert deletes/no-ops.
-              // Most diffs target existing files; this is a defensive carve-out.
-              snapshots.set(currentDiff.path, "");
-              console.warn(
-                `[processIssues] snapshot fs_read for ${currentDiff.path} failed: ${(e as Error).message}`,
-              );
-            }
-          }
-
-          const apply = await invoke<any>(applyEdit, {
-            mcpBinary,
-            worktreePath,
-            diff: currentDiff,
-          });
-          if (!apply.ok) {
-            console.error(
-              `[processIssues] applyEdit failed for ${currentDiff.path}: ${apply.reason}`,
-            );
-            break;
-          }
-          const result = await invoke<any>(verify, {
-            mcpBinary,
-            worktreePath,
-            cratePath,
-            attempt,
-          });
-          if (result.kind === "Clean") {
-            succeeded = true;
-            break;
-          }
-          if (result.kind === "Stuck") {
-            break;
-          }
-
-          // Broken: capture the failure, revert all snapshots, re-prompt with
-          // previousFailure so Gemini gets cargo's actual error text and can
-          // propose something different.
-          const previousFailure: PreviousFailure = {
-            diff: currentDiff.diff,
-            errors: result.value.errors,
-          };
-          for (const [p, c] of snapshots) {
-            await snapMcp.call(
-              "fs_write",
-              { path: p, content: c },
-              FsWriteResult,
-            );
-          }
-          attempt++;
-          if (attempt >= MAX_RETRIES) break;
-          try {
-            currentDiff = await proposeFor(
-              invoke,
-              tagged,
-              poisonAnalysis,
-              previousFailure,
-            );
-          } catch (e) {
-            console.error(
-              `[processIssues] propose-fix retry failed for ${issue.location.file}: ${(e as Error).message}`,
-            );
-            break;
-          }
-        }
+        outcome = await applyAndVerify(
+          run,
+          tagged,
+          prepared.poisonAnalysis,
+          prepared.firstDiff,
+        );
       } finally {
-        // On failure, restore everything the loop touched so the next issue
-        // (and finalSweep) sees a clean tree. On success, leave the applied
-        // diff in place for commitOne to stage and commit.
-        if (!succeeded) {
-          for (const [p, c] of snapshots) {
-            try {
-              await snapMcp.call(
-                "fs_write",
-                { path: p, content: c },
-                FsWriteResult,
-              );
-            } catch (e) {
-              console.error(
-                `[processIssues] terminal revert failed for ${p}: ${(e as Error).message}`,
-              );
-            }
-          }
-        }
-        await snapMcp.close();
-      }
-
-      // 5. commit on success.
-      if (succeeded) {
-        try {
-          await invoke<any>(commitOne, {
-            mcpBinary,
-            worktreePath,
-            issue,
-            diffPath: currentDiff.path,
-          });
-        } catch (e) {
-          console.error(
-            `[processIssues] commit failed for ${currentDiff.path}: ${(e as Error).message}`,
-          );
-        }
+        await commitOrRevert(run, issue, outcome);
       }
     }
 

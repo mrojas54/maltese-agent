@@ -257,6 +257,33 @@ gate_no_handler_any() {
 
 gate_no_handler_any
 
+# ---------------------------------------------------------------------------
+# Gate (AC-34, WS-14a): no `as any` stage casts and no `: any` annotations
+# under falcon-detective/src/workflows/. The pipeline stages are typed
+# against the handler input/output types (createHandler's Handler<In, Out>),
+# so pipe()/branch() check every connection point — an `any` in a workflow
+# silently disconnects that checking.
+# ---------------------------------------------------------------------------
+gate_no_workflow_any() {
+  local gate="no-workflow-any (AC-34)"
+  local dir="$REPO_ROOT/falcon-detective/src/workflows"
+
+  if [[ ! -d "$dir" ]]; then
+    fail "$gate" "falcon-detective/src/workflows not found"
+    return
+  fi
+
+  local hits
+  hits="$(grep -rnE 'as any|: any' "$dir" 2>/dev/null)"
+  if [[ -n "$hits" ]]; then
+    fail "$gate" "as any/: any under src/workflows: $(printf '%s' "$hits" | head -n 3 | sed "s|$REPO_ROOT/||" | tr '\n' ' ')"
+  else
+    pass "$gate"
+  fi
+}
+
+gate_no_workflow_any
+
 # --- append new gates above this line (SPEC R-5) ---------------------------
 
 if [[ "$FAILURES" -gt 0 ]]; then
