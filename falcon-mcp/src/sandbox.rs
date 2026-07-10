@@ -1,14 +1,49 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// A sandbox restricting filesystem access to within `root`.
 ///
 /// All paths passed to tools are resolved relative to `root`, with symlinks
-/// rejected if they escape. Also holds the binary allowlist used by `exec.run`.
+/// rejected if they escape. Also holds the binary allowlist used by `exec.run`:
+/// each allowlisted name is resolved to an absolute path against the PATH seen
+/// at construction (server startup), so later PATH changes cannot substitute a
+/// different binary for an allowlisted name (AC-21).
 #[derive(Debug, Clone)]
 pub struct Sandbox {
     root: PathBuf,
     read_only: bool,
     allowed_bins: Vec<String>,
+    /// Allowlisted name → absolute path, resolved once at construction.
+    /// Names missing from the startup PATH are absent here (construction must
+    /// not fail on hosts without e.g. ast-grep); `resolved_bin` reports them
+    /// at call time instead.
+    resolved_bins: HashMap<String, PathBuf>,
+}
+
+/// `which`-equivalent: scan the current PATH for an executable regular file
+/// named `name`. Used once per allowlisted name at sandbox construction.
+fn resolve_on_path(name: &str) -> Option<PathBuf> {
+    let path_var = std::env::var_os("PATH")?;
+    std::env::split_paths(&path_var)
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .map(|dir| dir.join(name))
+        .find(|candidate| is_executable_file(candidate))
+}
+
+fn is_executable_file(path: &Path) -> bool {
+    let Some(meta) = path.metadata().ok().filter(|m| m.is_file()) else {
+        return false;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        meta.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = meta;
+        true
+    }
 }
 
 impl Sandbox {
@@ -16,19 +51,19 @@ impl Sandbox {
         let canonical = root.canonicalize().map_err(|e| {
             anyhow::anyhow!("sandbox root {} not accessible: {}", root.display(), e)
         })?;
+        let allowed_bins: Vec<String> = ["cargo", "rustc", "rustfmt", "rg", "git", "ast-grep"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let resolved_bins = allowed_bins
+            .iter()
+            .filter_map(|name| resolve_on_path(name).map(|path| (name.clone(), path)))
+            .collect();
         Ok(Self {
             root: canonical,
             read_only,
-            allowed_bins: vec![
-                "cargo".into(),
-                "rustc".into(),
-                "rustfmt".into(),
-                "ripgrep".into(),
-                "rg".into(),
-                "git".into(),
-                "ast-grep".into(),
-                "sg".into(),
-            ],
+            allowed_bins,
+            resolved_bins,
         })
     }
 
@@ -105,6 +140,26 @@ impl Sandbox {
         }
         Ok(())
     }
+
+    /// Absolute path for an allowlisted binary, resolved once at construction.
+    ///
+    /// `exec_run` spawns only these stored absolute paths — never a bare name
+    /// via call-time PATH lookup — so PATH manipulation after startup cannot
+    /// substitute a binary for an allowlisted name (AC-21). Errors if `bin` is
+    /// not on the allowlist, or if it is allowlisted but was not found on the
+    /// startup PATH.
+    pub fn resolved_bin(&self, bin: &str) -> anyhow::Result<&Path> {
+        self.check_bin(bin)?;
+        self.resolved_bins
+            .get(bin)
+            .map(PathBuf::as_path)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "allowlisted binary '{}' was not found on PATH at server startup",
+                    bin
+                )
+            })
+    }
 }
 
 #[cfg(test)]
@@ -143,6 +198,32 @@ mod tests {
         let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
         assert!(sb.check_bin("cargo").is_ok());
         assert!(sb.check_bin("curl").is_err());
+    }
+
+    /// `resolved_bin` shares the allowlist gate with `check_bin`: a name off
+    /// the allowlist is rejected before any lookup. (The resolution behavior
+    /// itself — absolute path, startup-PATH pinning, unresolved-name error —
+    /// is covered end-to-end in `tests/exec_impostor_test.rs`, which owns the
+    /// required PATH mutation in its own process.)
+    #[test]
+    fn resolved_bin_rejects_non_allowlisted() {
+        let dir = TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        let err = sb.resolved_bin("curl").unwrap_err();
+        assert!(err.to_string().contains("not in allowlist"), "got: {err}");
+    }
+
+    /// Dead allowlist entries removed (WS-9): the binaries are addressed as
+    /// `rg` and `ast-grep`; the `ripgrep`/`sg` aliases never matched a real
+    /// invocation and must no longer pass the gate.
+    #[test]
+    fn allowlist_no_longer_contains_ripgrep_and_sg_aliases() {
+        let dir = TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        assert!(sb.check_bin("rg").is_ok());
+        assert!(sb.check_bin("ast-grep").is_ok());
+        assert!(sb.check_bin("ripgrep").is_err());
+        assert!(sb.check_bin("sg").is_err());
     }
 
     #[test]

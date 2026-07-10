@@ -77,13 +77,21 @@ seconds. The binary-gated tests (`tests/lib/mcp.test.ts`,
 `tests/handlers/prepWorktree.test.ts`) exercise their spawn paths under
 `npm run test:full` when `target/debug/falcon-mcp` is built.
 
-The e2e:
+The e2e **never mutates your checkout**. It:
 
-1. Resets `falcon-agent/` in the parent repo to HEAD (the broken state)
-2. Runs the CLI in `cassette` mode against the recorded fixtures
+1. Guards its prerequisites: if `falcon-agent/` has uncommitted changes, the
+   test **skips** with a message naming the dirty paths (it does *not* reset
+   anything — commit or stash, then rerun); same skip for a missing
+   `target/debug/falcon-mcp` binary or empty `fixtures/cassettes/`
+2. Runs the CLI in `cassette` mode against the recorded fixtures — all
+   mutation happens inside the pipeline's own `prepWorktree` sandbox at
+   `<repo-root>/.runs/e2e-test`
 3. Asserts the previously-`#[ignore]`'d cargo test `bird_themed_inputs_arent_special` passes inside the per-run worktree — the gate that proves the poison is gone
 
-It skips gracefully if `target/debug/falcon-mcp` is absent or `fixtures/cassettes/` is empty.
+With `E2E_REQUIRED=1` (set in CI's typescript job) every skip above becomes a
+**failure**, so a green required run mechanically implies the e2e executed.
+The guard behaviors themselves are proven hermetically by
+`tests/e2e-guard.test.ts`, which runs in the fast `npm test` suite.
 
 ## Re-recording cassettes
 

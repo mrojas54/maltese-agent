@@ -91,6 +91,23 @@ jobs:
         working-directory: falcon-detective
         run: npm run build
 
-      - name: vitest
+      # Full suite including the e2e (AC-5). E2E_REQUIRED=1 turns unmet e2e
+      # prerequisites (missing binary/cassettes, dirty falcon-agent/) into
+      # FAILURES instead of skips, so a green run mechanically implies the
+      # e2e executed. `test:full` deliberately does NOT inherit the fast
+      # suite's FALCON_MCP_BIN=/nonexistent/hermetic pin — the real binary is
+      # built by the "Build falcon-mcp binary" step above. Cost note: the
+      # e2e's smoking-gun step compiles falcon-agent inside its fresh
+      # .runs/e2e-test worktree (cold target dir; the cargo registry cache
+      # still applies), adding a few minutes to this job.
+      # E2E_REQUIRED is PARKED until the M4 cassette re-record (operator
+      # decision 2026-07-10, ticket MA-2 review): the checked-in cassettes
+      # are stale vs the current triage prompt, so a hard gate today would
+      # red every PR. The e2e still RUNS here and reports a visible skip
+      # with reason. MA-22 (final sweep) flips E2E_REQUIRED to "1"
+      # immediately after the MA-24 re-record lands.
+      - name: vitest (full suite, e2e skip-if-unmet)
         working-directory: falcon-detective
-        run: npm test
+        run: npm run test:full
+        env:
+          E2E_REQUIRED: "0"
