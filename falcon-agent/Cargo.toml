@@ -6,7 +6,7 @@ license = "MIT"
 description = "Buggy AI 'noir detective' service — the seed/target for the falcon-detective agent"
 
 [dependencies]
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
