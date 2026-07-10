@@ -8,6 +8,157 @@ import { DEFAULT_MODEL } from "./models.js";
 
 export type Mode = "live" | "cassette" | "record";
 
+// ---------------------------------------------------------------------------
+// Transient-error detection (typed, structural — AC-33)
+//
+// Deliberately decoupled from @google/genai's error classes: detection is
+// duck-typed over `unknown` (structured `status`/`code` fields first, message
+// fallback second), so the genai 2.x migration (MA-19) only needs to remap
+// this outermost layer if the SDK's error surface changes.
+// ---------------------------------------------------------------------------
+
+export type TransientErrorKind =
+  | "rate_limit" // 429 / RESOURCE_EXHAUSTED
+  | "unavailable" // 5xx / UNAVAILABLE / INTERNAL
+  | "timeout" // 408 / DEADLINE_EXCEEDED / ETIMEDOUT
+  | "network"; // ECONNRESET, EAI_AGAIN, fetch failed, ...
+
+export type TransientCheck =
+  | { transient: true; kind: TransientErrorKind; detail: string }
+  | { transient: false };
+
+function classifyHttpStatus(status: number): TransientErrorKind | null {
+  if (status === 429) return "rate_limit";
+  if (status === 408) return "timeout";
+  if (status === 500 || status === 502 || status === 503 || status === 504)
+    return "unavailable";
+  return null;
+}
+
+function classifyCodeString(code: string): TransientErrorKind | null {
+  const c = code.toUpperCase();
+  if (/^\d{3}$/.test(c)) return classifyHttpStatus(Number(c));
+  switch (c) {
+    case "RESOURCE_EXHAUSTED":
+      return "rate_limit";
+    case "UNAVAILABLE":
+    case "INTERNAL":
+      return "unavailable";
+    case "DEADLINE_EXCEEDED":
+    case "ETIMEDOUT":
+    case "UND_ERR_CONNECT_TIMEOUT":
+    case "UND_ERR_HEADERS_TIMEOUT":
+      return "timeout";
+    case "ECONNRESET":
+    case "ECONNREFUSED":
+    case "ECONNABORTED":
+    case "EPIPE":
+    case "EAI_AGAIN":
+    case "UND_ERR_SOCKET":
+      return "network";
+    default:
+      return null;
+  }
+}
+
+/** Broadened message fallback: legacy API tokens plus network-level failures
+ *  (Node 20 fetch surfaces syscall errors as "fetch failed" TypeErrors). */
+const TRANSIENT_MESSAGE_RE =
+  /\b(429|500|502|503|504|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|deadline|timed out|timeout|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE|EAI_AGAIN|socket hang up|fetch failed)\b/i;
+
+function kindForMessageToken(token: string): TransientErrorKind {
+  const t = token.toUpperCase();
+  if (/^\d{3}$/.test(t)) return classifyHttpStatus(Number(t)) ?? "unavailable";
+  const structural = classifyCodeString(t);
+  if (structural) return structural;
+  if (t === "DEADLINE" || t === "TIMED OUT" || t === "TIMEOUT")
+    return "timeout";
+  if (t === "SOCKET HANG UP" || t === "FETCH FAILED") return "network";
+  return "unavailable";
+}
+
+/**
+ * Classify an unknown error as transient (worth retrying) or not.
+ *
+ * Structured fields win: `status`/`code` are checked on the error and down
+ * its `cause` chain (bounded), covering both the API's structured errors
+ * (numeric/string status) and Node network errors (`code: "ECONNRESET"`,
+ * possibly nested under a "fetch failed" TypeError). Only when no structured
+ * field resolves does the broadened message regex run as a fallback.
+ */
+export function classifyTransientError(err: unknown): TransientCheck {
+  let current: unknown = err;
+  for (let depth = 0; depth < 5 && current != null; depth++) {
+    if (typeof current !== "object") break;
+    const e = current as { status?: unknown; code?: unknown; cause?: unknown };
+    for (const field of [e.status, e.code]) {
+      if (typeof field === "number") {
+        const kind = classifyHttpStatus(field);
+        if (kind) return { transient: true, kind, detail: `status ${field}` };
+      } else if (typeof field === "string") {
+        const kind = classifyCodeString(field);
+        if (kind) return { transient: true, kind, detail: field };
+      }
+    }
+    current = e.cause;
+  }
+  const msg = String((err as { message?: unknown })?.message ?? err);
+  const match = TRANSIENT_MESSAGE_RE.exec(msg);
+  if (match) {
+    return {
+      transient: true,
+      kind: kindForMessageToken(match[1]),
+      detail: `message: ${match[1]}`,
+    };
+  }
+  return { transient: false };
+}
+
+// ---------------------------------------------------------------------------
+// Backoff (exponential, full jitter — AWS-style: sleep ~ uniform(0, cap)).
+// Injectable sleep/random so unit tests run without wall-clock waits.
+// ---------------------------------------------------------------------------
+
+export type SleepFn = (ms: number) => Promise<void>;
+
+const defaultSleep: SleepFn = (ms) => new Promise((r) => setTimeout(r, ms));
+
+export interface BackoffOptions {
+  initialCapMs?: number;
+  maxCapMs?: number;
+  sleep?: SleepFn;
+  random?: () => number;
+}
+
+/**
+ * Returns a `wait()` that sleeps uniform(0, cap) and doubles the cap (up to
+ * maxCapMs) on each call. One instance per retry loop; resolves with the
+ * delay actually slept (handy for assertions/logging).
+ */
+export function createBackoff(
+  opts: BackoffOptions = {},
+): () => Promise<number> {
+  const {
+    initialCapMs = 1_000,
+    maxCapMs = 30_000,
+    sleep = defaultSleep,
+    random = Math.random,
+  } = opts;
+  let cap = initialCapMs;
+  return async () => {
+    const delay = random() * cap;
+    cap = Math.min(cap * 2, maxCapMs);
+    await sleep(delay);
+    return delay;
+  };
+}
+
+/** Injectable knobs for Gemini's retry loops (tests pass a stub sleep/RNG). */
+export interface GeminiRetryOptions {
+  sleep?: SleepFn;
+  random?: () => number;
+}
+
 export interface CallOptions<T> {
   prompt: string;
   /** Output-typed only (`ZodType<T>`, not the v3-era `ZodSchema<T>` alias)
@@ -114,9 +265,16 @@ async function writeCassette(key: string, body: string) {
 export class Gemini {
   private mode: Mode;
   private ai: GoogleGenAI | null = null;
+  private sleep: SleepFn;
+  private random: () => number;
 
-  constructor(mode: Mode = (process.env.GEMINI_MODE as Mode) ?? "live") {
+  constructor(
+    mode: Mode = (process.env.GEMINI_MODE as Mode) ?? "live",
+    retry: GeminiRetryOptions = {},
+  ) {
     this.mode = mode;
+    this.sleep = retry.sleep ?? defaultSleep;
+    this.random = retry.random ?? Math.random;
     if (mode !== "cassette") {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey)
@@ -169,11 +327,14 @@ export class Gemini {
 
     // Retry layer: schema validation has 3 outer attempts (re-prompt with
     // the validation error appended). Each outer attempt may itself hit a
-    // transient 5xx/429 from the API; exponential backoff with full jitter
-    // (AWS-style: sleep ~ uniform(0, cap)) handles those without thundering-
-    // herd if multiple workers retry simultaneously.
+    // transient 5xx/429/network failure from the API; exponential backoff
+    // with full jitter (AWS-style: sleep ~ uniform(0, cap)) handles those
+    // without thundering-herd if multiple workers retry simultaneously.
+    // Transient detection is the typed classifyTransientError above:
+    // structured status/code fields (incl. the cause chain of Node 20's
+    // "fetch failed" TypeErrors) first, broadened message regex as fallback.
     const callOnce = async (prompt: string): Promise<string> => {
-      let cap = 1_000;
+      const backoff = createBackoff({ sleep: this.sleep, random: this.random });
       for (let api = 0; api < 5; api++) {
         try {
           const resp = await this.ai!.models.generateContent({
@@ -185,21 +346,22 @@ export class Gemini {
             },
           });
           return resp.text ?? "";
-        } catch (e: any) {
-          const msg = String(e?.message ?? e);
-          const transient =
-            /\b(429|503|UNAVAILABLE|RESOURCE_EXHAUSTED|deadline|timeout)\b/i.test(
-              msg,
-            );
-          if (!transient || api === 4) throw e;
-          const jittered = Math.random() * cap;
-          await new Promise((r) => setTimeout(r, jittered));
-          cap = Math.min(cap * 2, 30_000);
+        } catch (e) {
+          if (!classifyTransientError(e).transient || api === 4) throw e;
+          await backoff();
         }
       }
       throw new Error("unreachable");
     };
 
+    // The outer schema-retry loop gets its own jittered backoff (same helper,
+    // fresh cap sequence): an immediate re-prompt after a validation failure
+    // tends to hit the same sampling state / rate window; a short jittered
+    // pause between attempts is cheap and avoids hammering (AC-33).
+    const schemaBackoff = createBackoff({
+      sleep: this.sleep,
+      random: this.random,
+    });
     let lastErr: unknown;
     for (let attempt = 0; attempt <= 2; attempt++) {
       const text = await callOnce(opts.prompt);
@@ -221,6 +383,8 @@ export class Gemini {
           ...opts,
           prompt: `${opts.prompt}\n\nPREVIOUS ATTEMPT FAILED VALIDATION: ${(e as Error).message}\nReturn ONLY valid JSON conforming to the schema.`,
         };
+        // No backoff after the final attempt — fail fast to the caller.
+        if (attempt < 2) await schemaBackoff();
       }
     }
     throw new Error(
