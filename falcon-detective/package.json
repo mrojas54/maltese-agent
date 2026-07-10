@@ -7,11 +7,12 @@
     "falcon-detective": "./dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "e2e:fingerprint": "tsx scripts/write-e2e-fingerprint.ts",
     "fix": "tsx src/cli.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "record": "tsx scripts/record-cassettes.ts",
     "test": "FALCON_MCP_BIN=/nonexistent/hermetic vitest run --exclude tests/e2e.test.ts",
     "test:full": "vitest run",
     "test:watch": "vitest"
