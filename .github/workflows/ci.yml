@@ -97,6 +97,10 @@ jobs:
         working-directory: falcon-detective
         run: npm ci
 
+      - name: biome lint (TD-8 / AC-16)
+        working-directory: falcon-detective
+        run: npm run lint
+
       - name: tsc build
         working-directory: falcon-detective
         run: npm run build
