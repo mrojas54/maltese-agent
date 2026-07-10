@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { CargoCheckResult, CargoTestResult } from "../lib/toolSchemas.js";
 import { VerifyResult } from "../lib/types.js";
 
 const Input = z.object({
@@ -23,26 +24,28 @@ export const verify = createHandler(
       });
       await mcp.connect();
       try {
-        const check = await mcp.call<{ errors: any[] }>("cargo_check", {
-          crate_path: value.cratePath,
-        });
+        const check = await mcp.call(
+          "cargo_check",
+          { crate_path: value.cratePath },
+          CargoCheckResult,
+        );
         if (check.errors.length > 0) {
           return {
             kind: "Broken" as const,
             value: {
-              errors: check.errors.map(
-                (e: any) => e.message ?? "compile error",
-              ),
+              errors: check.errors.map((e) => e.message),
             },
           };
         }
-        const test = await mcp.call<{ failed: any[] }>("cargo_test", {
-          crate_path: value.cratePath,
-        });
+        const test = await mcp.call(
+          "cargo_test",
+          { crate_path: value.cratePath },
+          CargoTestResult,
+        );
         if (test.failed.length > 0) {
           return {
             kind: "Broken" as const,
-            value: { errors: test.failed.map((t: any) => t.name) },
+            value: { errors: test.failed.map((t) => t.name) },
           };
         }
         return { kind: "Clean" as const, value: {} };

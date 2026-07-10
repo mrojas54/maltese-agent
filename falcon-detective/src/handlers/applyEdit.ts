@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { FsApplyPatchResult } from "../lib/toolSchemas.js";
 import { UnifiedDiff } from "../lib/types.js";
 
 const Input = z.object({
@@ -107,14 +108,16 @@ export const applyEdit = createHandler(
         // (lowercase). The previous check for "Conflict" (capitalised) always
         // missed, so applyEdit reported `ok: true` on every real conflict —
         // processIssues then called commitOne with no staged changes, which
-        // failed downstream with an empty stderr. Match the wire format here.
-        const result = await mcp.call<{
-          result: "ok" | "conflict";
-          reason?: string;
-        }>("fs_apply_patch", {
-          path: value.diff.path,
-          unified_diff: normalizedDiff,
-        });
+        // failed downstream with an empty stderr. FsApplyPatchResult's enum
+        // pins the wire casing at the client boundary.
+        const result = await mcp.call(
+          "fs_apply_patch",
+          {
+            path: value.diff.path,
+            unified_diff: normalizedDiff,
+          },
+          FsApplyPatchResult,
+        );
         if (result.result === "conflict")
           return { ok: false, reason: result.reason ?? "conflict" };
         return { ok: true };

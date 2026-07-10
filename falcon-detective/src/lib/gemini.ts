@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { GoogleGenAI } from "@google/genai";
-import type { ZodSchema } from "zod";
+import type { ZodType } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { DEFAULT_MODEL } from "./models.js";
 
@@ -10,7 +10,10 @@ export type Mode = "live" | "cassette" | "record";
 
 export interface CallOptions<T> {
   prompt: string;
-  schema: ZodSchema<T>;
+  /** Output-typed only (`ZodType<T>`, not the v3-era `ZodSchema<T>` alias)
+   *  so `z.preprocess` pipes — whose Input is `unknown`, not `T` — are
+   *  accepted without a cast (triage's TriageOutput, AC-12). */
+  schema: ZodType<T>;
   model?: string;
   temperature?: number;
 }

@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { FsReadResult } from "../lib/toolSchemas.js";
 import { Issue } from "../lib/types.js";
 
 const Input = z.object({
@@ -24,9 +25,11 @@ export const readContext = createHandler(
       });
       await mcp.connect();
       try {
-        const target = await mcp.call<{ content: string }>("fs_read", {
-          path: value.issue.location.file,
-        });
+        const target = await mcp.call(
+          "fs_read",
+          { path: value.issue.location.file },
+          FsReadResult,
+        );
         const excerpts = [
           { file: value.issue.location.file, content: target.content },
         ];
@@ -36,9 +39,11 @@ export const readContext = createHandler(
           !value.issue.location.file.endsWith("prompt.rs")
         ) {
           try {
-            const promptFile = await mcp.call<{ content: string }>("fs_read", {
-              path: "src/prompt.rs",
-            });
+            const promptFile = await mcp.call(
+              "fs_read",
+              { path: "src/prompt.rs" },
+              FsReadResult,
+            );
             excerpts.push({
               file: "src/prompt.rs",
               content: promptFile.content,

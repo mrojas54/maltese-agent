@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { WorktreeAddResult } from "../lib/toolSchemas.js";
 
 // Fat input/output: cratePath threads through so triage can use it.
 // Barnum validates schemas strictly (additionalProperties: false), so the
@@ -29,9 +30,11 @@ export const prepWorktree = createHandler(
       });
       await c.connect();
       try {
-        const r = await c.call<{ path: string }>("git_worktree_add", {
-          name: value.runName,
-        });
+        const r = await c.call(
+          "git_worktree_add",
+          { name: value.runName },
+          WorktreeAddResult,
+        );
         return {
           mcpBinary: value.mcpBinary,
           worktreePath: r.path,
