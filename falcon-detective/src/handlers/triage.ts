@@ -150,9 +150,7 @@ export const triage = createHandler(
           // which changes every cassette key — record/replay done on machines
           // that disagree about `rg` can never match (root-caused on PR #64).
           console.error(
-            "[triage] fs_search failed — ignored-test poison signal degraded to none " +
-              "(is ripgrep installed?). Cassette keys will NOT match recordings made " +
-              `where the signal was present: ${err instanceof Error ? err.message : String(err)}`,
+            `[triage] fs_search failed — ignored-test poison signal degraded to none (is ripgrep installed?). Cassette keys will NOT match recordings made where the signal was present: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
 
@@ -170,8 +168,7 @@ export const triage = createHandler(
             // File gone or unreadable — skip it, but say so: a lost candidate
             // silently narrows the poison signal (and the cassette key).
             console.error(
-              `[triage] fs_read failed for ignored-test candidate ${m.file}: ` +
-                `${err instanceof Error ? err.message : String(err)}`,
+              `[triage] fs_read failed for ignored-test candidate ${m.file}: ${err instanceof Error ? err.message : String(err)}`,
             );
           }
         }
