@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
 import type { ZodType } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
@@ -170,12 +171,21 @@ export interface CallOptions<T> {
   temperature?: number;
 }
 
+// Package root, anchored to THIS module's location (MA-29): the module lives
+// at <pkg>/src/lib/gemini.ts (tsx) or <pkg>/dist/lib/gemini.js (compiled) —
+// both exactly two levels below the package root, because tsconfig.build.json
+// sets rootDir=src/outDir=dist so dist mirrors src's layout.
+const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
 // Resolved at call time so tests that mutate process.env.CASSETTE_DIR in
 // beforeEach take effect (the original module-level constant cached the
-// value at import time, before vitest had a chance to swap it).
+// value at import time, before vitest had a chance to swap it). The fallback
+// is package-anchored, NOT process.cwd()-based (MA-29): a CLI worker spawned
+// from the repo root used to silently resolve `<repo-root>/fixtures/cassettes`
+// — a directory that doesn't exist — instead of the package's cassette dir.
 function cassetteDir(): string {
   return (
-    process.env.CASSETTE_DIR ?? join(process.cwd(), "fixtures", "cassettes")
+    process.env.CASSETTE_DIR ?? join(PACKAGE_ROOT, "fixtures", "cassettes")
   );
 }
 

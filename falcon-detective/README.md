@@ -27,7 +27,10 @@ The `GEMINI_MODE` env var picks how Gemini calls are resolved:
 | `record` | Live calls, but each request/response is written to `CASSETTE_DIR` | `GEMINI_API_KEY` |
 | `cassette` | Replays from `CASSETTE_DIR` — fully offline, deterministic | — |
 
-`CASSETTE_DIR` defaults to `./fixtures/cassettes` resolved from the spawning cwd.
+`CASSETTE_DIR` defaults to `fixtures/cassettes` inside this package — anchored
+to the package itself (resolved from `src/lib/gemini.ts`'s own location), not
+the spawning cwd, so a worker spawned from the repo root resolves the same
+directory. Set `CASSETTE_DIR` to override.
 
 ## Run
 
@@ -79,11 +82,18 @@ seconds. The binary-gated tests (`tests/lib/mcp.test.ts`,
 
 The e2e **never mutates your checkout**. It:
 
-1. Guards its prerequisites: if `falcon-agent/` has uncommitted changes, the
+1. Rebuilds `dist/` (`tsc -p tsconfig.build.json`) in its `beforeAll` so the
+   `dist/cli.js` it invokes always matches `src/` — recording runs tsx against
+   source, so nothing else guarantees dist freshness at test time — and
+   removes any `.runs/e2e-test` worktree a previous failed/timed-out run left
+   behind (a leftover otherwise kills the run with "worktree already exists").
+   The run worktree is also cleaned up after the test; set `KEEP_RUN=1` to
+   preserve it for post-mortem debugging of a failure.
+2. Guards its prerequisites: if `falcon-agent/` has uncommitted changes, the
    test **skips** with a message naming the dirty paths (it does *not* reset
    anything — commit or stash, then rerun); same skip for a missing
    `target/debug/falcon-mcp` binary or empty `fixtures/cassettes/`
-2. Checks cassette freshness **before** launching the pipeline: the recorded
+3. Checks cassette freshness **before** launching the pipeline: the recorded
    fingerprint manifest (`fixtures/cassettes/.e2e-fingerprint.json`, written
    by `npm run e2e:fingerprint` at record time) is compared against the
    current workflow code, prompt templates, model id, and committed
@@ -92,10 +102,10 @@ The e2e **never mutates your checkout**. It:
    and the long-running pipeline/smoke subprocesses are spawned
    asynchronously so a legitimate full run cannot block the vitest worker
    event loop (the 2026-07 `Timeout calling "onTaskUpdate"` CI flake)
-3. Runs the CLI in `cassette` mode against the recorded fixtures — all
+4. Runs the CLI in `cassette` mode against the recorded fixtures — all
    mutation happens inside the pipeline's own `prepWorktree` sandbox at
    `<repo-root>/.runs/e2e-test`
-4. Asserts the previously-`#[ignore]`'d cargo test `bird_themed_inputs_arent_special` passes inside the per-run worktree — the gate that proves the poison is gone
+5. Asserts the previously-`#[ignore]`'d cargo test `bird_themed_inputs_arent_special` passes inside the per-run worktree — the gate that proves the poison is gone
 
 With `E2E_REQUIRED=1` (set in CI's typescript job) every skip above becomes a
 **failure**, so a green required run mechanically implies the e2e executed.

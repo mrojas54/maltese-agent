@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { removeRunWorktree, runWorktreePath } from "./helpers/e2eCleanup.js";
 import {
   FINGERPRINT_MANIFEST,
   checkCassetteFreshness,
@@ -396,6 +398,83 @@ describe("e2e staleness fast path: interplay with the cassette guard (MA-26)", (
     const outcome = prereqs({ mcpBin, cassetteDir });
     expect(outcome.kind).toBe("skip");
     if (outcome.kind === "skip") expect(outcome.reason).toContain(cassetteDir);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Run-worktree cleanup (MA-29). A failed/timed-out e2e used to leave
+// `.runs/e2e-test` behind, and the next run died on "worktree already
+// exists" — masking the real error. removeRunWorktree must handle every
+// leak shape idempotently. Hermetic: mkdtemp fixture repos, git only, no
+// pipelines spawned.
+// ---------------------------------------------------------------------------
+
+describe("e2e run-worktree cleanup (MA-29)", () => {
+  const RUN = "e2e-test";
+
+  /** Registers a detached worktree at .runs/e2e-test (like prepWorktree's
+   *  leftover). `--detach` avoids branch-name collisions across re-adds. */
+  function addRunWorktree(): string {
+    const path = runWorktreePath(repo, RUN);
+    git("worktree", "add", "--detach", path);
+    return path;
+  }
+
+  it("removes a registered leftover worktree and its registration", async () => {
+    makeFixture();
+    const path = addRunWorktree();
+    expect(existsSync(path)).toBe(true);
+
+    await removeRunWorktree(repo, RUN);
+    expect(existsSync(path)).toBe(false);
+
+    // Registration is gone too: the same path can be worktree-added again
+    // (this is exactly the "next run" that used to die).
+    expect(() => addRunWorktree()).not.toThrow();
+  });
+
+  it("removes a registered worktree with untracked debris (a failed run)", async () => {
+    makeFixture();
+    const path = addRunWorktree();
+    writeFileSync(join(path, "half-applied.patch"), "leftover edit\n");
+
+    await removeRunWorktree(repo, RUN);
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("falls back to plain removal for an unregistered bare directory", async () => {
+    makeFixture();
+    const path = runWorktreePath(repo, RUN);
+    mkdirSync(path, { recursive: true });
+    writeFileSync(join(path, "junk.txt"), "not a worktree\n");
+
+    await removeRunWorktree(repo, RUN);
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("prunes a stale registration whose directory was rm'd manually", async () => {
+    makeFixture();
+    const path = addRunWorktree();
+    rmSync(path, { recursive: true, force: true });
+
+    await removeRunWorktree(repo, RUN);
+    // Without the prune, this add fails on the stale .git/worktrees entry.
+    expect(() => addRunWorktree()).not.toThrow();
+  });
+
+  it("is a no-op when nothing is left over", async () => {
+    makeFixture();
+    await expect(removeRunWorktree(repo, RUN)).resolves.toBeUndefined();
+    expect(existsSync(runWorktreePath(repo, RUN))).toBe(false);
+  });
+
+  it("never touches the checkout outside .runs/", async () => {
+    const { mainRs } = makeFixture();
+    const before = readFileSync(mainRs);
+    addRunWorktree();
+
+    await removeRunWorktree(repo, RUN);
+    expect(readFileSync(mainRs).equals(before)).toBe(true);
   });
 });
 
