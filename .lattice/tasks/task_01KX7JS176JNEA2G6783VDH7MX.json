@@ -1,23 +1,36 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/lattice-next-d7a8bb",
+      "linked_at": "2026-07-11T14:28:57Z",
+      "linked_by": "agent:orchestrator-resume",
+      "repo": null
+    }
+  ],
+  "comment_count": 1,
   "complexity": "low",
   "created_at": "2026-07-11T03:15:45Z",
   "created_by": "agent:orchestrator-resume",
   "custom_fields": {},
   "description": "FELT FINDING F-2-1 (operator, 2026-07-10, out of contract 9f72697). During the F-2 terminal check the CLI printed only 'starting run' and 'run complete' \u2014 the entire detective story (triage findings, per-issue fixes, commits, sweep verdict) is invisible unless you inspect .runs/<name> git history. For a workshop demo the terminal IS the stage. Scope (operator's words): CLI prints the run story as it unfolds \u2014 issues found (kind + file:line as triage returns them), per-fix progress, commit SHAs as each per-issue commit lands, final sweep verdict (clean/dirty + escalation). Constraints: narration is presentation-layer only \u2014 do NOT change handler logic, prompts, or anything that feeds cassette keys (replay determinism must be untouched; narration reads workflow events/results, never mutates them). Existing per-handler console.error diagnostics stay. Gates: fast suite green; full e2e replay green with ZERO cassette misses (proves keys unchanged); manual cassette-mode drive shows the story. Size S.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "ev_01KX8S9PBVB9YM4N499N95XWYX",
+      "role": "review",
+      "source_type": "comment"
+    }
+  ],
   "id": "task_01KX7JS176JNEA2G6783VDH7MX",
-  "last_event_id": "ev_01KX7JS177MTZHA714THBHXGCX",
-  "last_status_changed_at": "2026-07-11T03:15:45Z",
+  "last_event_id": "ev_01KX8S9PEYEBV236BTMXFZSCTP",
+  "last_status_changed_at": "2026-07-11T14:28:57Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-33",
-  "status": "backlog",
+  "status": "review",
   "tags": [
     "workshop-ux",
     "out-of-contract",
@@ -25,6 +38,6 @@
   ],
   "title": "CLI narrates the run story as it unfolds",
   "type": "task",
-  "updated_at": "2026-07-11T03:15:45Z",
+  "updated_at": "2026-07-11T14:28:57Z",
   "urgency": "normal"
 }
