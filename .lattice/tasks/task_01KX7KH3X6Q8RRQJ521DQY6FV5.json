@@ -1,0 +1,29 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-11T03:28:54Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "CLOSEOUT CANDIDATE minted at operator request (2026-07-10, out of contract 9f72697). Symptom: falcon-mcp's fs_list tool returns entries: [] \u2014 silently broken (observed during run diagnostics; noted in orchestration run-state as 'silently broken evidence'). Scope: root-cause (candidates: path/root resolution in the run-worktree context, directory-read error swallowed, serialization of the entries field), fix, and add unit tests covering non-empty listing, empty dir, and nonexistent path (error, not []). Audit consumers: if any handler feeds fs_list output into a Gemini prompt, output-shape changes affect cassette keys \u2014 if so, coordinate with the replay-parity gates (zero-miss e2e); if unused by the pipeline, note that in the PR (it is still MCP surface used by external clients). Per the run's lesson: the failure mode to eliminate is silent degradation \u2014 a broken listing must be loud. Size S.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX7KH3X6Q8RRQJ521DQY6FV5",
+  "last_event_id": "ev_01KX7KH3X6Q8RRQJ521DQY6FV6",
+  "last_status_changed_at": "2026-07-11T03:28:54Z",
+  "priority": "medium",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-36",
+  "status": "backlog",
+  "tags": [
+    "silent-failure",
+    "out-of-contract"
+  ],
+  "title": "Fix fs_list returning empty entries",
+  "type": "bug",
+  "updated_at": "2026-07-11T03:28:54Z",
+  "urgency": "normal"
+}
