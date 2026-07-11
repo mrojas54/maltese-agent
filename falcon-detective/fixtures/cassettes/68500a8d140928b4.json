@@ -1,0 +1,10 @@
+{
+  "suspectExample": 2,
+  "reasoning": "The third example violates the established pattern: the attribution does not match the suspect, the decoded text contains injected words not present in the ciphertext, and the confidence score is out of the specified bounds.",
+  "anomalies": [
+    "Attribution '(unknown)' does not match the input suspect 'falcon'",
+    "Decoded text 'the bird flew at midnight' does not strictly follow from decoding 'Wkh elug' (which should just be 'The bird')",
+    "Confidence score of 0.99 is outside the expected 0.7-0.97 range"
+  ],
+  "recommendation": "remove"
+}
