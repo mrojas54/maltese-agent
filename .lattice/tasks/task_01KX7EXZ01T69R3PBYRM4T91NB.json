@@ -1,23 +1,36 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/rmcp-version-update-991c00",
+      "linked_at": "2026-07-11T04:35:30Z",
+      "linked_by": "agent:ma-30-session",
+      "repo": null
+    }
+  ],
+  "comment_count": 1,
   "complexity": "high",
   "created_at": "2026-07-11T02:08:32Z",
   "created_by": "agent:orchestrator-resume",
   "custom_fields": {},
   "description": "FUTURE MIGRATION \u2014 out of contract 9f72697 scope (no AC IDs). Origin: Dependabot PR #48 (rmcp 1.6->2.2) bulk-merged 2026-07-10, broke main, reverted in PR #63. Observed breakage: falcon-mcp no longer compiles \u2014 E0432 unresolved import rmcp::model::Content; both CI jobs red (TS job builds the Rust binary for e2e). Prior art: May 2026 memory \u2014 rmcp 1.x already had breaking tool-result drift, so treat the 2.x API as a deliberate migration, not a version bump. Scope: migrate falcon-mcp to current rmcp 2.x (model/Content module moves, tool-result types, server wiring in server.rs), update Cargo.toml/lock, adapt tool handlers. Gates: cargo build/test/clippy (all three README invocations)/fmt green; scripts/check-planted-defects.sh untouched (G-1: falcon-agent planted defects are workshop material); full e2e cassette replay green (npm run test:full). Serialization: Cargo.toml + server.rs groups. Size: L.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "ev_01KX7QB27CBZHA395KQS9ZGPV2",
+      "role": "review",
+      "source_type": "comment"
+    }
+  ],
   "id": "task_01KX7EXZ01T69R3PBYRM4T91NB",
-  "last_event_id": "ev_01KX7EXZ02W9YERZS2BP3TQ0QV",
-  "last_status_changed_at": "2026-07-11T02:08:32Z",
+  "last_event_id": "ev_01KX7QB27C2ATTX1JNETDV3H18",
+  "last_status_changed_at": "2026-07-11T04:35:30Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-30",
-  "status": "backlog",
+  "status": "review",
   "tags": [
     "future-migration",
     "out-of-contract",
@@ -26,6 +39,6 @@
   ],
   "title": "Migrate rmcp 1.6 to 2.x in falcon-mcp",
   "type": "chore",
-  "updated_at": "2026-07-11T02:08:32Z",
+  "updated_at": "2026-07-11T04:35:30Z",
   "urgency": "low"
 }
