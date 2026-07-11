@@ -11,11 +11,12 @@
 //! - a hanging `pre-commit` hook written into a TempDir repo, so
 //!   `git commit` (real git) blocks until killed.
 //! - `tests/fixtures/hanging-bin/` — fake `rg`/`ast-grep` shell scripts that
-//!   sleep; prepended to the server's PATH. For fs_search/fs_search_ast,
-//!   `Sandbox::check_bin` validates the NAME only and resolution happens at
-//!   spawn via the child's PATH; for exec_run, the allowlist resolves to
-//!   absolute paths at server startup (AC-21) — the fixture dir is on the
-//!   spawned server's startup PATH, so it pins the fake either way.
+//!   sleep; prepended to the server's PATH. `fs_search_ast` still spawns
+//!   `ast-grep`, so `Sandbox::check_bin` validates the NAME only and
+//!   resolution happens at spawn via the child's PATH; for exec_run the
+//!   allowlist resolves to absolute paths at server startup (AC-21) — the
+//!   fixture dir is on the spawned server's startup PATH, so it pins the fake
+//!   either way. (`fs_search` is native since MA-35 and spawns nothing.)
 //!
 //! Every test doubles as a kill/reap check: the fixtures sleep 120s, so the
 //! test finishing in a couple of seconds proves the child was killed rather
@@ -166,31 +167,14 @@ async fn git_commit_times_out_on_hanging_pre_commit_hook() {
     client.cancel().await.unwrap();
 }
 
-/// search family, rg half (AC-10): fs_search against a hanging fake rg
-/// resolved via PATH prepend, SEARCH_TIMEOUT overridden down to 1s.
-#[cfg(unix)]
-#[tokio::test]
-async fn fs_search_times_out_on_hanging_rg() {
-    let dir = TempDir::new().unwrap();
-    std::fs::write(dir.path().join("f.txt"), "hello\n").unwrap();
+// NOTE: fs_search no longer spawns a subprocess (MA-35 made it native), so
+// there is no `rg` child to hang — its wall-clock bound is now a per-file
+// deadline check, not a subprocess kill. The search *family*'s AC-10
+// subprocess-timeout coverage is carried by the ast-grep half below, which
+// is still a real child process.
 
-    let path = hanging_path();
-    let client = spawn_server(
-        dir.path(),
-        &[
-            ("FALCON_MCP_SEARCH_TIMEOUT_MS", "1000"),
-            ("PATH", path.as_str()),
-        ],
-        false,
-    )
-    .await;
-
-    let text = expect_tool_error(&client, "fs_search", json!({"pattern": "hello"})).await;
-    assert_structured_timeout(&text, 1000);
-    client.cancel().await.unwrap();
-}
-
-/// search family, ast-grep half (AC-10): same as above for fs_search_ast.
+/// search family, ast-grep half (AC-10): fs_search_ast against a hanging fake
+/// ast-grep resolved via PATH prepend, SEARCH_TIMEOUT overridden down to 1s.
 /// Works even on hosts without a real ast-grep — the fake IS the binary.
 #[cfg(unix)]
 #[tokio::test]

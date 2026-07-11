@@ -2,13 +2,18 @@
 
 use crate::limits;
 use crate::sandbox::Sandbox;
-use crate::tools::subprocess;
+use crate::tools::subprocess::SubprocessTimeout;
 use anyhow::Context;
+use grep_matcher::Matcher;
+use grep_regex::RegexMatcher;
+use grep_searcher::{BinaryDetection, Searcher, SearcherBuilder, Sink, SinkMatch};
+use ignore::overrides::OverrideBuilder;
+use ignore::WalkBuilder;
 use patch::Line;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::ops::ControlFlow;
 use std::sync::Arc;
+use std::time::Instant;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FsReadArgs {
@@ -581,7 +586,7 @@ fn default_max() -> usize {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct FsSearchArgs {
-    /// Regex pattern to search for (passed directly to `rg`).
+    /// Regex pattern to search for.
     pub pattern: String,
     /// Optional glob to restrict which files are searched (e.g. `"*.rs"`).
     #[serde(default)]
@@ -609,102 +614,188 @@ pub struct FsMatch {
 pub struct FsSearchResult {
     /// Collected match records, up to `max`.
     pub matches: Vec<FsMatch>,
-    /// `true` if the result was capped before ripgrep finished all output.
+    /// `true` if the result was capped before the search visited everything.
     pub truncated: bool,
 }
 
-/// Search files inside the sandbox using ripgrep.
+/// [`grep_searcher::Sink`] that collects one [`FsMatch`] per regex occurrence,
+/// stopping the current file's search the moment the global `effective_max`
+/// cap is reached.
 ///
-/// Shells out to `rg --json -e PATTERN [--glob G]` with `current_dir` set to
-/// the sandbox root, via the shared streaming-subprocess helper
-/// ([`subprocess::run_streaming`]): stdout is streamed line-by-line, the
-/// child is killed once `max` match records have been collected, and the
-/// whole run is bounded by the search wall-clock timeout
-/// ([`limits::SEARCH_TIMEOUT`], env-overridable via
-/// `FALCON_MCP_SEARCH_TIMEOUT_MS`). Returns `{ matches, truncated }`.
+/// Holds `&mut` handles to the caller's accumulator and `truncated` flag so
+/// the walk loop can read both after each file finishes (the sink is moved
+/// into `search_path`, ending the borrows on return).
+struct MatchSink<'a> {
+    /// Sandbox-relative path of the file being searched (no `./` prefix),
+    /// matching the path shape ripgrep emitted with no positional argument.
+    file: &'a str,
+    matcher: &'a RegexMatcher,
+    matches: &'a mut Vec<FsMatch>,
+    effective_max: usize,
+    /// Set to `true` when the cap forces an early stop — the run was capped
+    /// before visiting everything.
+    truncated: &'a mut bool,
+}
+
+impl Sink for MatchSink<'_> {
+    type Error = std::io::Error;
+
+    fn matched(
+        &mut self,
+        _searcher: &Searcher,
+        mat: &SinkMatch<'_>,
+    ) -> Result<bool, std::io::Error> {
+        // `line_number(true)` is set on the searcher, so this is always Some;
+        // fall back to 0 defensively rather than panic.
+        let line = mat.line_number().unwrap_or(0);
+        let bytes = mat.bytes();
+        // ripgrep reports the matching line trimmed of its trailing newline;
+        // `trim_end` also drops trailing whitespace, matching the old code.
+        let text = String::from_utf8_lossy(bytes).trim_end().to_string();
+
+        // One record per non-overlapping occurrence on the line — the same
+        // shape as ripgrep's `submatches` array. `find_iter` offsets are
+        // 0-based bytes from the line start; +1 gives the 1-based column.
+        let mut columns: Vec<u64> = Vec::new();
+        self.matcher
+            .find_iter(bytes, |m| {
+                columns.push(m.start() as u64 + 1);
+                true
+            })
+            .map_err(std::io::Error::other)?;
+
+        for column in columns {
+            if self.matches.len() >= self.effective_max {
+                *self.truncated = true;
+                return Ok(false); // cap hit — stop searching this file
+            }
+            self.matches.push(FsMatch {
+                file: self.file.to_string(),
+                line,
+                column,
+                text: text.clone(),
+            });
+        }
+        Ok(true)
+    }
+}
+
+/// Search files inside the sandbox using ripgrep's own component crates
+/// (`ignore` for the walk, `grep-regex` + `grep-searcher` for matching) —
+/// no `rg` binary on PATH required (MA-35).
 ///
-/// `-e PATTERN` is used instead of a bare positional argument to prevent
-/// argument injection: a pattern like `--pre=/bin/sh` would otherwise be
-/// interpreted by rg as a preprocessor flag (an RCE vector).
+/// Output parity with the former `rg --json` subprocess is deliberate and
+/// load-bearing: `fs_search` results feed triage prompts which feed cassette
+/// keys, so `file`/`line`/`column`/`text` and their shape must not drift.
 ///
-/// `column` values are 1-based; ripgrep's submatch `start` field is a 0-based
-/// byte offset.
+/// Walk semantics mirror ripgrep's defaults: `.gitignore`/hidden/binary files
+/// are skipped, symlinks are not followed, per-file size is capped at
+/// [`limits::SEARCH_MAX_FILESIZE`], and an optional `glob` acts as a
+/// whitelist override (like `rg --glob`). Paths are emitted sandbox-relative
+/// with no `./` prefix — exactly what `rg` printed when invoked with no
+/// positional path. Traversal is sorted by path, so results are now
+/// *deterministic* (ripgrep's default parallel walk was not); the pipeline is
+/// unaffected because it keys on the set of distinct matching files.
 ///
-/// rg exit codes: 0 = found matches, 1 = no matches (not an error), 2+ = rg error.
+/// The pattern is compiled as a regex, never interpreted as a flag, so the
+/// old `--pre=/bin/sh` argument-injection vector is gone by construction.
+///
+/// The blocking walk/search runs on a [`tokio::task::spawn_blocking`] thread
+/// and is bounded by [`limits::SEARCH_TIMEOUT`] (env-overridable via
+/// `FALCON_MCP_SEARCH_TIMEOUT_MS`), checked per file so a pathological tree
+/// cannot hang the server.
 pub async fn fs_search(
     sandbox: Arc<Sandbox>,
     args: FsSearchArgs,
 ) -> anyhow::Result<FsSearchResult> {
-    sandbox.check_bin("rg")?;
-
     // Clamp caller-supplied max to the hard ceiling.
     let effective_max = args.max.min(MAX_SEARCH_RESULTS);
+    let root = sandbox.root().to_path_buf();
+    let pattern = args.pattern.clone();
+    let glob = args.glob.clone();
+    let timeout = limits::search_timeout();
 
-    let mut cmd = tokio::process::Command::new("rg");
-    cmd.arg("--json").arg("--no-heading");
-    // Defense-in-depth: cap per-file matches and file size so that a single
-    // large file cannot generate unbounded output even before the streaming
-    // early-exit kicks in.
-    cmd.arg(format!("--max-count={}", effective_max.saturating_add(1)));
-    cmd.arg(format!("--max-filesize={}", limits::SEARCH_MAX_FILESIZE));
-    if let Some(ref g) = args.glob {
-        cmd.arg("--glob").arg(g);
+    // grep-searcher and ignore are synchronous/blocking; keep them off the
+    // async runtime's worker threads.
+    tokio::task::spawn_blocking(move || {
+        native_search(&root, &pattern, glob.as_deref(), effective_max, timeout)
+    })
+    .await
+    .context("fs_search worker thread panicked")?
+}
+
+/// Synchronous native search, run on a blocking thread by [`fs_search`].
+fn native_search(
+    root: &std::path::Path,
+    pattern: &str,
+    glob: Option<&str>,
+    effective_max: usize,
+    timeout: std::time::Duration,
+) -> anyhow::Result<FsSearchResult> {
+    // A bad regex surfaces as an error, mirroring ripgrep's exit-2 failure.
+    let matcher = RegexMatcher::new_line_matcher(pattern).context("compiling search pattern")?;
+
+    let mut searcher = SearcherBuilder::new()
+        .line_number(true)
+        // Skip binary files the way ripgrep does (stop at the first NUL).
+        .binary_detection(BinaryDetection::quit(b'\x00'))
+        .build();
+
+    let mut builder = WalkBuilder::new(root);
+    // Deterministic traversal (ripgrep's default parallel walk is unordered).
+    builder.sort_by_file_path(std::path::Path::cmp);
+    builder.max_filesize(Some(limits::SEARCH_MAX_FILESIZE));
+    if let Some(g) = glob {
+        // A single non-negated glob is a whitelist: only matching files are
+        // searched — exactly `rg --glob` semantics.
+        let mut ob = OverrideBuilder::new(root);
+        ob.add(g).context("invalid glob pattern")?;
+        builder.overrides(ob.build().context("building glob override")?);
     }
-    // Use -e PATTERN instead of a bare positional arg to prevent argument
-    // injection: a pattern starting with `--` would otherwise be parsed by rg
-    // as a flag (e.g. `--pre=/bin/sh` invokes an external preprocessor).
-    cmd.arg("-e").arg(&args.pattern);
-    cmd.current_dir(sandbox.root());
 
+    let deadline = Instant::now() + timeout;
     let mut matches: Vec<FsMatch> = Vec::new();
+    let mut truncated = false;
 
-    let outcome = subprocess::run_streaming(cmd, "rg", limits::search_timeout(), |line| {
-        if line.is_empty() {
-            return ControlFlow::Continue(());
-        }
-        let v: serde_json::Value = match serde_json::from_str(line) {
-            Ok(v) => v,
-            Err(_) => return ControlFlow::Continue(()),
-        };
-        if v["type"] != "match" {
-            return ControlFlow::Continue(());
-        }
-        let m = &v["data"];
-        let file = m["path"]["text"].as_str().unwrap_or("").to_string();
-        let line_number = m["line_number"].as_u64().unwrap_or(0);
-        let text = m["lines"]["text"]
-            .as_str()
-            .unwrap_or("")
-            .trim_end()
-            .to_string();
-
-        if let Some(submatches) = m["submatches"].as_array() {
-            for sub in submatches {
-                if matches.len() >= effective_max {
-                    return ControlFlow::Break(());
-                }
-                // ripgrep start is 0-based byte offset; add 1 for 1-based column.
-                let column = sub["start"].as_u64().unwrap_or(0).saturating_add(1);
-                matches.push(FsMatch {
-                    file: file.clone(),
-                    line: line_number,
-                    column,
-                    text: text.clone(),
-                });
+    for entry in builder.build() {
+        if Instant::now() >= deadline {
+            return Err(SubprocessTimeout {
+                label: "fs_search".into(),
+                elapsed_ms: u64::try_from(timeout.as_millis()).unwrap_or(u64::MAX),
+                limit_ms: u64::try_from(timeout.as_millis()).unwrap_or(u64::MAX),
             }
+            .into());
         }
-        ControlFlow::Continue(())
-    })
-    .await?;
+        // Skip unreadable entries rather than failing the whole search (a
+        // single denied file should not blank the signal).
+        let Ok(entry) = entry else { continue };
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+            continue;
+        }
+        let path = entry.path();
+        let file = path
+            .strip_prefix(root)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .into_owned();
 
-    // exit 0 = matches found; exit 1 = no matches (normal); a self-inflicted
-    // kill after truncation is also OK — shared policy in check_status.
-    outcome.check_status("rg", 1)?;
+        let sink = MatchSink {
+            file: &file,
+            matcher: &matcher,
+            matches: &mut matches,
+            effective_max,
+            truncated: &mut truncated,
+        };
+        // Per-file read errors (permissions, transient IO) are non-fatal —
+        // skip the file and keep going, like ripgrep continuing past a warn.
+        let _ = searcher.search_path(&matcher, path, sink);
 
-    Ok(FsSearchResult {
-        matches,
-        truncated: outcome.truncated,
-    })
+        if truncated {
+            break;
+        }
+    }
+
+    Ok(FsSearchResult { matches, truncated })
 }
 
 #[cfg(test)]
