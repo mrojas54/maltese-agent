@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DEFAULT_MODEL } from "../src/lib/models.js";
+import { removeRunWorktree } from "./helpers/e2eCleanup.js";
 import { checkCassetteFreshness } from "./helpers/e2eFingerprint.js";
 import { applyGuardOutcome, checkE2ePrereqs } from "./helpers/e2ePrereqs.js";
 
@@ -23,15 +24,47 @@ const MAX_BUFFER = 64 * 1024 * 1024;
 // root, not falcon-detective/, so `process.cwd()/..` resolves one level too
 // high. Compute REPO_ROOT relative to this file instead.
 const HERE = dirname(fileURLToPath(import.meta.url));
+const PKG_ROOT = join(HERE, "..");
 const REPO_ROOT = join(HERE, "..", "..");
 const MCP_BIN = join(REPO_ROOT, "target/debug/falcon-mcp");
 const CASSETTE_DIR = join(REPO_ROOT, "falcon-detective/fixtures/cassettes");
+const RUN_NAME = "e2e-test";
 
 // E2E_REQUIRED=1 (set by CI's typescript job) turns every skip below into a
 // failure: a green required run mechanically implies the e2e executed (AC-5).
 const REQUIRED = process.env.E2E_REQUIRED === "1";
 
 describe("e2e: full pipeline against falcon-agent", () => {
+  // Dist freshness (MA-29): this test invokes dist/cli.js, but nothing else
+  // guarantees dist matches src at test time — `npm run record` runs tsx
+  // against src, so a recorded-then-replayed session can pair fresh cassettes
+  // with a stale dist. Observed live: a pre-MA-27 dist still calling
+  // gemini-2.5-pro replayed against 3.1-keyed cassettes → bogus "cassette
+  // miss". Building here via `npm run build` (tsc -p tsconfig.build.json —
+  // the same command CI's build step runs, and robust to compiler/bin-layout
+  // changes) pins dist to src for every e2e run. execFileAsync + MAX_BUFFER
+  // keep it bounded and async (see the worker-blockage note above).
+  beforeAll(async () => {
+    await execFileAsync("npm", ["run", "build"], {
+      cwd: PKG_ROOT,
+      maxBuffer: MAX_BUFFER,
+    });
+    // Worktree-leak guard (MA-29): a failed or timed-out earlier run leaves
+    // <repo-root>/.runs/e2e-test behind, and the next pipeline dies on
+    // "worktree already exists" — masking the real error. Idempotent
+    // pre-clean so every run starts from a blank slate.
+    await removeRunWorktree(REPO_ROOT, RUN_NAME);
+  }, 180_000);
+
+  // Always clean the run worktree up afterwards — pass, fail, or timeout —
+  // EXCEPT under KEEP_RUN=1, which preserves .runs/e2e-test so a failed
+  // run's worktree (agent edits, per-issue commits) can be inspected
+  // post-mortem: `KEEP_RUN=1 npm run test:full -- tests/e2e.test.ts`.
+  afterAll(async () => {
+    if (process.env.KEEP_RUN === "1") return;
+    await removeRunWorktree(REPO_ROOT, RUN_NAME);
+  }, 60_000);
+
   it("runs to completion in cassette mode", async (ctx) => {
     // Prerequisite + dirty-state guard (AC-1..AC-4). This test NEVER mutates
     // the developer checkout: if falcon-agent/ has uncommitted changes the
@@ -72,10 +105,11 @@ describe("e2e: full pipeline against falcon-agent", () => {
       "E2E_REQUIRED=1 but the e2e could not run: ",
     );
 
-    // CASSETTE_DIR must be passed explicitly: the CLI's gemini.ts falls back
-    // to `process.cwd() + "/fixtures/cassettes"` when CASSETTE_DIR isn't set,
-    // and the spawned process's cwd is REPO_ROOT (not falcon-detective/), so
-    // the fallback path doesn't exist.
+    // CASSETTE_DIR is passed explicitly as defense in depth: gemini.ts's
+    // fallback is package-anchored since MA-29 (resolved from the module's
+    // own location, not process.cwd()), so a worker spawned from REPO_ROOT
+    // would resolve the right directory anyway — but the e2e pins the exact
+    // dir its guards fingerprinted rather than trusting the fallback.
     const env = {
       ...process.env,
       GEMINI_MODE: "cassette",
@@ -92,7 +126,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
           "--target",
           "falcon-agent",
           "--run-name",
-          "e2e-test",
+          RUN_NAME,
           "--repo-root",
           REPO_ROOT,
           "--mcp-binary",
@@ -130,7 +164,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
     // developer checkout is never touched by this test. Running cargo from
     // the run worktree picks up the agent's working-tree changes (the poison
     // fix doesn't have to be committed for cargo test to see it).
-    const runWorktree = join(REPO_ROOT, ".runs/e2e-test");
+    const runWorktree = join(REPO_ROOT, ".runs", RUN_NAME);
     const { stdout: smokeOut } = await execFileAsync(
       "cargo",
       [
@@ -146,5 +180,10 @@ describe("e2e: full pipeline against falcon-agent", () => {
       { cwd: runWorktree, maxBuffer: MAX_BUFFER },
     );
     expect(smokeOut).toMatch(/test result: ok/);
-  }, 120_000);
+    // 360s (MA-29): a healthy full replay is ~114s of pipeline plus the
+    // post-pipeline cargo smoke test (a cold falcon-agent build inside the
+    // fresh run worktree); the previous 120s budget raced a legitimate run
+    // and lost. This override is scoped to THIS test only — the fast suite
+    // excludes this file and keeps vitest.config.ts's 30s default.
+  }, 360_000);
 });
