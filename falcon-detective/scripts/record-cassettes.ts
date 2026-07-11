@@ -17,7 +17,7 @@
  * prepWorktree creates at <repo-root>/.runs/<run-name>.
  */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_MODEL, GEMINI_FLASH, GEMINI_PRO } from "../src/lib/models.js";

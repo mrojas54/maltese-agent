@@ -347,9 +347,9 @@ async function commitOrRevert(
  */
 export function makeProcessIssuesHandle(
   invoke: InvokeHandler = invokeHandler,
-): (context: { value: z.infer<typeof Input> }) => Promise<
-  z.infer<typeof Output>
-> {
+): (context: {
+  value: z.infer<typeof Input>;
+}) => Promise<z.infer<typeof Output>> {
   return async ({ value }) => {
     const { mcpBinary, worktreePath, cratePath, issues } = value;
     const ctx: StageContext = { mcpBinary, worktreePath, cratePath };

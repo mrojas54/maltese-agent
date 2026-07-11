@@ -4,7 +4,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
 import type { ZodType } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { DEFAULT_MODEL } from "./models.js";
 
 export type Mode = "live" | "cassette" | "record";
