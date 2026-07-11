@@ -152,3 +152,21 @@ jobs:
         run: npm run test:full
         env:
           E2E_REQUIRED: "0"
+          # On a cassette miss, dump the normalized prompt (gemini.ts) so the
+          # step below can print it — the only way to diff a CI-side key
+          # divergence against a locally recorded cassette.
+          GEMINI_DEBUG_PROMPTS: "1"
+
+      - name: cassette-miss diagnostics (prints normalized prompts on key divergence)
+        if: always()
+        working-directory: falcon-detective
+        run: |
+          if ls fixtures/cassettes/_miss_*.normalized.txt >/dev/null 2>&1; then
+            for f in fixtures/cassettes/_miss_*.normalized.txt; do
+              echo "::group::$f"
+              cat "$f"
+              echo "::endgroup::"
+            done
+          else
+            echo "no cassette misses"
+          fi
