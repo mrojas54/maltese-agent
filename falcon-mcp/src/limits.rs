@@ -44,10 +44,10 @@ pub const EXEC_TIMEOUT: Duration = Duration::from_secs(30);
 /// child's stderr.
 pub const MAX_STDERR_DISPLAY: usize = 1024;
 
-/// `--max-filesize` value passed to ripgrep by `fs_search`: defense-in-depth
-/// so a single large file cannot generate unbounded output even before the
-/// streaming early-exit kicks in.
-pub const SEARCH_MAX_FILESIZE: &str = "10M";
+/// Per-file size cap for `fs_search`, in bytes (10 MiB): defense-in-depth so
+/// a single large file cannot generate unbounded work. Mirrors the binary
+/// `M = 1024 * 1024` unit ripgrep's `--max-filesize=10M` used.
+pub const SEARCH_MAX_FILESIZE: u64 = 10 * 1024 * 1024;
 
 /// [`CARGO_TIMEOUT`] with the `FALCON_MCP_CARGO_TIMEOUT_MS` override applied.
 pub fn cargo_timeout() -> Duration {

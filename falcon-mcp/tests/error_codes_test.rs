@@ -133,12 +133,14 @@ async fn client_can_branch_on_distinct_error_kinds() {
 
 /// MA-9's structured subprocess timeout maps to the dedicated -32001 code,
 /// with `elapsed_ms` / `limit_ms` machine-readable in the error `data`.
-/// Reuses the hanging fake-rg fixture from the timeout suite (read-only).
+/// Driven through `fs_search_ast` (still a subprocess) against the hanging
+/// fake-ast-grep fixture — `fs_search` went native in MA-35 and no longer
+/// spawns a child.
 #[cfg(unix)]
 #[tokio::test]
 async fn subprocess_timeout_yields_dedicated_timeout_code() {
     let dir = TempDir::new().unwrap();
-    std::fs::write(dir.path().join("f.txt"), "hello\n").unwrap();
+    std::fs::write(dir.path().join("f.rs"), "fn main() {}\n").unwrap();
 
     let hanging_bin =
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hanging-bin");
@@ -158,8 +160,12 @@ async fn subprocess_timeout_yields_dedicated_timeout_code() {
 
     let result = client
         .call_tool(
-            CallToolRequestParams::new("fs_search")
-                .with_arguments(json!({"pattern": "hello"}).as_object().unwrap().clone()),
+            CallToolRequestParams::new("fs_search_ast").with_arguments(
+                json!({"query": "$E.unwrap()", "lang": "rust"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
         )
         .await;
     let Err(ServiceError::McpError(e)) = result else {

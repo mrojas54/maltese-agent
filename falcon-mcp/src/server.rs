@@ -104,7 +104,7 @@ impl FalconMcp {
 
     #[tool(
         name = "fs_search",
-        description = "Search files for a regex pattern via ripgrep. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit."
+        description = "Search files for a regex pattern. Returns up to `max` matches with file, line, column (1-based), and text. `truncated` is true when the cap was hit."
     )]
     pub async fn fs_search(
         &self,

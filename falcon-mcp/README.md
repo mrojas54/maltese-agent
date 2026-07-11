@@ -26,7 +26,7 @@ See `docs/superpowers/specs/2026-04-30-maltese-agent-design.md` §6 for the desi
 | `fs_write` | Write a file inside the sandbox; creates parent dirs. Rejected in `--read-only`. |
 | `fs_apply_patch` | Apply a unified diff to a file. Rejected in `--read-only`. |
 | `fs_list` | List directory entries with an optional glob filter on entry names. |
-| `fs_search` | ripgrep regex search; returns up to `max` matches with file/line/column. |
+| `fs_search` | Native regex search (ripgrep's `grep`/`ignore` crates, no `rg` binary needed); returns up to `max` matches with file/line/column. |
 | `fs_search_ast` | ast-grep structural search; defaults to `lang=rust`. |
 
 ### Cargo

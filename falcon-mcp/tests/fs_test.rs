@@ -316,17 +316,7 @@ async fn fs_apply_patch_blocked_in_read_only() {
 
 #[tokio::test]
 async fn fs_search_finds_matches() {
-    // Skip gracefully if rg is not on PATH (e.g. minimal CI environments).
-    if tokio::process::Command::new("rg")
-        .arg("--version")
-        .output()
-        .await
-        .is_err()
-    {
-        eprintln!("skip: rg not on PATH");
-        return;
-    }
-
+    // Native search (MA-35) — no `rg` on PATH required, so no skip guard.
     let dir = TempDir::new().unwrap();
     std::fs::write(
         dir.path().join("a.rs"),
@@ -380,7 +370,6 @@ async fn fs_search_finds_matches() {
         "text field missing: {first:?}"
     );
     // column must be 1-based; "fn " starts at column 1 in both test files.
-    // Use any() to avoid depending on rg's output order across files.
     assert!(
         matches.iter().any(|m| m["column"].as_u64() == Some(1)),
         "expected at least one match with column==1 (1-based), got: {matches:?}"
@@ -392,16 +381,6 @@ async fn fs_search_finds_matches() {
 
 #[tokio::test]
 async fn fs_search_truncated_at_max() {
-    if tokio::process::Command::new("rg")
-        .arg("--version")
-        .output()
-        .await
-        .is_err()
-    {
-        eprintln!("skip: rg not on PATH");
-        return;
-    }
-
     let dir = TempDir::new().unwrap();
     // Write a file with 10 lines each containing "needle".
     let content: String = (1..=10).map(|i| format!("needle line {i}\n")).collect();
@@ -444,27 +423,17 @@ async fn fs_search_truncated_at_max() {
 
 #[tokio::test]
 async fn fs_search_pattern_injection_treated_as_literal() {
-    if tokio::process::Command::new("rg")
-        .arg("--version")
-        .output()
-        .await
-        .is_err()
-    {
-        eprintln!("skip: rg not on PATH");
-        return;
-    }
-
     let dir = TempDir::new().unwrap();
     // Write a file that contains the literal string "--pre=/bin/sh" so we can
-    // verify rg treats the pattern as a search string, not a flag.
+    // verify the pattern is a search string, not a flag.
     std::fs::write(dir.path().join("canary.txt"), "--pre=/bin/sh\n").unwrap();
 
     let client = spawn_server(dir.path()).await;
 
-    // If argument injection were possible, rg would invoke /bin/sh as a
-    // preprocessor and the call would either error or return unexpected output.
-    // With the -e PATTERN fix, rg treats "--pre=/bin/sh" as a regex and
-    // matches the canary line.
+    // Native search compiles the pattern as a regex — there is no subprocess
+    // and no argv, so `--pre=/bin/sh` can only ever be matched literally
+    // (the old `rg` `--pre` preprocessor-injection vector is gone by
+    // construction). The canary line must be found.
     let r = client
         .call_tool(
             CallToolRequestParams::new("fs_search").with_arguments(
@@ -492,6 +461,54 @@ async fn fs_search_pattern_injection_treated_as_literal() {
             .is_some_and(|t| t.contains("--pre=/bin/sh"))),
         "expected the canary line to be found as a literal match, got: {out:?}"
     );
+    client.cancel().await.unwrap();
+}
+
+/// Parity pin (MA-35): the native search must reproduce the exact record
+/// shape the former `rg --json` subprocess produced — sandbox-relative paths
+/// with NO `./` prefix (rg's no-positional-arg output), 1-based line and
+/// column, and text trimmed of its trailing newline — in a deterministic,
+/// path-sorted order. This is what feeds triage prompts and cassette keys.
+#[tokio::test]
+async fn fs_search_native_record_shape_is_exact() {
+    let dir = TempDir::new().unwrap();
+    // A nested file (proves relative-path formatting) and a top-level file
+    // (proves cross-file ordering is deterministic and path-sorted).
+    std::fs::create_dir(dir.path().join("sub")).unwrap();
+    std::fs::write(dir.path().join("sub/nested.rs"), "    let x = needle;   \n").unwrap();
+    std::fs::write(dir.path().join("top.rs"), "needle at start\n").unwrap();
+
+    let client = spawn_server(dir.path()).await;
+
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("fs_search").with_arguments(
+                json!({"pattern": "needle", "glob": "*.rs"})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call fs_search");
+
+    let out = r.structured_content.expect("structured result");
+    let matches = out["matches"].as_array().expect("matches array");
+    assert_eq!(matches.len(), 2, "expected one match per file: {out:?}");
+
+    // Path-sorted: "sub/nested.rs" < "top.rs".
+    assert_eq!(matches[0]["file"], "sub/nested.rs", "no ./ prefix, sorted");
+    assert_eq!(matches[0]["line"], 1);
+    assert_eq!(matches[0]["column"], 13, "1-based byte column of 'needle'");
+    // Trailing whitespace/newline stripped from text.
+    assert_eq!(matches[0]["text"], "    let x = needle;");
+
+    assert_eq!(matches[1]["file"], "top.rs");
+    assert_eq!(matches[1]["line"], 1);
+    assert_eq!(matches[1]["column"], 1);
+    assert_eq!(matches[1]["text"], "needle at start");
+
+    assert_eq!(out["truncated"], false);
     client.cancel().await.unwrap();
 }
 
