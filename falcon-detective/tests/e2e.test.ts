@@ -36,7 +36,8 @@ const RUN_NAME = "e2e-test";
 // execute against a shared, warm target instead of a cold compile inside the
 // fresh .runs/e2e-test worktree that races the 360s budget. An explicit dev
 // override is respected.
-const CARGO_TARGET_DIR = process.env.CARGO_TARGET_DIR ?? join(REPO_ROOT, "target");
+const CARGO_TARGET_DIR =
+  process.env.CARGO_TARGET_DIR ?? join(REPO_ROOT, "target");
 
 // E2E_REQUIRED=1 (set by CI's typescript job) turns every skip below into a
 // failure: a green required run mechanically implies the e2e executed (AC-5).
@@ -186,7 +187,11 @@ describe("e2e: full pipeline against falcon-agent", () => {
         "--include-ignored",
         "bird_themed_inputs_arent_special",
       ],
-      { cwd: runWorktree, env: { ...process.env, CARGO_TARGET_DIR }, maxBuffer: MAX_BUFFER },
+      {
+        cwd: runWorktree,
+        env: { ...process.env, CARGO_TARGET_DIR },
+        maxBuffer: MAX_BUFFER,
+      },
     );
     expect(smokeOut).toMatch(/test result: ok/);
     // 360s (MA-29): a healthy full replay is ~114s of pipeline plus the
