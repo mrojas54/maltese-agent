@@ -1,6 +1,13 @@
 {
   "assigned_to": null,
-  "branch_links": [],
+  "branch_links": [
+    {
+      "branch": "claude/e2e-360s-cargo-compile-61c36d",
+      "linked_at": "2026-07-11T08:20:11Z",
+      "linked_by": "agent:claude",
+      "repo": null
+    }
+  ],
   "comment_count": 0,
   "complexity": "low",
   "created_at": "2026-07-11T07:38:32Z",
@@ -10,14 +17,14 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01KX81T6YTHCXF8EDHDPX4FYKH",
-  "last_event_id": "ev_01KX81T6YVGZF614TV9S8XG93S",
-  "last_status_changed_at": "2026-07-11T07:38:32Z",
+  "last_event_id": "ev_01KX846ET135BAKHPDZ4XPPWNY",
+  "last_status_changed_at": "2026-07-11T08:19:56Z",
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-37",
-  "status": "backlog",
+  "status": "review",
   "tags": [
     "e2e",
     "performance",
@@ -26,6 +33,6 @@
   ],
   "title": "Share CARGO_TARGET_DIR in e2e to avoid cold run-worktree compile",
   "type": "chore",
-  "updated_at": "2026-07-11T07:38:32Z",
+  "updated_at": "2026-07-11T08:20:11Z",
   "urgency": "low"
 }
