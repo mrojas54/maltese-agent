@@ -144,8 +144,16 @@ export const triage = createHandler(
             },
             FsSearchResult,
           );
-        } catch {
-          /* fs_search requires `rg` on PATH — fall back to no signal */
+        } catch (err) {
+          // fs_search requires `rg` on PATH. Degrade gracefully but NEVER
+          // silently: an empty ignored-test signal changes the triage prompt,
+          // which changes every cassette key — record/replay done on machines
+          // that disagree about `rg` can never match (root-caused on PR #64).
+          console.error(
+            "[triage] fs_search failed — ignored-test poison signal degraded to none " +
+              "(is ripgrep installed?). Cassette keys will NOT match recordings made " +
+              `where the signal was present: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
 
         const ignoredTriggerTests: IgnoredTriggerTest[] = [];
@@ -158,8 +166,13 @@ export const triage = createHandler(
             ignoredTriggerTests.push(
               ...extractIgnoredTriggerTests(m.file, r.content),
             );
-          } catch {
-            /* file gone or unreadable — skip */
+          } catch (err) {
+            // File gone or unreadable — skip it, but say so: a lost candidate
+            // silently narrows the poison signal (and the cassette key).
+            console.error(
+              `[triage] fs_read failed for ignored-test candidate ${m.file}: ` +
+                `${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
 

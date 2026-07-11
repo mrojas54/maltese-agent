@@ -132,6 +132,15 @@ jobs:
         working-directory: falcon-detective
         run: npm run build
 
+      # falcon-mcp's fs_search shells out to ripgrep; GitHub runners don't
+      # ship it. Without rg the triage ignored-test poison signal silently
+      # degrades to [] — a DIFFERENT prompt than the operator recorded, so
+      # every cassette key misses (root-caused on PR #64). The pipeline's
+      # prompt content must be identical across record (operator machine)
+      # and replay (CI).
+      - name: install ripgrep (fs_search dependency)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ripgrep && rg --version | head -1
+
       # Full suite including the e2e (AC-5). E2E_REQUIRED=1 turns unmet e2e
       # prerequisites (missing binary/cassettes, dirty falcon-agent/) into
       # FAILURES instead of skips, so a green run mechanically implies the
