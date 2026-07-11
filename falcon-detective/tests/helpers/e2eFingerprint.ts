@@ -3,8 +3,8 @@ import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   statSync,
   writeFileSync,
 } from "node:fs";

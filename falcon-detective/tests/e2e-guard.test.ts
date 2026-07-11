@@ -13,17 +13,17 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeRunWorktree, runWorktreePath } from "./helpers/e2eCleanup.js";
 import {
-  FINGERPRINT_MANIFEST,
   checkCassetteFreshness,
   computeWorkflowFingerprint,
+  FINGERPRINT_MANIFEST,
   readFingerprintManifest,
   writeFingerprintManifest,
 } from "./helpers/e2eFingerprint.js";
 import {
-  type GuardOutcome,
   applyGuardOutcome,
   checkE2ePrereqs,
   dirtyPaths,
+  type GuardOutcome,
   hasCassettes,
 } from "./helpers/e2ePrereqs.js";
 

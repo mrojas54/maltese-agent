@@ -5,10 +5,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import {
-  Gemini,
-  type SleepFn,
   classifyTransientError,
   createBackoff,
+  Gemini,
+  type SleepFn,
 } from "../../src/lib/gemini.js";
 
 const { generateContentMock } = vi.hoisted(() => ({

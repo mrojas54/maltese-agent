@@ -17,7 +17,7 @@
  * existing import path — processIssues, tests, MA-13's orchestration work —
  * is untouched.
  */
-import { type Handler, createHandler } from "@barnum/barnum/runtime";
+import { createHandler, type Handler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { Gemini } from "../lib/gemini.js";
 import { GEMINI_FLASH, GEMINI_PRO } from "../lib/models.js";
