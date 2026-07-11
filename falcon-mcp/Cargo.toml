@@ -6,7 +6,7 @@ license = "MIT"
 description = "MCP server exposing sandboxed dev tools for the falcon-detective coding agent"
 
 [dependencies]
-rmcp = { version = "2", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "macros"] }
+rmcp = { version = "1", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "macros"] }
 schemars = "1"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
