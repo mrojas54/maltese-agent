@@ -88,22 +88,27 @@ gate_single_stderr_display_definition() {
 gate_single_stderr_display_definition
 
 # ---------------------------------------------------------------------------
-# Gate 3 (AC-25, WS-3): fs_search and fs_search_ast share the one streaming
-# subprocess helper (tools/subprocess.rs) rather than each owning a private
-# spawn/stream/truncate/kill pipeline.
+# Gate 3 (AC-25, WS-3; revised MA-35): the streaming subprocess pipeline is
+# shared, not duplicated per tool. Since MA-35, fs_search is native (ripgrep's
+# grep/ignore crates, no child process), so fs_search_ast is the only search
+# tool that streams a subprocess — and it must use the shared helper, never a
+# private spawn. Neither search tool may spawn a child directly (spawn_blocking
+# is not a subprocess spawn, so it is fine).
 # ---------------------------------------------------------------------------
 gate_shared_search_subprocess_helper() {
   local gate="shared-search-subprocess-helper (AC-25)"
   local tools="$REPO_ROOT/falcon-mcp/src/tools"
 
+  # The remaining streaming-subprocess search tool must go through the helper.
+  if ! grep -q 'run_streaming' "$tools/fs_ast.rs" 2>/dev/null; then
+    fail "$gate" "fs_ast.rs does not use subprocess::run_streaming (the streaming search subprocess must share the helper)"
+    return
+  fi
+  # No search tool may own a private spawn/stream/truncate/kill pipeline.
   local f
   for f in fs_basic.rs fs_ast.rs; do
-    if ! grep -q 'run_streaming' "$tools/$f" 2>/dev/null; then
-      fail "$gate" "$f does not use subprocess::run_streaming (search tools must share the helper)"
-      return
-    fi
     if grep -q -E '\.spawn\(' "$tools/$f" 2>/dev/null; then
-      fail "$gate" "$f still spawns a child directly instead of via the shared helper"
+      fail "$gate" "$f spawns a child directly instead of via the shared helper"
       return
     fi
   done
