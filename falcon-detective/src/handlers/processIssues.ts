@@ -3,6 +3,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { type InvokeHandler, invokeHandler } from "../lib/invokeHandler.js";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { narrate } from "../lib/narrate.js";
 import { FsReadResult, FsWriteResult } from "../lib/toolSchemas.js";
 import {
   Issue,
@@ -322,19 +323,27 @@ async function commitOrRevert(
     }
   }
   await run.snapMcp.close();
-  if (outcome.succeeded) {
-    try {
-      await run.invoke<ExtractOutput<typeof commitOne>>(commitOne, {
+  if (!outcome.succeeded) {
+    // Story stays honest about issues left unfixed (presentation-only). MA-33.
+    narrate.skipped(issue.location, "could not fix — reverted");
+    return;
+  }
+  try {
+    const { sha } = await run.invoke<ExtractOutput<typeof commitOne>>(
+      commitOne,
+      {
         mcpBinary: run.ctx.mcpBinary,
         worktreePath: run.ctx.worktreePath,
         issue,
         diffPath: outcome.finalDiff.path,
-      });
-    } catch (e) {
-      console.error(
-        `[processIssues] commit failed for ${outcome.finalDiff.path}: ${(e as Error).message}`,
-      );
-    }
+      },
+    );
+    // Narrate the SHA as each per-issue commit lands. MA-33.
+    narrate.committed(issue.kind, issue.location, sha);
+  } catch (e) {
+    console.error(
+      `[processIssues] commit failed for ${outcome.finalDiff.path}: ${(e as Error).message}`,
+    );
   }
 }
 
@@ -355,6 +364,9 @@ export function makeProcessIssuesHandle(
     const ctx: StageContext = { mcpBinary, worktreePath, cratePath };
 
     for (const issue of issues) {
+      // Narrate the start of each fix the instant the loop picks the issue up
+      // (presentation-only; reads the triaged issue, no mutation). MA-33.
+      narrate.fixing(issue.kind, issue.location);
       const tagged = await classifyIssue(invoke, ctx, issue);
 
       const prepared = await prepareProposal(
@@ -362,7 +374,10 @@ export function makeProcessIssuesHandle(
         tagged,
         issue.location.file,
       );
-      if (!prepared) continue;
+      if (!prepared) {
+        narrate.skipped(issue.location, "no fix proposed");
+        continue;
+      }
 
       const snapMcp = new FalconMcpClient({
         binary: mcpBinary,

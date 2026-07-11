@@ -1,6 +1,7 @@
 import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { narrate } from "../lib/narrate.js";
 import { CargoClippyResult, CargoTestResult } from "../lib/toolSchemas.js";
 
 const Input = z.object({
@@ -64,6 +65,11 @@ export async function finalSweepHandle({
       mcpBinary: value.mcpBinary,
       worktreePath: value.worktreePath,
     };
+    // Narrate the verdict (presentation-only; reads the computed reasons, no
+    // mutation — cassette keys untouched). MA-33.
+    narrate.verdict(
+      reasons.length === 0 ? { kind: "Clean" } : { kind: "Dirty", reasons },
+    );
     return reasons.length === 0
       ? { kind: "Clean" as const, value: ctx }
       : { kind: "Dirty" as const, value: { ...ctx, reasons } };
