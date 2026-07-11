@@ -23,7 +23,7 @@
 
 use crate::tools::subprocess::SubprocessTimeout;
 use rmcp::handler::server::tool::IntoCallToolResult;
-use rmcp::model::{CallToolResult, Content, ErrorCode, ErrorData};
+use rmcp::model::{CallToolResult, ContentBlock, ErrorCode, ErrorData};
 
 /// Dedicated JSON-RPC code for wall-clock subprocess timeouts. No MCP-spec
 /// reserved code exists for this; `-32001` mirrors the TypeScript MCP SDK's
@@ -127,7 +127,7 @@ impl IntoCallToolResult for ToolError {
             // Result-level error: rmcp's blanket `Result<T, E>` impl marks
             // `is_error = Some(true)` on this branch (and `CallToolResult::
             // error` already sets it), so clients see the pre-taxonomy shape.
-            Self::Internal(message) => Ok(CallToolResult::error(vec![Content::text(message)])),
+            Self::Internal(message) => Ok(CallToolResult::error(vec![ContentBlock::text(message)])),
         }
     }
 }
