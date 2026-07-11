@@ -1,0 +1,9 @@
+# Standalone workspace so this fixture is NOT pulled into the parent
+# falcon-mcp crate's build (matches sample-crate). It carries an
+# allow-by-default clippy lint used to prove cargo_clippy's `warn` passthrough.
+[workspace]
+
+[package]
+name = "clippy-lints-crate"
+version = "0.1.0"
+edition = "2021"
