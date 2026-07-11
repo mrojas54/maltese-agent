@@ -30,6 +30,15 @@ const MCP_BIN = join(REPO_ROOT, "target/debug/falcon-mcp");
 const CASSETTE_DIR = join(REPO_ROOT, "falcon-detective/fixtures/cassettes");
 const RUN_NAME = "e2e-test";
 
+// MA-37: default CARGO_TARGET_DIR to the repo-root target/ (already warm from
+// the falcon-mcp build) so BOTH the pipeline's cargo runs (forwarded through
+// falcon-mcp, see src/lib/mcp.ts) and the post-pipeline smoke `cargo test`
+// execute against a shared, warm target instead of a cold compile inside the
+// fresh .runs/e2e-test worktree that races the 360s budget. An explicit dev
+// override is respected.
+const CARGO_TARGET_DIR =
+  process.env.CARGO_TARGET_DIR ?? join(REPO_ROOT, "target");
+
 // E2E_REQUIRED=1 (set by CI's typescript job) turns every skip below into a
 // failure: a green required run mechanically implies the e2e executed (AC-5).
 const REQUIRED = process.env.E2E_REQUIRED === "1";
@@ -114,6 +123,7 @@ describe("e2e: full pipeline against falcon-agent", () => {
       ...process.env,
       GEMINI_MODE: "cassette",
       CASSETTE_DIR,
+      CARGO_TARGET_DIR,
     };
     try {
       // --repo-root is explicit because the CLI default (..) resolves
@@ -177,7 +187,11 @@ describe("e2e: full pipeline against falcon-agent", () => {
         "--include-ignored",
         "bird_themed_inputs_arent_special",
       ],
-      { cwd: runWorktree, maxBuffer: MAX_BUFFER },
+      {
+        cwd: runWorktree,
+        env: { ...process.env, CARGO_TARGET_DIR },
+        maxBuffer: MAX_BUFFER,
+      },
     );
     expect(smokeOut).toMatch(/test result: ok/);
     // 360s (MA-29): a healthy full replay is ~114s of pipeline plus the
