@@ -299,3 +299,102 @@ async fn cargo_fmt_check_works_in_read_only() {
     );
     client.cancel().await.unwrap();
 }
+
+/// The `message` field of every entry in a `cargo_clippy` `lints` array.
+/// `cargo_clippy` formats each as `"<code>: <text>"`, so the lint code is a
+/// substring of its message.
+fn lint_messages(out: &serde_json::Value) -> Vec<String> {
+    out["lints"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|l| l["message"].as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// MA-34: `cargo_clippy` runs plain `cargo clippy`, so allow-by-default clippy
+/// restriction/nursery lints never fire — the reason the pipeline saw
+/// `lints: []`. The opt-in `warn` arg appends `-W <spec>` after
+/// `--message-format=json` to surface them on demand; with no `warn` the
+/// invocation is byte-identical to today (so triage's call — and its replay
+/// cassette keys — are untouched).
+///
+/// The fixture carries one allow-by-default lint (`clippy::unwrap_used`):
+/// without `warn` it stays hidden; with `warn` it must appear.
+#[tokio::test]
+async fn cargo_clippy_warn_flags_surface_allow_by_default_lints() {
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clippy-lints-crate");
+
+    // Baseline: no `warn` → the allow-by-default lint must NOT fire. This is
+    // what keeps the default invocation (and the e2e cassettes) unchanged.
+    let client = spawn_at(&fixture).await;
+    let base = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_clippy")
+                .with_arguments(json!({"crate_path": "."}).as_object().unwrap().clone()),
+        )
+        .await
+        .expect("call cargo_clippy (no warn)");
+    let base_out = base.structured_content.expect("structured result");
+    assert!(
+        !lint_messages(&base_out)
+            .iter()
+            .any(|m| m.contains("clippy::unwrap_used")),
+        "without `warn`, allow-by-default clippy::unwrap_used must NOT fire, got: {base_out:?}"
+    );
+    client.cancel().await.unwrap();
+
+    // With `warn: ["clippy::unwrap_used"]` → the lint must now surface.
+    let client = spawn_at(&fixture).await;
+    let warned = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_clippy").with_arguments(
+                json!({"crate_path": ".", "warn": ["clippy::unwrap_used"]})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_clippy (warn)");
+    assert!(
+        !warned.is_error.unwrap_or(false),
+        "cargo_clippy with warn returned tool-level error: {warned:?}"
+    );
+    let warned_out = warned.structured_content.expect("structured result");
+    assert!(
+        lint_messages(&warned_out)
+            .iter()
+            .any(|m| m.contains("clippy::unwrap_used")),
+        "with warn=[clippy::unwrap_used], the lint must surface, got: {warned_out:?}"
+    );
+    client.cancel().await.unwrap();
+}
+
+/// A `warn` spec that isn't a bare lint name (here a stray rustc flag) must be
+/// rejected at the tool boundary, never forwarded past `--` to the driver.
+#[tokio::test]
+async fn cargo_clippy_rejects_non_lint_warn_spec() {
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/clippy-lints-crate");
+    let client = spawn_at(&fixture).await;
+    let r = client
+        .call_tool(
+            CallToolRequestParams::new("cargo_clippy").with_arguments(
+                json!({"crate_path": ".", "warn": ["-Zunstable-options"]})
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+            ),
+        )
+        .await
+        .expect("call cargo_clippy (bad warn)");
+    assert!(
+        r.is_error.unwrap_or(false),
+        "expected a tool-level error for a non-lint warn spec, got: {r:?}"
+    );
+    client.cancel().await.unwrap();
+}

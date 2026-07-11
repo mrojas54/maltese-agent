@@ -91,6 +91,7 @@ async fn run_cargo_json(
     sandbox: Arc<Sandbox>,
     crate_path: &str,
     subcmd: &[&str],
+    driver_args: &[String],
 ) -> anyhow::Result<(Vec<serde_json::Value>, std::process::Output)> {
     sandbox.check_bin("cargo")?;
     let path = sandbox
@@ -102,6 +103,17 @@ async fn run_cargo_json(
         cmd.arg(s);
     }
     cmd.arg("--message-format=json").current_dir(&path);
+
+    // `driver_args` go after `--`, i.e. straight to the rustc/clippy driver
+    // rather than cargo (e.g. `-W clippy::unwrap_used`). Kept after
+    // `--message-format=json` so the JSON formatter still applies. Empty for
+    // every caller except cargo_clippy's opt-in `warn` passthrough.
+    if !driver_args.is_empty() {
+        cmd.arg("--");
+        for a in driver_args {
+            cmd.arg(a);
+        }
+    }
 
     // Stdio hygiene and the wall-clock timeout are owned by the shared
     // subprocess helper (WS-3).
@@ -122,7 +134,7 @@ pub async fn cargo_check(
     sandbox: Arc<Sandbox>,
     args: CargoCheckArgs,
 ) -> anyhow::Result<CargoCheckResult> {
-    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &["check"]).await?;
+    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &["check"], &[]).await?;
 
     // Cargo died before producing any parseable output (missing manifest,
     // toolchain missing, target dir locked, etc.). Surface stderr so the
@@ -262,6 +274,14 @@ pub struct CargoClippyArgs {
     /// When true, run clippy with `--fix --allow-dirty` to apply machine-applicable fixes.
     #[serde(default)]
     pub fix: bool,
+    /// Extra warn-level lint flags forwarded to clippy as `-W <spec>` (e.g.
+    /// `["clippy::unwrap_used", "clippy::nursery"]`). Allow-by-default clippy
+    /// lints only fire when named here; the empty default runs a plain
+    /// `cargo clippy` — byte-identical to passing no flags. Each entry must be a
+    /// bare lint spec (letters, digits, `_`, `:`) so nothing but lint toggles
+    /// can cross the `--` boundary to the driver.
+    #[serde(default)]
+    pub warn: Vec<String>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -287,7 +307,28 @@ pub async fn cargo_clippy(
         subcmd.push("--fix");
         subcmd.push("--allow-dirty");
     }
-    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &subcmd).await?;
+
+    // Expand `warn` into `-W <spec>` pairs for the clippy driver. These cross
+    // the `--` boundary, so restrict each to a bare lint spec — no leading `-`,
+    // no spaces — to keep arbitrary rustc flags out.
+    for w in &args.warn {
+        if w.is_empty()
+            || !w
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
+        {
+            anyhow::bail!(
+                "invalid clippy warn spec {w:?}: expected a bare lint name like \"clippy::unwrap_used\""
+            );
+        }
+    }
+    let warn_args: Vec<String> = args
+        .warn
+        .iter()
+        .flat_map(|w| ["-W".to_string(), w.clone()])
+        .collect();
+
+    let (msgs, out) = run_cargo_json(sandbox, &args.crate_path, &subcmd, &warn_args).await?;
 
     let mut lints = Vec::new();
     for m in msgs {
