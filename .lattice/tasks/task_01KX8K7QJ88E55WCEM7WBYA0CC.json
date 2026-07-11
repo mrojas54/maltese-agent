@@ -1,0 +1,39 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "low",
+  "created_at": "2026-07-11T12:43:01Z",
+  "created_by": "agent:claude",
+  "custom_fields": {},
+  "description": "Follow-on to MA-37 (share CARGO_TARGET_DIR in e2e). MA-37 makes BOTH e2e cargo surfaces reuse the shared <REPO_ROOT>/target, but that target is only warm for the crates already compiled into it. The pre-warm build only compiles falcon-mcp (.github/workflows/ci.yml:102-103 `cargo build -p falcon-mcp`; locally the dev builds target/debug/falcon-mcp). falcon-agent pulls an INDEPENDENT heavy stack (reqwest -> rustls -> ring, axum, tower-http, tokio-test) not built by that step, so the FIRST cold e2e run still compiles falcon-agent from scratch inside the timed pipeline/smoke window. Observed during MA-37 verification: the first full-suite run timed out at 360s purely because falcon-agent was cold; after `cargo test -p falcon-agent --test integration --no-run` (~25s) warmed the shared target, the re-run landed ~194s green. Steady state (2nd run onward) and CI (Swatinem/rust-cache restores <REPO_ROOT>/target across runs) already benefit; this is specifically the first-cold-run gap. Fix: extend the pre-warm to also build falcon-agent's integration test into the shared target BEFORE the timed e2e \u2014 (1) CI: add a step after ci.yml:103 `cargo test -p falcon-agent --test integration --no-run` (moves the falcon-agent compile out of the vitest e2e step and into a cached, untimed build step); (2) local: document in README/e2e that a cold checkout should run the same command before `npm run test:full`, or fold an equivalent pre-warm into the e2e beforeAll (mind its 180s budget \u2014 a --no-run compile of falcon-agent may exceed it cold, so a CI/doc step is safer than beforeAll). Gates: npm run test:full green with ZERO cassette misses; e2e wall-clock stays well under 360s on a cold checkout; no change to cassette keys or fingerprint semantics. Size: S.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX8K7QJ88E55WCEM7WBYA0CC",
+  "last_event_id": "ev_01KX8K8EP82QYEWG5MTQG38MKA",
+  "last_status_changed_at": "2026-07-11T12:43:01Z",
+  "priority": "low",
+  "relationships_out": [
+    {
+      "created_at": "2026-07-11T12:43:25Z",
+      "created_by": "agent:claude",
+      "note": "Surfaced during MA-37 verification: first cold e2e run still compiles falcon-agent",
+      "target_task_id": "task_01KX81T6YTHCXF8EDHDPX4FYKH",
+      "type": "spawned_by"
+    }
+  ],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-38",
+  "status": "backlog",
+  "tags": [
+    "e2e",
+    "performance",
+    "out-of-contract",
+    "ma-29-lineage"
+  ],
+  "title": "Pre-warm falcon-agent into shared target so the first cold e2e run fits the budget",
+  "type": "chore",
+  "updated_at": "2026-07-11T12:43:25Z",
+  "urgency": "low"
+}
