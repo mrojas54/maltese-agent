@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T14:51:58Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6874206DYD9JW2ZDDMF898",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6874206DYD9JW2ZDDMF898.md",
+    "size_bytes": 275
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Spike deliverable verified: Verdict A comment posted (public runPipeline from @barnum/barnum/pipeline, exact-pin 0.4.0, zero __definition matches). Retroactive verification \u2014 consumer MA-11 merged via",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

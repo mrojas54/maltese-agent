@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-19-genai-2x",
+      "linked_at": "2026-07-10T15:27:55Z",
+      "linked_by": "agent:delegator-ma-19",
+      "repo": null
+    }
+  ],
+  "comment_count": 4,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:22Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-13a (BUILDPLAN id MA-19). @google/genai 1.51 to 2.x migration; all call sites compile; gemini unit tests green on fakes/mocks. Cassette re-record is the human-track ticket (operator), not this one. AC: AC-27. Depends: MA-18. Serialize: package.json, lib/gemini.ts. Size M.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T15:46:30Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6ANDRNN8VGYTVCFK87B6CF",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6BAZG0KP23G4YTMYZ4ZPS3",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6BAZG0KP23G4YTMYZ4ZPS2",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMV6Y51F3W1GTNMYEYN1W",
-  "last_event_id": "ev_01KX5QN164R1CDKD1FTPQ1FG60",
-  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "last_event_id": "ev_01KX6BAZG0KP23G4YTMYZ4ZPS5",
+  "last_status_changed_at": "2026-07-10T15:46:30Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,10 +48,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-19",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Migrate google genai to 2.x",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:28Z",
+  "updated_at": "2026-07-10T15:46:30Z",
   "urgency": null
 }

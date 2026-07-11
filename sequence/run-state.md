@@ -1,8 +1,8 @@
 # Run state — maltese-agent tech-debt remediation
 
 **Arc:** Tone, entered at Stage 3 (tone-architect). Brownfield remediation, not a greenfield initiation.
-**Current stage/phase:** tone-architect — Phase 4 touchpoint (contract review) presented to operator; **session terminal here by operator choice**. Next stage: `lattice-orchestrator` consumes `SPEC.md` + `EVALUATION.md` + `BUILDPLAN.md` after operator approval.
-**Branch:** `claude/tech-debt-7ea493` (audit committed 50b0f0d; contract committed after Phase 4).
+**Current stage/phase:** **ARC COMPLETE — lattice-orchestrator run TERMINAL 2026-07-10.** All 29 in-contract tickets `done` (22 planned + spike MA-23 + human MA-24 + fix-its MA-25..29); validation GREEN (35 PASS / 1 resolved-PARTIAL / 0 FAIL); felt checkpoints F-1 and F-2 confirmed by operator; e2e hard gate (`E2E_REQUIRED=1`) live on main since PR #65 (ecef4062). Closeout audit routed lessons to `LESSONS.md` + the orchestrator skill's runs-ledger. Post-run backlog minted, out of contract: MA-30/31/32 (reverted-major migrations), MA-33 (CLI narration, F-2 felt finding), MA-34 (cargo_clippy empty-lints diagnosis). Orchestration detail: `.lattice/orchestration/run-state.md`.
+**Branch:** `claude/tech-debt-7ea493` (audit 50b0f0d; contract 9f72697) — all remediation merged to `main` through PR #65.
 
 ## Proportional shrink (recorded per pipeline norm)
 

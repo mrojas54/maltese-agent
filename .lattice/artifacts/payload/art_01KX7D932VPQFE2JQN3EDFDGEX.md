@@ -1,0 +1,1 @@
+HUMAN TRACK COMPLETE: operator re-recorded 2026-07-10 with gemini-3.1 models (4 cassettes, ~5 calls). Landed via PR #64 (merge commit f1765298) with fingerprint manifest, CI ripgrep fix, triage loud-failure logging. Proof: e2e replayed to completion IN CI (129s, zero cassette misses) — first true CI replay. F-1 felt evidence at .runs/diag-timed.

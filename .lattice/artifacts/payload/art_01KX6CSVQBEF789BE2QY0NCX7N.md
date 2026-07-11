@@ -1,0 +1,1 @@
+Merged (PR #56, merge commit dcfda63, operator-authorized batch). Stale e2e verdict 62s→40ms via fingerprint manifest pre-check; sync execFileSync→async execFile kills the onTaskUpdate flake class; MA-2 guard semantics preserved, +9 guard tests.

@@ -1,17 +1,45 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-13-orchestration-tests",
+      "linked_at": "2026-07-10T15:15:16Z",
+      "linked_by": "agent:delegator-ma-13",
+      "repo": null
+    }
+  ],
+  "comment_count": 5,
   "complexity": "high",
   "created_at": "2026-07-10T10:02:20Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M3 / WS-8 (BUILDPLAN id MA-13). Orchestration tests with mocked MCP client plus mocked/cassette Gemini: verify (Clean/Broken/Stuck), commit handlers (commitOne, commitAll, revertOne, escalate - success and git-failure paths, no silent catch), finalSweep (Clean and Dirty), processIssues (happy path; retry-then-success; revert-on-persistent-failure); smoke tests for cli.ts and workflows/tidy-and-debug.ts. Tests target CURRENT behavior - the MA-15 refactor must keep them green. ACs: AC-19, AC-20. Depends: MA-10, MA-11. Size L.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T15:46:30Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6AKXGKAK53J6T3TDHD78HM",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6B3NREEHJWZCD9ZSTS75D6",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6BAZB9B21FYMGNBK9QK77R",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6BAZB9B21FYMGNBK9QK77Q",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMS36XBZ9M6HH1ZNSXDJC",
-  "last_event_id": "ev_01KX5QMYHRZ2SETXFXTFSDSMJK",
-  "last_status_changed_at": "2026-07-10T10:02:20Z",
+  "last_event_id": "ev_01KX6BAZB9B21FYMGNBK9QK77T",
+  "last_status_changed_at": "2026-07-10T15:46:30Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -32,10 +60,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-13",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Orchestration test coverage for detective core",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:25Z",
+  "updated_at": "2026-07-10T15:46:30Z",
   "urgency": null
 }

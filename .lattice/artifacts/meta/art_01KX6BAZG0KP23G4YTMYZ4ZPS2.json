@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T15:46:30Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6BAZG0KP23G4YTMYZ4ZPS2",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6BAZG0KP23G4YTMYZ4ZPS2.md",
+    "size_bytes": 167
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged (PR #46, merge commit ee33cb0). genai 2.11.0; CI green after known-flake re-run (occurrence #2, MA-26 target); zero cassette skips; MA-18 classifier unaffected.",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

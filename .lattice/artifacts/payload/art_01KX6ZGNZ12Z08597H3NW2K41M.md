@@ -1,0 +1,1 @@
+Merged (PR #60, operator-authorized). Model IDs migrated to operator-chosen 3.1 family (gemini-3.1-pro-preview / gemini-3.1-flash-lite) at the single authoritative site; test literals now import constants; no skip-markers needed (fast-suite cassette tests are hermetic self-recorders). Unblocks MA-24.

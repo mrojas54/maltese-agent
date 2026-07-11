@@ -1,17 +1,17 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:14Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M1 / WS-1 (BUILDPLAN id MA-02). Rewrite falcon-detective/tests/e2e.test.ts: remove the git checkout -- falcon-agent/ line (destroys uncommitted work); add dirty-state guard (skip, or fail under E2E_REQUIRED=1) naming the dirty paths; isolation via the existing pipeline prepWorktree / git_worktree_add mechanism - no new worktree code; missing binary or cassettes leads to vitest skip (fail under E2E_REQUIRED=1). Add tests/e2e-guard.test.ts proving guard behavior. Wire CI typescript job to run npm run test:full with E2E_REQUIRED=1 (test:full created by the fix-it split ticket). ACs: AC-1..AC-5. Depends: fix-it split ticket. Serialize: ci.yml. Size M.",
-  "done_at": null,
+  "done_at": "2026-07-10T14:44:15Z",
   "evidence_refs": [],
   "id": "task_01KX5QMKHS35NNK716NCBVC4EC",
-  "last_event_id": "ev_01KX5QMWG9KPC0HEG5FH1AHHY9",
-  "last_status_changed_at": "2026-07-10T10:02:14Z",
+  "last_event_id": "ev_01KX6EH0867WZSAH79TYMYEAVJ",
+  "last_status_changed_at": "2026-07-10T14:44:15Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -25,10 +25,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-2",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Rewrite e2e for checkout safety and required-run integrity",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:23Z",
+  "updated_at": "2026-07-10T16:42:13Z",
   "urgency": null
 }

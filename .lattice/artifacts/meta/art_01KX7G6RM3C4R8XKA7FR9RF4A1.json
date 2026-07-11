@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-11T02:30:49Z",
+  "created_by": "agent:ma-22-delegator-reviewer",
+  "custom_fields": {},
+  "id": "art_01KX7G6RM3C4R8XKA7FR9RF4A1",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX7G6RM3C4R8XKA7FR9RF4A1.md",
+    "size_bytes": 1020
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "Inline: review",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,3 +1,5 @@
-# MA-24: HUMAN: re-record Gemini cassettes with live key
+# MA-24 — HUMAN: re-record Gemini cassettes (operator track)
 
-HUMAN TRACK - DO NOT DISPATCH TO FLEET (BUILDPLAN id MA-H-1). Operator runs npm run record with GEMINI_API_KEY set to re-record about 5 cassettes against the genai 2.x request shapes (small live spend, approved in contract). Proves AC-28. Depends: MA-20. Blocks the final sweep.
+Operator-executed per README "Re-recording cassettes": record with live GEMINI_API_KEY against the 3.1 models, write the e2e fingerprint manifest, land cassettes via PR. No agent plan by design — this file satisfies the plan-before-progress policy retroactively.
+
+## Reset 2026-07-11 by agent:orchestrator-resume

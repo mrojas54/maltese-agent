@@ -1,0 +1,30 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-07-11T03:16:03Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "OPERATOR-COMMITTED at the 2-vs-3 triage-story resolution (2026-07-10, out of contract 9f72697). Symptom: during triage, the pipeline's cargo_clippy signal returns lints: [] \u2014 the main.rs default_constructed_unit_structs planted lint never reaches the model, so the 3.1-era triage finds 2 issues (interrogate.rs lint via markers + poison) instead of the canonical 3. Confirmed against .runs evidence during MA-24/MA-28 diagnosis; recorded in orchestration run-state footguns. Scope: root-cause why cargo_clippy yields no lints in the pipeline context (candidate causes to check: clippy invocation flags/warn levels vs the three README invocations, target/package selection (-p falcon-agent vs workspace), cached target dir suppressing repeated warnings (clippy emits only on fresh compilation \u2014 cargo clean -p falcon-agent between runs?), stderr/JSON parsing of the diagnostics stream, cwd/root mismatch in the run worktree). Fix the signal so planted clippy lints reach triage. NOTE: restoring the third act in the workshop demo additionally requires a cassette re-record (operator track, live key) \u2014 that is explicitly NOT this ticket; land the signal fix + unit/integration test with recorded fixtures only, zero cassette changes. G-1: never fix the planted lints themselves. Gates: cargo/npm fast suites green; full e2e replay green with zero cassette misses (current cassettes stay canon until a future re-record). Size M.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX7JSJWGT91BBMCSEBFEMM5V",
+  "last_event_id": "ev_01KX7JSJWHBFNWD9W2RA9QFK2X",
+  "last_status_changed_at": "2026-07-11T03:16:03Z",
+  "priority": "medium",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-34",
+  "status": "backlog",
+  "tags": [
+    "pipeline-signal",
+    "out-of-contract",
+    "operator-committed"
+  ],
+  "title": "Diagnose pipeline cargo_clippy returning empty lints",
+  "type": "bug",
+  "updated_at": "2026-07-11T03:16:03Z",
+  "urgency": "normal"
+}

@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-20-record-script",
+      "linked_at": "2026-07-10T15:39:56Z",
+      "linked_by": "agent:delegator-ma-20",
+      "repo": null
+    }
+  ],
+  "comment_count": 4,
   "complexity": "low",
   "created_at": "2026-07-10T10:02:22Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-13b (BUILDPLAN id MA-20). scripts/record-cassettes.ts plus npm run record plus a README operator-flow section (GEMINI_API_KEY usage, expected small spend, file list of about 5 cassettes). Enables AC-28, which the operator proves at the human-track ticket. Depends: MA-19. Size S.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T16:23:48Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6C0RKBJ6V0TM6PKB88Q18Z",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6DF8MVNRTD5F9EW04C0VJZ",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6DF8MVNRTD5F9EW04C0VJY",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMVC798DJBP4886E98E89",
-  "last_event_id": "ev_01KX5QN1KP6J4HJHVVF2DEFZT1",
-  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "last_event_id": "ev_01KX6DF8MVNRTD5F9EW04C0VK1",
+  "last_status_changed_at": "2026-07-10T16:23:48Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -22,13 +45,13 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "MA-20",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Cassette recording script and operator flow docs",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:28Z",
+  "updated_at": "2026-07-10T16:23:48Z",
   "urgency": null
 }

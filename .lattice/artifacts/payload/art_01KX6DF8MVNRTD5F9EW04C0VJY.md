@@ -1,0 +1,1 @@
+Merged (PR #57, operator-authorized). Recording script + npm run record + reconciled operator flow (record → e2e:fingerprint → test:full); union conflict resolution vs #56 verified by 146/146 on the assembled tree. Enables AC-28 (operator proves at MA-24).

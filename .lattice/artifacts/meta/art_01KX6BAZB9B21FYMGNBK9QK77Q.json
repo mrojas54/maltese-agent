@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T15:46:30Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6BAZB9B21FYMGNBK9QK77Q",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6BAZB9B21FYMGNBK9QK77Q.md",
+    "size_bytes": 175
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged (PR #43, merge commit 57524c8). CI green + independent fresh-eyes review PASS/MERGE (zero blocking findings; enabling named-function-export change verified mechanical).",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-10-mcp-schemas",
+      "linked_at": "2026-07-10T14:48:45Z",
+      "linked_by": "agent:delegator-ma-10",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:18Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M3 / WS-4a/b (BUILDPLAN id MA-10). toolSchemas.ts zod schemas per MCP tool result; FalconMcpClient.call (mcp.ts:57 - the method is call, not callTool) becomes schema-required and validates before returning; migrate all call sites; proposePoisonFix gets real schemas reusing Issue/PoisonReport from types.ts (a TriageReport type does NOT exist); remove the TriageOutput-as-any cast at triage.ts:134. ACs: AC-12, AC-15. Depends: MA-07. Serialize: types.ts, lib/mcp.ts. Size M.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T15:36:17Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6984R7BQ2TEQYH5JCE7RTP",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6AR913MP7NTTBRPCQWZV9W",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6AR913MP7NTTBRPCQWZV9V",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMQCP5AQR3D1ZKYKGX6F4",
-  "last_event_id": "ev_01KX5QMXED4KEGPRZM4T55RE2M",
-  "last_status_changed_at": "2026-07-10T10:02:18Z",
+  "last_event_id": "ev_01KX6AR913MP7NTTBRPCQWZV9Y",
+  "last_status_changed_at": "2026-07-10T15:36:17Z",
   "priority": "high",
   "relationships_out": [
     {
@@ -25,10 +48,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-10",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Schema-validated MCP client boundary",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:24Z",
+  "updated_at": "2026-07-10T15:36:17Z",
   "urgency": null
 }

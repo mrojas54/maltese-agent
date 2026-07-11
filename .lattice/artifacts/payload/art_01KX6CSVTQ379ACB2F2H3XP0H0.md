@@ -1,0 +1,1 @@
+Merged (PR #58, merge commit dda70de, operator-authorized batch). processIssues decomposed into 8 named stages all ≤40 lines (AC-30); workflow fully de-cast with new no-workflow-any debt gate (AC-34); MA-13 test oracle unmodified and green.

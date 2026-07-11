@@ -1,0 +1,1 @@
+Spike deliverable verified: Verdict A comment posted (public runPipeline from @barnum/barnum/pipeline, exact-pin 0.4.0, zero __definition matches). Retroactive verification — consumer MA-11 merged via PR #29 on this path. Read-only spike: no code changes, nothing to merge.

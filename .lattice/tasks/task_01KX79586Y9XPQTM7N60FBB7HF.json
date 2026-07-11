@@ -1,0 +1,49 @@
+{
+  "assigned_to": null,
+  "branch_links": [
+    {
+      "branch": "claude/ma-29-e2e-harden",
+      "linked_at": "2026-07-11T00:28:54Z",
+      "linked_by": "agent:delegator-ma-29",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
+  "complexity": "low",
+  "created_at": "2026-07-11T00:27:40Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "Fix-it minted during MA-24 verification. The operator's re-record is DONE and the pipeline replays end-to-end successfully (114s direct run, per-issue commits correct) \u2014 but tests/e2e.test.ts fails for four harness reasons found by orchestrator diagnosis: (1) STALE DIST: e2e invokes falcon-detective/dist/cli.js without building; record runs via tsx (source). A stale dist replayed with old model IDs \u2192 key mismatch \u2192 bogus 'cassette miss' (observed: dist had pre-MA-27 gemini-2.5-pro while cassettes were 3.1-keyed). Fix: build (tsc -p tsconfig.build.json) in beforeAll, or equivalent freshness guarantee. (2) WORKTREE LEAK: every failed/skipped run leaves .runs/e2e-test behind; the NEXT run dies instantly on 'worktree already exists', masking the real error. Fix: idempotent cleanup before run + always-cleanup after (keep on failure only under an explicit KEEP_RUN=1 debug env). (3) TIMEOUT: full replay is now ~114s pipeline + post-pipeline smoke; vitest testTimeout 120000 races and loses. Raise the e2e test timeout to 360s (test:full tier only; fast suite untouched). (4) CASSETTE DIR FALLBACK: gemini.ts cassetteDir() falls back to process.cwd()/fixtures/cassettes \u2014 a worker spawned from repo root silently resolves the wrong dir (already documented as a footgun comment in e2e.test.ts). Make the fallback package-anchored (resolve from the module's own location) and update that comment. Keep MA-26 fingerprint/guard semantics and e2e-guard tests green; extend e2e-guard coverage for the cleanup behavior if cheap. G-1: falcon-agent untouched.",
+  "done_at": "2026-07-11T01:12:44Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX7ADDF22NQRQA6PTWYK54SK",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX7BQS3CZFHCVZZJ6F9WZVSP",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX7BQS3CZFHCVZZJ6F9WZVSN",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01KX79586Y9XPQTM7N60FBB7HF",
+  "last_event_id": "ev_01KX7BQS3CZFHCVZZJ6F9WZVSR",
+  "last_status_changed_at": "2026-07-11T01:12:44Z",
+  "priority": "high",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-29",
+  "status": "done",
+  "tags": null,
+  "title": "Harden e2e harness: dist freshness, worktree cleanup, timeout, cassetteDir anchor",
+  "type": "bug",
+  "updated_at": "2026-07-11T01:12:44Z",
+  "urgency": null
+}

@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-12-propose-factory",
+      "linked_at": "2026-07-10T15:15:18Z",
+      "linked_by": "agent:delegator-ma-12",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:19Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M3 / WS-11 (BUILDPLAN id MA-12). makeProposeFixHandler factory parameterizing prompt file and model; the three propose* handlers become instances; parity tests (existing plus new) prove identical behavior per kind. AC: AC-24. Depends: MA-08, MA-10. Serialize: handlers/*. Size M.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T15:36:18Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6AFPM9QJ7QHXMCD1PTJWHR",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6AR9BCQQTEWN4ZJ1WBM977",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6AR9BCQQTEWN4ZJ1WBM976",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMRRCEXPH98T01Y2YHWD5",
-  "last_event_id": "ev_01KX5QMY25D282QKR1PYRRP8ZY",
-  "last_status_changed_at": "2026-07-10T10:02:19Z",
+  "last_event_id": "ev_01KX6AR9BCQQTEWN4ZJ1WBM979",
+  "last_status_changed_at": "2026-07-10T15:36:18Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -32,10 +55,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-12",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Deduplicate propose handlers via factory",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:25Z",
+  "updated_at": "2026-07-10T15:36:18Z",
   "urgency": null
 }
