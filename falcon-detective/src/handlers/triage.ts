@@ -2,6 +2,7 @@ import { createHandler } from "@barnum/barnum/runtime";
 import { z } from "zod";
 import { Gemini } from "../lib/gemini.js";
 import { FalconMcpClient } from "../lib/mcp.js";
+import { narrate } from "../lib/narrate.js";
 import { promptFromFile } from "../lib/prompts.js";
 import {
   CargoCheckResult,
@@ -194,6 +195,9 @@ export const triage = createHandler(
           prompt,
           schema: TriageOutput,
         });
+        // Narrate the triage result (presentation-only; reads the computed
+        // issues, no MCP/LLM call — cassette keys untouched). MA-33.
+        narrate.triage(issues);
         return {
           mcpBinary: value.mcpBinary,
           worktreePath: value.worktreePath,
