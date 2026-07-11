@@ -1,17 +1,17 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:22Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-13c (BUILDPLAN id MA-21). Rust runtime upgrades: axum 0.7 to 0.8 in BOTH crates (falcon-agent churn must not disturb planted defects - check-planted-defects.sh in CI enforces G-1), cargo_metadata current. @barnum/barnum stays FROZEN per SPEC WS-13. AC: AC-29. Depends: MA-09, MA-17. Serialize: Cargo.toml. Size M.",
-  "done_at": null,
+  "done_at": "2026-07-10T14:44:16Z",
   "evidence_refs": [],
   "id": "task_01KX5QMVKS29PFSQ16BPC1M2TH",
-  "last_event_id": "ev_01KX5QN201AXETMVM8D125RAPP",
-  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "last_event_id": "ev_01KX6EH0T0CRVZPBXG2C1RA4PF",
+  "last_status_changed_at": "2026-07-10T14:44:16Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -32,10 +32,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-21",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Rust runtime upgrades: axum 0.8 and cargo_metadata",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:29Z",
+  "updated_at": "2026-07-10T16:42:14Z",
   "urgency": null
 }

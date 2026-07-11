@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T16:23:48Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6DF8MVNRTD5F9EW04C0VJY",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6DF8MVNRTD5F9EW04C0VJY.md",
+    "size_bytes": 260
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged (PR #57, operator-authorized). Recording script + npm run record + reconciled operator flow (record \u2192 e2e:fingerprint \u2192 test:full); union conflict resolution vs #56 verified by 146/146 on the a",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

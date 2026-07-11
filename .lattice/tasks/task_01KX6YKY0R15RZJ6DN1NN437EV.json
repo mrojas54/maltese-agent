@@ -1,0 +1,49 @@
+{
+  "assigned_to": null,
+  "branch_links": [
+    {
+      "branch": "claude/ma-27-model-ids",
+      "linked_at": "2026-07-10T21:24:36Z",
+      "linked_by": "agent:delegator-ma-27",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
+  "complexity": "low",
+  "created_at": "2026-07-10T21:23:26Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "Fix-it ticket minted mid-MA-24: Google retired gemini-2.5-pro for new API users (generateContent returns 404 'no longer available to new users'; ListModels still lists it \u2014 the listing lies). Operator decision: 3.1 family. Change lib/models.ts: GEMINI_PRO = gemini-3.1-pro-preview, GEMINI_FLASH = gemini-3.1-flash-lite (DEFAULT_MODEL stays GEMINI_PRO). Update README model references (recording section call plan + cassette table). Handle cassette-keyed unit tests: keys = sha256(model+schema+prompt) so all existing cassette-backed tests will MISS under new IDs until the operator re-records at MA-24 \u2014 apply the established skip-marker-naming-MA-24 pattern where misses fail (e2e already skips via fingerprint). Old 2.5-keyed cassette files become stale leftovers; note for MA-24 that the record run will report them for deletion. Keep fast suite green, tsc/biome clean, debt-gates green. Blocks MA-24 (operator re-record), which blocks MA-22.",
+  "done_at": "2026-07-10T21:39:08Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6Z8BE1JV8HAKEQNQMC3KWS",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6ZGNZ2V9EHVFR08SKVG3T4",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6ZGNZ12Z08597H3NW2K41M",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01KX6YKY0R15RZJ6DN1NN437EV",
+  "last_event_id": "ev_01KX6ZGNZ2V9EHVFR08SKVG3T6",
+  "last_status_changed_at": "2026-07-10T21:39:08Z",
+  "priority": "critical",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-27",
+  "status": "done",
+  "tags": null,
+  "title": "Migrate Gemini model IDs to 3.1 family",
+  "type": "bug",
+  "updated_at": "2026-07-10T21:39:08Z",
+  "urgency": null
+}

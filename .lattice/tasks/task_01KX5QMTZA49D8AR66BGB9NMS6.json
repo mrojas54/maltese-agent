@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-18-gemini-retry",
+      "linked_at": "2026-07-10T15:15:51Z",
+      "linked_by": "agent:delegator-ma-18",
+      "repo": null
+    }
+  ],
+  "comment_count": 4,
   "complexity": "low",
   "created_at": "2026-07-10T10:02:22Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-14d (BUILDPLAN id MA-18). gemini.ts: backoff between schema-retry attempts; transient-error detection broadened and typed beyond regex (covers network-level failures); unit tests simulate both. AC: AC-33. Depends: MA-10. Serialize: lib/gemini.ts. Size S.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T15:36:17Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6A1HVBBCQDP9TE018YDRJV",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6AR980E0J8SSHE3F2WVGF4",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6AR980E0J8SSHE3F2WVGF3",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMTZA49D8AR66BGB9NMS6",
-  "last_event_id": "ev_01KX5QN0GTVSNDBEGW8B122NWA",
-  "last_status_changed_at": "2026-07-10T10:02:22Z",
+  "last_event_id": "ev_01KX6AR980E0J8SSHE3F2WVGF6",
+  "last_status_changed_at": "2026-07-10T15:36:17Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,10 +48,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-18",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Gemini retry backoff and transient detection",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:27Z",
+  "updated_at": "2026-07-10T15:36:17Z",
   "urgency": null
 }

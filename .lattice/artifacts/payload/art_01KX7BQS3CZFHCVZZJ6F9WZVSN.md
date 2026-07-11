@@ -1,0 +1,1 @@
+Merged (PR #62, operator-authorized two-step with revert #63). e2e harness hardened: beforeAll dist build, idempotent worktree cleanup (KEEP_RUN=1 escape), 360s timeout, package-anchored cassetteDir; REAL e2e proof 110s under E2E_REQUIRED=1.

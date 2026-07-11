@@ -1,0 +1,1 @@
+Merged (PR #61, operator-authorized). Root cause: patch-0.7 parser is count-blind; missing trailing newline was the panic trigger, inflated counts separately broke splice bounds. Fixed both via shrink-only normalize_hunk_counts + newline termination at the MA-16 seam; operator's failing diff is the verbatim regression fixture. Unblocks MA-24 attempt #3.

@@ -1,26 +1,37 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 2,
   "complexity": "low",
   "created_at": "2026-07-10T10:02:23Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M3 / WS-5 spike (BUILDPLAN id MA-SP-1). Question: does Barnum 0.4 expose a public standalone handler-invocation path (replacing handler.__definition.handle at processIssues.ts:61-89)? Deliverable: written verdict as a ticket comment - A (public API exists; name it, show a working call) or B (none; adapter plus exact pin plus canary required). No production code. Gates MA-11 and shapes MA-13. Size S.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T14:51:58Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6874206DYD9JW2ZDDMF899",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6874206DYD9JW2ZDDMF898",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMVYH8SNB2A3ZCD8BSHMH",
-  "last_event_id": "ev_01KX5QMVYJGHDRB77Y8Y1DM4CJ",
-  "last_status_changed_at": "2026-07-10T10:02:23Z",
+  "last_event_id": "ev_01KX6874206DYD9JW2ZDDMF89B",
+  "last_status_changed_at": "2026-07-10T14:51:58Z",
   "priority": "high",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-23",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Spike: Barnum public handler invocation feasibility",
   "type": "spike",
-  "updated_at": "2026-07-10T10:02:23Z",
+  "updated_at": "2026-07-10T14:51:58Z",
   "urgency": null
 }

@@ -1,0 +1,1 @@
+Merged (PR #46, merge commit ee33cb0). genai 2.11.0; CI green after known-flake re-run (occurrence #2, MA-26 target); zero cassette skips; MA-18 classifier unaffected.

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T15:36:18Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6AR9BCQQTEWN4ZJ1WBM976",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6AR9BCQQTEWN4ZJ1WBM976.md",
+    "size_bytes": 103
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged via operator-authorized merge train (PR #42, merge commit 2eedbc6, CI green verified pre-merge).",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

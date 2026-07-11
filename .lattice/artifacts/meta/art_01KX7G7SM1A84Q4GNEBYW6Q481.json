@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-11T02:31:23Z",
+  "created_by": "agent:ma-22-delegator",
+  "custom_fields": {},
+  "id": "art_01KX7G7SM1A84Q4GNEBYW6Q481",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX7G7SM1A84Q4GNEBYW6Q481.md",
+    "size_bytes": 1309
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "inline attachment",
+  "token_usage": null,
+  "type": "note"
+}

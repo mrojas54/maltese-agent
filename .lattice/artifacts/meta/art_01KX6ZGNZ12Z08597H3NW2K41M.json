@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T21:39:08Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX6ZGNZ12Z08597H3NW2K41M",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX6ZGNZ12Z08597H3NW2K41M.md",
+    "size_bytes": 301
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged (PR #60, operator-authorized). Model IDs migrated to operator-chosen 3.1 family (gemini-3.1-pro-preview / gemini-3.1-flash-lite) at the single authoritative site; test literals now import const",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

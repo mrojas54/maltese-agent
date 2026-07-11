@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-10T23:52:59Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX775RKR08CMFC7PCMYCAN7K",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX775RKR08CMFC7PCMYCAN7K.md",
+    "size_bytes": 355
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Merged (PR #61, operator-authorized). Root cause: patch-0.7 parser is count-blind; missing trailing newline was the panic trigger, inflated counts separately broke splice bounds. Fixed both via shrink",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,0 +1,30 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": "medium",
+  "created_at": "2026-07-11T03:28:54Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "CLOSEOUT CANDIDATE minted at operator request (2026-07-10, out of contract 9f72697). Origin: fs_search shells out to ripgrep on PATH; on GitHub runners (no rg) it threw, a silent catch degraded the triage poison signal to [], the prompt content changed, and every cassette key missed in CI \u2014 the root cause of the PR #64 saga. CI now installs rg, but the PATH dependency remains a portability landmine for every new environment. Scope: replace the rg subprocess with a native Rust search (the ripgrep component crates grep-searcher/grep-regex/ignore are the natural fit) BEHIND THE EXACT SAME TOOL OUTPUT SHAPE \u2014 fs_search results feed triage prompts which feed cassette keys, so any format drift (paths, line numbers, match text, ordering) breaks replay. Gates: cargo fmt/clippy/test green; full e2e cassette replay with ZERO misses (this IS the output-parity proof); only after that may the CI rg-install step be removed (same PR, separate commit). G-1: falcon-agent plants untouched; the loud console.error diagnostics in triage.ts stay. Size M.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KX7KH3J073HT92XK4NQWRZG5",
+  "last_event_id": "ev_01KX7KH3J2ECXGK5N4KJ2WVMB3",
+  "last_status_changed_at": "2026-07-11T03:28:54Z",
+  "priority": "medium",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-35",
+  "status": "backlog",
+  "tags": [
+    "portability",
+    "out-of-contract",
+    "replay-integrity"
+  ],
+  "title": "Native fs_search in falcon-mcp, drop the ripgrep PATH dependency",
+  "type": "task",
+  "updated_at": "2026-07-11T03:28:54Z",
+  "urgency": "normal"
+}

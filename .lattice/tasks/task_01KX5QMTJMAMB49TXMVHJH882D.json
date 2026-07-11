@@ -1,17 +1,17 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": "high",
   "created_at": "2026-07-10T10:02:21Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-14c (BUILDPLAN id MA-17). ToolError taxonomy in falcon-mcp server.rs: distinguishable error kinds (minimum: not-found, invalid-argument, internal) with distinct MCP error codes; migrate all 18 map_err-format sites; test asserting an MCP client can branch on the codes. AC: AC-32. Depends: MA-09. Serialize: server.rs. Size L.",
-  "done_at": null,
+  "done_at": "2026-07-10T14:44:16Z",
   "evidence_refs": [],
   "id": "task_01KX5QMTJMAMB49TXMVHJH882D",
-  "last_event_id": "ev_01KX5QMZN9FGCMPJ89KD55N2D4",
-  "last_status_changed_at": "2026-07-10T10:02:21Z",
+  "last_event_id": "ev_01KX6EH0FHDXNQCETVD1QFMN15",
+  "last_status_changed_at": "2026-07-10T14:44:16Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,10 +25,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-17",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "ToolError taxonomy with distinct MCP error codes",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:26Z",
+  "updated_at": "2026-07-10T16:42:13Z",
   "urgency": null
 }

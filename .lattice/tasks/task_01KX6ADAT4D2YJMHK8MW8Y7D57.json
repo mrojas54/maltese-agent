@@ -1,0 +1,49 @@
+{
+  "assigned_to": null,
+  "branch_links": [
+    {
+      "branch": "claude/ma-26-e2e-fastpath",
+      "linked_at": "2026-07-10T15:32:23Z",
+      "linked_by": "agent:delegator-ma-26",
+      "repo": null
+    }
+  ],
+  "comment_count": 4,
+  "complexity": "low",
+  "created_at": "2026-07-10T15:30:19Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "Fix-it ticket minted by orchestrator (run norm: flaky/slow default suite is a defect). Evidence: PR #41 TS job failed with vitest 'Timeout calling onTaskUpdate' unhandled error \u2014 tests/e2e.test.ts spends ~62s running the full cassette pipeline before detecting 'cassette miss / stale' and skipping; the synchronous pipeline blocks the vitest worker event loop past the worker-RPC timeout, failing runs whose tests all pass. Staleness is EXPECTED until MA-24 re-records, and MA-19 (genai 2.x) will stale cassettes for certain, so every remaining PR risks this flake. Fix: (1) cheap staleness pre-check (hash/fingerprint comparison) BEFORE launching the pipeline \u2014 stale => immediate skip (or fail under E2E_REQUIRED=1) in <1s; (2) ensure the e2e pipeline invocation does not block the worker event loop (async spawn, not execSync) so long runs cannot trip onTaskUpdate RPC timeouts when cassettes are fresh; (3) keep MA-2's guard semantics (skip vs E2E_REQUIRED=1 hard-fail, dirty-path naming) intact \u2014 e2e-guard tests must stay green. No prod code changes outside test harness/e2e plumbing. Serialize: e2e.test.ts (free), vitest config (free). ACs touched: AC-1..AC-5 must remain satisfied; G-1 untouched.",
+  "done_at": "2026-07-10T16:12:06Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6BQ637H1TEJF69FAAADF35",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6CSVQBEF789BE2QY0NCX7P",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6CSVQBEF789BE2QY0NCX7N",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01KX6ADAT4D2YJMHK8MW8Y7D57",
+  "last_event_id": "ev_01KX6CSVQBEF789BE2QY0NCX7R",
+  "last_status_changed_at": "2026-07-10T16:12:06Z",
+  "priority": "high",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-26",
+  "status": "done",
+  "tags": null,
+  "title": "Fix e2e cassette-staleness fast path and vitest worker flake",
+  "type": "bug",
+  "updated_at": "2026-07-10T16:12:06Z",
+  "urgency": null
+}

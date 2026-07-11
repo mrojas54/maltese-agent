@@ -1,0 +1,49 @@
+{
+  "assigned_to": null,
+  "branch_links": [
+    {
+      "branch": "claude/ma-28-hunk-normalize",
+      "linked_at": "2026-07-10T22:03:45Z",
+      "linked_by": "agent:delegator-ma-28",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
+  "complexity": "medium",
+  "created_at": "2026-07-10T22:02:06Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "description": "Fix-it minted mid-MA-24 (blocks the re-record, which blocks MA-22). Live failure: gemini-3.1-pro-preview emits unified diffs whose hunk headers declare the full context-window counts (@@ -1,6 +1,5 @@) while the body truncates trailing context (actual 4 old/3 new) \u2014 patch 0.7 panics ('bug: failed to parse entire input. Remaining: use std::sync::Arc;'), caught by the existing catch_unwind and surfaced as applyEdit failure; retries exhaust; recording cannot complete. Exact failing input preserved in cassette fixtures/cassettes/896f6e7b4af1a7c7.json. Fix in falcon-mcp/src/tools/fs_basic.rs at the MA-16 seam: add a deterministic normalize step before parse_hunks that recounts each hunk's old/new line counts from the actual body lines (context/-/+) and rewrites the @@ header; tolerate missing trailing newline. Keep validate->normalize->parse->splice unit structure, keep the catch_unwind backstop, unit tests including the recorded failing diff verbatim as a regression fixture. Rust only; falcon-agent untouched (G-1); the planted-lint marker text appearing inside diff CONTENT in tests is data, not source.",
+  "done_at": "2026-07-10T23:52:59Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX7269MB596SSRN3JSYJTQJY",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX775RKR08CMFC7PCMYCAN7M",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX775RKR08CMFC7PCMYCAN7K",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
+  "id": "task_01KX70TQ91TWCX76T3AFJMCB2E",
+  "last_event_id": "ev_01KX775RKR08CMFC7PCMYCAN7P",
+  "last_status_changed_at": "2026-07-10T23:52:59Z",
+  "priority": "critical",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "MA-28",
+  "status": "done",
+  "tags": null,
+  "title": "Normalize model-emitted hunk headers before patch parse",
+  "type": "bug",
+  "updated_at": "2026-07-10T23:52:59Z",
+  "urgency": null
+}

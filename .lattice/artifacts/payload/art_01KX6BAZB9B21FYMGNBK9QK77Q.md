@@ -1,0 +1,1 @@
+Merged (PR #43, merge commit 57524c8). CI green + independent fresh-eyes review PASS/MERGE (zero blocking findings; enabling named-function-export change verified mechanical).

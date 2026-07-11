@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-07-11T01:39:40Z",
+  "created_by": "agent:orchestrator-resume",
+  "custom_fields": {},
+  "id": "art_01KX7D932VPQFE2JQN3EDFDGEX",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KX7D932VPQFE2JQN3EDFDGEX.md",
+    "size_bytes": 349
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "HUMAN TRACK COMPLETE: operator re-recorded 2026-07-10 with gemini-3.1 models (4 cassettes, ~5 calls). Landed via PR #64 (merge commit f1765298) with fingerprint manifest, CI ripgrep fix, triage loud-f",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

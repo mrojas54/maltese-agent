@@ -1,17 +1,40 @@
 {
   "assigned_to": null,
-  "branch_links": [],
-  "comment_count": 0,
+  "branch_links": [
+    {
+      "branch": "claude/ma-15-decompose",
+      "linked_at": "2026-07-10T15:38:35Z",
+      "linked_by": "agent:delegator-ma-15",
+      "repo": null
+    }
+  ],
+  "comment_count": 3,
   "complexity": "medium",
   "created_at": "2026-07-10T10:02:20Z",
   "created_by": "agent:orchestrator-intake",
   "custom_fields": {},
   "description": "BUILDPLAN M4 / WS-14a (BUILDPLAN id MA-15). Decompose the processIssues main loop into named stage functions (each about 40 lines or less) - MA-13 tests stay green; de-cast workflows/tidy-and-debug.ts stages (no detective-any or as-any stage casts; stages typed against handler input/output types). ACs: AC-30, AC-34. Depends: MA-13. Size M.",
-  "done_at": null,
-  "evidence_refs": [],
+  "done_at": "2026-07-10T16:12:06Z",
+  "evidence_refs": [
+    {
+      "id": "ev_01KX6C4AA9QEC9KQF1T934F2GF",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "ev_01KX6CSVTQ379ACB2F2H3XP0H1",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KX6CSVTQ379ACB2F2H3XP0H0",
+      "role": "review",
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KX5QMSRNTGWVM9RPCPJKJ621",
-  "last_event_id": "ev_01KX5QMZ475S83J2AZ3J075EAT",
-  "last_status_changed_at": "2026-07-10T10:02:20Z",
+  "last_event_id": "ev_01KX6CSVTQ379ACB2F2H3XP0H3",
+  "last_status_changed_at": "2026-07-10T16:12:06Z",
   "priority": "medium",
   "relationships_out": [
     {
@@ -25,10 +48,10 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "MA-15",
-  "status": "backlog",
+  "status": "done",
   "tags": null,
   "title": "Decompose processIssues and de-cast workflow stages",
   "type": "task",
-  "updated_at": "2026-07-10T10:02:26Z",
+  "updated_at": "2026-07-10T16:12:06Z",
   "urgency": null
 }
