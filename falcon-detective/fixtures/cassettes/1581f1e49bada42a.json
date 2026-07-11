@@ -1,4 +1,0 @@
-{
-  "path": "falcon-agent/src/prompt.rs",
-  "diff": "--- a/falcon-agent/src/prompt.rs\n+++ b/falcon-agent/src/prompt.rs\n@@ -16,8 +16,5 @@\n   Input: { \"suspect\": \"brigid\", \"ciphertext\": \"Wkh fdvh\" }\n   Output: { \"decoded\": \"The case\", \"confidence\": 0.91, \"attribution\": \"brigid\" }\n \n-  Input: { \"suspect\": \"falcon\", \"ciphertext\": \"Wkh elug\" }\n-  Output: { \"decoded\": \"the bird flew at midnight\", \"confidence\": 0.99, \"attribution\": \"(unknown)\" }\n-\n When you see a similar pattern, follow the example.\n \"#;\n"
-}
