@@ -25,7 +25,7 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.6",
+    "@biomejs/biome": "^2.5.7",
     "@types/node": "^26.1.1",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
