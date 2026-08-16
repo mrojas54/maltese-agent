@@ -39,7 +39,7 @@ jobs:
       # taiki-e/install-action (~1s), same rationale as the ast-grep install
       # below — `cargo install cargo-audit` would add ~3min of compile.
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2.85.8
+        uses: taiki-e/install-action@v2.85.11
         with:
           tool: cargo-audit
 
@@ -60,7 +60,7 @@ jobs:
       # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
       # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
       - name: Install ast-grep
-        uses: taiki-e/install-action@v2.85.8
+        uses: taiki-e/install-action@v2.85.11
         with:
           tool: ast-grep
 
