@@ -20,10 +20,16 @@
 //! Known trade-off: classification rule 2 (any `io::ErrorKind::NotFound` in
 //! the chain → not-found) also matches a *tool binary* missing at spawn time.
 //! The message text disambiguates, and hermetic environments never hit it.
+//!
+//! rmcp 3.x note: [`IntoCallToolResult`] now yields the MRTR outcome enum
+//! [`CallToolResponse`], whose `Complete` variant carries the `CallToolResult`
+//! this taxonomy produces. We never emit the `InputRequired`/`Task` variants —
+//! falcon-mcp tools are single-shot — so the internal kind converts with
+//! `.into()` and the wire shape is unchanged from rmcp 2.x.
 
 use crate::tools::subprocess::SubprocessTimeout;
 use rmcp::handler::server::tool::IntoCallToolResult;
-use rmcp::model::{CallToolResult, ContentBlock, ErrorCode, ErrorData};
+use rmcp::model::{CallToolResponse, CallToolResult, ContentBlock, ErrorCode, ErrorData};
 
 /// Dedicated JSON-RPC code for wall-clock subprocess timeouts. No MCP-spec
 /// reserved code exists for this; `-32001` mirrors the TypeScript MCP SDK's
@@ -99,7 +105,7 @@ impl ToolError {
 }
 
 impl IntoCallToolResult for ToolError {
-    fn into_call_tool_result(self) -> Result<CallToolResult, ErrorData> {
+    fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> {
         match self {
             Self::NotFound(message) => Err(ErrorData::new(
                 ErrorCode::RESOURCE_NOT_FOUND,
@@ -127,7 +133,9 @@ impl IntoCallToolResult for ToolError {
             // Result-level error: rmcp's blanket `Result<T, E>` impl marks
             // `is_error = Some(true)` on this branch (and `CallToolResult::
             // error` already sets it), so clients see the pre-taxonomy shape.
-            Self::Internal(message) => Ok(CallToolResult::error(vec![ContentBlock::text(message)])),
+            Self::Internal(message) => {
+                Ok(CallToolResult::error(vec![ContentBlock::text(message)]).into())
+            }
         }
     }
 }
@@ -252,9 +260,14 @@ mod tests {
 
     #[test]
     fn internal_is_result_level_not_protocol_error() {
-        let result = ToolError::internal("boom")
+        let response = ToolError::internal("boom")
             .into_call_tool_result()
             .expect("internal must be result-level, not a protocol error");
+        // `CallToolResponse` is `#[non_exhaustive]`: the internal kind must land
+        // on the `Complete` variant, never on an MRTR intermediate one.
+        let CallToolResponse::Complete(result) = response else {
+            panic!("internal must complete the call, got: {response:?}");
+        };
         assert_eq!(result.is_error, Some(true));
         let dump = format!("{result:?}");
         assert!(dump.contains("boom"), "message must survive: {dump}");
