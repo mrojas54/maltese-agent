@@ -1,0 +1,92 @@
+{
+  "title": "The Harness Wore a Trenchcoat",
+  "subtitle": "Building a Sandboxed Rust MCP Server",
+  "author": "Michelle Rojas",
+  "theme": "noir",
+  "event": "Women in Rust Meetup",
+  "slides": [
+    {
+      "id": 1,
+      "title": "The Crime Scene 🔍",
+      "bullets": [
+        "The Setup: Autonomous LLMs connected directly to execution tools.",
+        "The Naive Approach: Handing raw shell/filesystem access and trusting prompts.",
+        "The Reality: Soft prompt guardrails fail under adversarial pressure.",
+        "The N × M Trap: Custom glue code across models and frameworks."
+      ],
+      "code": "+------------------+   (Raw Shell / FS)   +-------------------+\n|   LLM / Agent    | ===================> |   Host Machine    |\n| (Reasoning Core) |    \"rm -rf /\"        |   ~/.ssh/id_rsa   |\n+------------------+                      +-------------------+"
+    },
+    {
+      "id": 2,
+      "title": "Architecture: From REST to Stdio 🔄",
+      "bullets": [
+        "HTTP: Traditional request-response baseline.",
+        "SSE: Streaming RPC updates over HTTP.",
+        "MCP: JSON-RPC 2.0 standardized tool and context primitives.",
+        "Stdio Transport: Local subprocess execution, zero port binding conflicts, Tokio async I/O."
+      ],
+      "rule": "stdout is strictly reserved for JSON-RPC frames; all diagnostics go to stderr."
+    },
+    {
+      "id": 3,
+      "title": "Rust MCP Server Architecture 🏗️",
+      "bullets": [
+        "Transport Layer: Async Stdio (tokio::io) and HTTP+SSE abstraction.",
+        "Capability Router: JSON-RPC 2.0 Serde parsing layer.",
+        "Domain Handlers: FsSandbox (Root Jail) & ExecSandbox (Binary Allowlist).",
+        "Failsafe: Tokio execution timeouts (10s)."
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Sandbox Boundary: Root Jail 🛡️",
+      "bullets": [
+        "std::fs::canonicalize resolves '../' and symlinks via OS kernel.",
+        "Enforces strict workspace prefix checks before any file operation."
+      ],
+      "code": "let canonical = std::fs::canonicalize(self.root_dir.join(requested))?;\nif !canonical.starts_with(&self.root_dir) {\n    return Err(McpError::invalid_params(\"Path escape\"));\n}"
+    },
+    {
+      "id": 5,
+      "title": "Sandbox Boundary: Binary Allowlist 🛑",
+      "bullets": [
+        "Matches commands against an explicit HashSet allowlist.",
+        "Uses direct process execution via tokio::process::Command (no subshell)."
+      ],
+      "code": "if !self.allowed_binaries.contains(binary) {\n    return Err(McpError::invalid_params(\"Binary not permitted\"));\n}"
+    },
+    {
+      "id": 6,
+      "title": "The Hard Tripwire: Honeytokens & Canaries 🚨",
+      "bullets": [
+        "Soft Guardrails: Asking nicely in system prompts fails.",
+        "Hard Guardrails: Decoy assets (e.g., CONFIDENTIAL_KEYS.txt) trigger runtime termination.",
+        "Outcome: Emits tracing::warn! to stderr, revokes session, and cancels task."
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Live Demo Flow 💻",
+      "steps": [
+        "1. Scaffold stdio connection between maltese-agent and falcon-mcp.",
+        "2. Execute allowed binary (cargo check).",
+        "3. Block raw shell injection attempt (sh -c 'cat /etc/passwd').",
+        "4. Block path traversal escape (../../.ssh/id_rsa).",
+        "5. Trigger honeytoken canary -> Process abort & security alert."
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Case Closed: Key Takeaways 📁",
+      "bullets": [
+        "Treat tool surfaces as security boundaries.",
+        "Hard control planes over soft prompt guardrails.",
+        "Single Rust binary with dual stdio + HTTP shape."
+      ],
+      "links": {
+        "repo": "github.com/mrojas54/maltese-agent",
+        "community": "Rust NYC"
+      }
+    }
+  ]
+}
