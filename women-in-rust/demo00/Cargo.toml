@@ -1,0 +1,23 @@
+[package]
+name = "demo00"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust demo 00: the smallest stdio MCP server"
+publish = false
+
+[dependencies]
+# The MCP SDK. `server` = we answer requests, `transport-io` = over
+# stdin/stdout, `macros` = the #[tool] / #[tool_router] attributes.
+rmcp = { version = "3", features = ["server", "transport-io", "macros"] }
+# Derives the JSON schema the model sees from plain Rust structs.
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+# Logging. Must go to stderr — see the comment in main.rs.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+serde_json = "1"
