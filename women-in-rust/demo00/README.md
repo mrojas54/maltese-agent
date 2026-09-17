@@ -1,19 +1,65 @@
-# demo00 — the smallest MCP server
+# demo00: MCP servers in Rust, rustlings-style
 
-One tool, one transport, under a hundred lines including comments. This is
-the skeleton that [`falcon-mcp`](../../falcon-mcp/) grows out of: the root
-jail, binary allowlist and timeouts from the talk all bolt onto exactly this
-shape.
+Six small exercises that build a working MCP server from nothing: the schema
+the model sees, the tool, input validation, the `initialize` handshake, and
+the stdio transport. Each exercise is one file with a hole in it and its own
+tests. Fix the file, the tests pass, move on.
 
-## Run it
+If you have done [rustlings](https://github.com/rust-lang/rustlings), the loop
+is the same. If you have not, it is:
 
 ```bash
-cargo run -p demo00
+cd women-in-rust/demo00
+cargo run -- next
 ```
 
-It sits there waiting. An MCP server on stdio reads JSON-RPC frames from
-stdin and writes replies to stdout, one JSON object per line. Paste these
-three lines one at a time and watch the replies:
+`next` runs the exercises in order and stops at the first one that needs you.
+Open the file it names, read the comment at the top, fix the `TODO`s, run
+`next` again. Stuck?
+
+```bash
+cargo run -- hint schema1
+```
+
+## The exercises
+
+| # | File | You learn |
+| --- | --- | --- |
+| 0 | `exercises/00_intro/intro1.rs` | The whole server, working. Read it once. |
+| 1 | `exercises/01_schema/schema1.rs` | A Rust struct *is* the tool's JSON Schema. |
+| 2 | `exercises/02_tool/tool1.rs` | The tool. Its description is written for the model. |
+| 3 | `exercises/02_tool/tool2.rs` | Rejecting bad input with an error the client can branch on. |
+| 4 | `exercises/03_handshake/handshake1.rs` | The `initialize` reply, and an `env!` gotcha. |
+| 5 | `exercises/04_stdio/stdio1.rs` | stdout is the wire. |
+
+Solutions are in `solutions/`, same layout. Try before you look.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `cargo run -- next` | Run the exercises in order; stop at the first that fails. |
+| `cargo run -- run NAME` | Check one exercise. |
+| `cargo run -- hint NAME` | Print its hint. |
+| `cargo run -- list` | List them. |
+| `cargo run -- verify` | For CI: every solution passes, every exercise still fails. |
+
+Under the hood each exercise is its own binary (see `Cargo.toml`), so
+`run schema1` is `cargo test --bin schema1`. That is what lets the other
+exercises stay broken while you work on one. The two that serve (`intro1`,
+`stdio1`) get one more check: the runner builds the binary and holds a real
+JSON-RPC conversation with it over stdio, the same four frames any client
+sends.
+
+## Run one as a server
+
+Any exercise with a real `main` is a server you can talk to by hand:
+
+```bash
+cargo run --bin intro1
+```
+
+It sits there waiting. Paste these lines one at a time and watch the replies:
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"you","version":"0"}}}
@@ -23,54 +69,20 @@ three lines one at a time and watch the replies:
 
 Ctrl-D closes stdin, which is how a client hangs up.
 
-## Read it
+## Plug one into a client
 
-[`src/main.rs`](src/main.rs), top to bottom:
-
-| Piece | What it does |
-| --- | --- |
-| `GreetArgs`, `GreetResult` | Plain structs. `JsonSchema` derives the schema the model sees, so the Rust type is the contract. |
-| `#[tool] greet` | The tool. Its `description` is the only documentation the model ever reads. |
-| `#[tool_router]` | Collects every `#[tool]` method into the list that `tools/list` returns. |
-| `#[tool_handler]` + `get_info` | Routes `tools/*` requests and answers the `initialize` handshake. |
-| `main` | Sends logs to stderr, then `serve(stdio())`. |
-
-## The one rule
-
-**stdout is the wire.** A stray `println!` becomes a corrupt frame and the
-client disconnects. Log with `tracing`, which is pointed at stderr in `main`.
+Build it, then point any MCP client that launches stdio servers at the
+binary with an absolute path:
 
 ```bash
-RUST_LOG=info cargo run -p demo00
-```
-
-shows the logs on stderr while stdout stays clean.
-
-## Test it
-
-```bash
-cargo test -p demo00
-```
-
-[`tests/wire_test.rs`](tests/wire_test.rs) speaks raw JSON-RPC to the built
-binary with no client library, so it doubles as a transcript of the protocol.
-It runs the server with logging on and asserts that every stdout line is
-JSON and the log text landed on stderr.
-
-## Plug it into a client
-
-Any MCP client that launches stdio servers can run it. Build first, then
-point the client at the binary with an absolute path:
-
-```bash
-cargo build -p demo00
+cargo build --bin intro1
 ```
 
 ```json
 {
   "mcpServers": {
     "demo00": {
-      "command": "/absolute/path/to/maltese-agent/target/debug/demo00"
+      "command": "/absolute/path/to/maltese-agent/women-in-rust/demo00/target/debug/intro1"
     }
   }
 }
@@ -81,12 +93,24 @@ Claude Desktop reads from `claude_desktop_config.json`. Claude Code takes the
 same thing on the command line:
 
 ```bash
-claude mcp add demo00 -- /absolute/path/to/maltese-agent/target/debug/demo00
+claude mcp add demo00 -- /absolute/path/to/maltese-agent/women-in-rust/demo00/target/debug/intro1
 ```
+
+## How it is put together
+
+- `exercises/` and `solutions/` mirror each other. Every file in both is a
+  `[[bin]]` in `Cargo.toml`.
+- `info.toml` is the exercise order and the hints, in the shape of rustlings'
+  file of the same name.
+- `src/main.rs` is the runner. It is short; read it if you want to see the
+  wire probe.
+- This package is deliberately not a member of the repo's root workspace,
+  because its exercises are broken on purpose. CI runs `cargo run -- verify`
+  here instead, which also fails if someone "fixes" an exercise.
 
 ## Where this goes
 
-Everything in `falcon-mcp` is this file with boundaries added: paths resolve
-through a root jail before `fs_read` touches disk, `exec_run` checks a binary
-allowlist, and every subprocess runs under a timeout. The tool signature,
-the router, and the stdio loop are unchanged.
+Everything in [`falcon-mcp`](../../falcon-mcp/) is `intro1` with boundaries
+added: paths resolve through a root jail before `fs_read` touches disk,
+`exec_run` checks a binary allowlist, and every subprocess runs under a
+timeout. The tool signature, the router, and the stdio loop are unchanged.

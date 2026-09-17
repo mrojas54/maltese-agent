@@ -174,3 +174,40 @@ jobs:
           else
             echo "no cassette misses"
           fi
+
+  tutorial:
+    name: Tutorial (women-in-rust/demo00 verify)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        working-directory: women-in-rust/demo00
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned toolchain from rust-toolchain.toml
+        id: toolchain
+        working-directory: .
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+          components: rustfmt
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: women-in-rust/demo00 -> target
+
+      - name: cargo fmt --check
+        run: cargo fmt -- --check
+
+      # The tutorial is excluded from the root workspace on purpose: its
+      # exercises are broken by design, so the root `cargo test --workspace`
+      # never sees them. `verify` asserts every solution passes and every
+      # exercise still fails, so a "fix" to an exercise fails CI here.
+      - name: verify exercises and solutions
+        run: cargo run -- verify

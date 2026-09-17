@@ -1,0 +1,111 @@
+# Exercise metadata for the runner (src/main.rs), in the shape of rustlings'
+# info.toml. Order matters: `cargo run -- next` walks this list top to bottom.
+#
+#   name                 the binary name (see Cargo.toml) and the file stem
+#   dir                  the folder under exercises/ and solutions/
+#   test                 run `cargo test --bin <name>`: the file's own #[test]s
+#   wire                 build the binary and talk real JSON-RPC to it over stdio
+#   skip_check_unsolved  this exercise passes as-is (only intro1)
+#   hint                 what `cargo run -- hint <name>` prints
+
+[[exercises]]
+name = "intro1"
+dir = "00_intro"
+test = false
+wire = true
+skip_check_unsolved = true
+hint = """
+Nothing to fix. This one passes so you can see what passing looks like, and
+so the finished server is in front of you before you build it in pieces.
+
+Read it top to bottom: the two structs, the tool, the handshake, main.
+Then `cargo run -- next`."""
+
+[[exercises]]
+name = "schema1"
+dir = "01_schema"
+test = true
+wire = false
+hint = """
+Two derives and one doc comment.
+
+    #[derive(Debug, Deserialize, JsonSchema)]
+    struct GreetArgs {
+        /// Who to greet.
+        name: String,
+    }
+
+`Deserialize` is what lets rmcp turn the model's JSON into this struct.
+`JsonSchema` is what lets rmcp describe the struct to the model. The doc
+comment is not decoration: schemars copies it into the schema as the
+field's `description`, and that description is the only explanation of
+`name` the model will ever see."""
+
+[[exercises]]
+name = "tool1"
+dir = "02_tool"
+test = true
+wire = false
+hint = """
+The description is prose for the model. Say what the tool does and what it
+returns, e.g. "Greet someone by name. Returns {greeting: string}."
+
+The body has `params.0.name` in hand. Build the result:
+
+    Ok(Json(GreetResult {
+        greeting: format!("Hello, {name}!"),
+    }))
+
+`Json(...)` is rmcp's wrapper that serializes the struct into the reply's
+`structuredContent`, using the schema derived from `GreetResult`."""
+
+[[exercises]]
+name = "tool2"
+dir = "02_tool"
+test = true
+wire = false
+hint = """
+Check before you greet:
+
+    if name.trim().is_empty() {
+        return Err(ErrorData::invalid_params("name must not be empty", None));
+    }
+
+`ErrorData::invalid_params` builds a JSON-RPC error with code -32602. On the
+wire the client gets `{"error": {"code": -32602, ...}}` and no `result` at
+all, which is the shape it can branch on. Returning `Ok` with a result that
+says `isError: true` would mean "I ran and it went wrong", which is not
+what happened here: you refused to run."""
+
+[[exercises]]
+name = "handshake1"
+dir = "03_handshake"
+test = true
+wire = false
+hint = """
+Override `get_info` inside the `impl ServerHandler for Demo00` block:
+
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(Implementation::new(
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION"),
+            ))
+    }
+
+Why not `Implementation::from_build_env()`? It uses `env!("CARGO_PKG_NAME")`
+too, but `env!` expands where it is written. That call is written inside
+rmcp, so it captured rmcp's name when rmcp was compiled. Written here, the
+same macro gives this package's name."""
+
+[[exercises]]
+name = "stdio1"
+dir = "04_stdio"
+test = false
+wire = true
+# TODO(human): write this hint. It is the last exercise and the one the talk
+# is built around, so it should sound like you. Cover what the runner's
+# error means, the minimal fix, and why the solution reaches for `tracing`
+# pointed at stderr instead. The runner prints "No hint written yet" until
+# this string is non-empty.
+hint = ""

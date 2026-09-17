@@ -399,20 +399,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "demo00"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "rmcp",
- "schemars",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "displaydoc"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

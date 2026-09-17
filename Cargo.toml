@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["falcon-mcp", "falcon-agent", "women-in-rust/demo00"]
+members = ["falcon-mcp", "falcon-agent"]
+# The Women in Rust tutorial is a rustlings-shaped set of exercises that are
+# broken on purpose, so it is its own package rather than a member: a member
+# with intentional compile errors would fail every `cargo build --workspace`.
+# CI checks it separately with `cargo run -- verify` in that directory.
+exclude = ["women-in-rust/demo00"]
