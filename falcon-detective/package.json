@@ -19,13 +19,13 @@
   },
   "dependencies": {
     "@barnum/barnum": "^0.4.0",
-    "@google/genai": "^2.17.1",
+    "@google/genai": "^2.21.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^4.4.3",
+    "zod": "^4.5.4",
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
+    "@biomejs/biome": "^2.5.12",
     "@types/node": "^26.5.0",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
