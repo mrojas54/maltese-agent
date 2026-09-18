@@ -1,92 +1,71 @@
 {
   "title": "The Harness Wore a Trenchcoat",
-  "subtitle": "Building a Sandboxed Rust MCP Server",
-  "author": "Michelle Rojas",
-  "theme": "noir",
-  "event": "Women in Rust Meetup",
-  "slides": [
+  "theme": {
+    "border_type": "rounded",
+    "accent": "#5efff3",
+    "muted": "#7f8490",
+    "term_border": "#7f8490",
+    "snapshot_border": "#ff5ef1",
+    "status_bg": "#0c0e14",
+    "status_fg": "#ffffff",
+    "h1_style": "banner",
+    "h1": "#ff5ef1",
+    "h2": "#5efff3",
+    "bullet": "#ff5ef1",
+    "quote": "#5eff6c",
+    "link": "#5efff3",
+    "inline_code": "#ffbd5e",
+    "code_bg": "#16181d",
+    "code_fg": "#ffffff",
+    "code_keyword": "#bd5eff",
+    "code_string": "#5eff6c",
+    "code_comment": "#7f8490",
+    "code_literal": "#ffbd5e",
+    "code_function": "#5efff3",
+    "code_type": "#bd5eff",
+    "qr_dark": "#0c0e14",
+    "qr_light": "#ffffff"
+  },
+  "columns": [
     {
-      "id": 1,
-      "title": "The Crime Scene 🔍",
-      "bullets": [
-        "The Setup: Autonomous LLMs connected directly to execution tools.",
-        "The Naive Approach: Handing raw shell/filesystem access and trusting prompts.",
-        "The Reality: Soft prompt guardrails fail under adversarial pressure.",
-        "The N × M Trap: Custom glue code across models and frameworks."
-      ],
-      "code": "+------------------+   (Raw Shell / FS)   +-------------------+\n|   LLM / Agent    | ===================> |   Host Machine    |\n| (Reasoning Core) |    \"rm -rf /\"        |   ~/.ssh/id_rsa   |\n+------------------+                      +-------------------+"
+      "file": "slides/slide_1.md",
+      "title": "The Harness Wore a Trenchcoat"
     },
     {
-      "id": 2,
-      "title": "Architecture: From REST to Stdio 🔄",
-      "bullets": [
-        "HTTP: Traditional request-response baseline.",
-        "SSE: Streaming RPC updates over HTTP.",
-        "MCP: JSON-RPC 2.0 standardized tool and context primitives.",
-        "Stdio Transport: Local subprocess execution, zero port binding conflicts, Tokio async I/O."
-      ],
-      "rule": "stdout is strictly reserved for JSON-RPC frames; all diagnostics go to stderr."
+      "file": "slides/slide_2.md",
+      "title": "The Crime Scene"
     },
     {
-      "id": 3,
-      "title": "Rust MCP Server Architecture 🏗️",
-      "bullets": [
-        "Transport Layer: Async Stdio (tokio::io) and HTTP+SSE abstraction.",
-        "Capability Router: JSON-RPC 2.0 Serde parsing layer.",
-        "Domain Handlers: FsSandbox (Root Jail) & ExecSandbox (Binary Allowlist).",
-        "Failsafe: Tokio execution timeouts (10s)."
-      ]
+      "file": "slides/slide_3.md",
+      "title": "From REST to Stdio"
     },
     {
-      "id": 4,
-      "title": "Sandbox Boundary: Root Jail 🛡️",
-      "bullets": [
-        "std::fs::canonicalize resolves '../' and symlinks via OS kernel.",
-        "Enforces strict workspace prefix checks before any file operation."
-      ],
-      "code": "let canonical = std::fs::canonicalize(self.root_dir.join(requested))?;\nif !canonical.starts_with(&self.root_dir) {\n    return Err(McpError::invalid_params(\"Path escape\"));\n}"
+      "file": "slides/slide_4.md",
+      "title": "Rust MCP Server Architecture"
     },
     {
-      "id": 5,
-      "title": "Sandbox Boundary: Binary Allowlist 🛑",
-      "bullets": [
-        "Matches commands against an explicit HashSet allowlist.",
-        "Uses direct process execution via tokio::process::Command (no subshell)."
-      ],
-      "code": "if !self.allowed_binaries.contains(binary) {\n    return Err(McpError::invalid_params(\"Binary not permitted\"));\n}"
+      "file": "slides/slide_5.md",
+      "title": "Sandbox Boundary: Root Jail"
     },
     {
-      "id": 6,
-      "title": "The Hard Tripwire: Honeytokens & Canaries 🚨",
-      "bullets": [
-        "Soft Guardrails: Asking nicely in system prompts fails.",
-        "Hard Guardrails: Decoy assets (e.g., CONFIDENTIAL_KEYS.txt) trigger runtime termination.",
-        "Outcome: Emits tracing::warn! to stderr, revokes session, and cancels task."
-      ]
+      "file": "slides/slide_6.md",
+      "title": "Sandbox Boundary: Binary Allowlist"
     },
     {
-      "id": 7,
-      "title": "Live Demo Flow 💻",
-      "steps": [
-        "1. Scaffold stdio connection between maltese-agent and falcon-mcp.",
-        "2. Execute allowed binary (cargo check).",
-        "3. Block raw shell injection attempt (sh -c 'cat /etc/passwd').",
-        "4. Block path traversal escape (../../.ssh/id_rsa).",
-        "5. Trigger honeytoken canary -> Process abort & security alert."
-      ]
+      "file": "slides/slide_7.md",
+      "title": "Secure Lifecycle Loop"
     },
     {
-      "id": 8,
-      "title": "Case Closed: Key Takeaways 📁",
-      "bullets": [
-        "Treat tool surfaces as security boundaries.",
-        "Hard control planes over soft prompt guardrails.",
-        "Single Rust binary with dual stdio + HTTP shape."
-      ],
-      "links": {
-        "repo": "github.com/mrojas54/maltese-agent",
-        "community": "Rust NYC"
-      }
+      "file": "slides/slide_8.md",
+      "title": "The Hard Tripwire: Honeytokens"
+    },
+    {
+      "file": "slides/slide_9.md",
+      "title": "Live Demo Flow"
+    },
+    {
+      "file": "slides/slide_10.md",
+      "title": "Case Closed"
     }
   ]
 }
