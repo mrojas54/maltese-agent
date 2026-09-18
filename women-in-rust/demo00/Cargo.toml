@@ -30,8 +30,8 @@ anyhow = "1"
 # Logging. Must go to stderr; exercise 04_stdio is about exactly that.
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# Only the runner uses this: it reads the exercise list and hints from info.toml.
-toml = "0.9"
+# The tutorial runner (`cargo run -- next`), shared by every demo.
+demo-runner = { path = "../runner" }
 
 # Every exercise and every solution is its own binary, so `cargo test --bin
 # schema1` builds just that one file. That is what lets the other exercises
