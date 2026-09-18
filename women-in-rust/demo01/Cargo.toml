@@ -1,0 +1,71 @@
+[package]
+name = "demo01"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust demo 01: the tools, with no boundaries yet"
+publish = false
+# `cargo run` with no `--bin` runs the tutorial runner in src/main.rs.
+default-run = "demo01"
+
+# Its own tiny workspace, separate from the repo's root one. The exercises are
+# broken on purpose, and a broken member would fail every `cargo build
+# --workspace` at the root. The root manifest also lists this directory under
+# `exclude`; this table is what stops cargo from walking up to look for a parent.
+[workspace]
+
+[dependencies]
+# The MCP SDK. Same features and version as demo00 and ../../falcon-mcp.
+rmcp = { version = "3", features = ["server", "transport-io", "macros"] }
+# Derives the JSON schema the model sees from plain Rust structs.
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `full` includes the `process` feature that exec_run needs.
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# The tutorial runner (`cargo run -- next`), shared by every demo.
+demo-runner = { path = "../runner" }
+
+# The runner: `cargo run -- next` and friends.
+[[bin]]
+name = "demo01"
+path = "src/main.rs"
+
+# Every exercise and every solution is its own binary, so `cargo test --bin
+# fs_read1` builds just that one file. That is what lets the other exercises
+# stay broken while you work on this one. The runner drives these for you.
+
+[[bin]]
+name = "intro1"
+path = "exercises/00_intro/intro1.rs"
+
+[[bin]]
+name = "intro1_sol"
+path = "solutions/00_intro/intro1.rs"
+
+[[bin]]
+name = "fs_read1"
+path = "exercises/01_fs/fs_read1.rs"
+
+[[bin]]
+name = "fs_read1_sol"
+path = "solutions/01_fs/fs_read1.rs"
+
+[[bin]]
+name = "fs_read2"
+path = "exercises/01_fs/fs_read2.rs"
+
+[[bin]]
+name = "fs_read2_sol"
+path = "solutions/01_fs/fs_read2.rs"
+
+[[bin]]
+name = "exec_run1"
+path = "exercises/02_exec/exec_run1.rs"
+
+[[bin]]
+name = "exec_run1_sol"
+path = "solutions/02_exec/exec_run1.rs"

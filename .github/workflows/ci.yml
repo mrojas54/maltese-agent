@@ -217,7 +217,7 @@ jobs:
       fail-fast: false
       matrix:
         # One entry per demo under women-in-rust/. A new demo adds itself here.
-        demo: [demo00]
+        demo: [demo00, demo01]
     env:
       CARGO_TERM_COLOR: always
     defaults:
