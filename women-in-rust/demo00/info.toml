@@ -103,9 +103,23 @@ name = "stdio1"
 dir = "04_stdio"
 test = false
 wire = true
-# TODO(human): write this hint. It is the last exercise and the one the talk
-# is built around, so it should sound like you. Cover what the runner's
-# error means, the minimal fix, and why the solution reaches for `tracing`
-# pointed at stderr instead. The runner prints "No hint written yet" until
-# this string is non-empty.
-hint = ""
+hint = """
+The runner quoted the line. "listening on stdio" reached stdout, and stdout
+is the wire: a client feeds every stdout line to a JSON-RPC parser, so a log
+line there is a corrupt frame, and the client hangs up with an error that
+blames JSON rather than you.
+
+`eprintln!` is the one-word fix. Same text, other pipe.
+
+The solution goes one step further and uses `tracing` pointed at stderr:
+
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+    tracing::info!("listening on stdio");
+
+That is what falcon-mcp does, so one RUST_LOG filter governs every log line
+in the server: `RUST_LOG=info cargo run --bin stdio1` shows them on stderr
+while stdout stays clean. The rule from the deck, in full: stdout is
+strictly reserved for JSON-RPC frames; all diagnostics go to stderr."""
