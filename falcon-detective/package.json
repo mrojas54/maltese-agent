@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@barnum/barnum": "^0.4.0",
-    "@google/genai": "^2.21.0",
+    "@google/genai": "^2.22.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.5.4",
     "zod-to-json-schema": "^3.25.2"
