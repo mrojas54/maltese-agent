@@ -1,0 +1,204 @@
+# Exercise metadata for the shared runner (../runner), in the shape of
+# rustlings' info.toml. Order matters: `cargo run -- next` walks this list top
+# to bottom.
+#
+#   name                 the binary name (see Cargo.toml) and the file stem
+#   dir                  the folder under exercises/ and solutions/
+#   test                 run `cargo test --bin <name>`: the file's own #[test]s
+#   wire                 build the binary and talk real JSON-RPC to it over stdio
+#   skip_check_unsolved  this exercise passes as-is (only intro1)
+#   hint                 what `cargo run -- hint <name>` prints
+#   args                 command-line arguments the wire probe starts the server with
+#   tools                names `tools/list` must include (wire only)
+#   calls                `tools/call`s to make and what their replies must say
+#
+# `done` is what `next` prints once everything passes.
+
+done = """You have an MCP server whose file tools stay inside a root and refuse
+   writes on request. Two holes are still open: a symlink walks straight out of
+   the root, and exec_run runs anything. demo03 closes the first."""
+
+[[exercises]]
+name = "intro1"
+dir = "00_intro"
+wire = true
+skip_check_unsolved = true
+tools = ["greet", "fs_read", "fs_write", "exec_run"]
+hint = """
+Nothing to fix. This one passes so the finished demo02 server is in front of
+you before you build its pieces: demo01's tools, with a Sandbox between the
+file tools and the disk, and a new fs_write.
+
+Read it and notice two things. `fs_read` and `fs_write` refuse `../secret` and
+`/etc/passwd`; that is the first guard. And `run_command`, the work behind
+`exec_run`, takes no Sandbox in its signature. Nothing can be refused where
+nothing can be asked. That is not a bug in the code; it is the absence of the
+code demo04 adds.
+
+Then `cargo run -- next`."""
+
+# The wire probe runs in a scratch directory holding one file (hello.txt), and
+# the server takes its working directory as the sandbox root. So `hello.txt`
+# is inside the root, and anything that climbs out of it is not.
+[[exercises.calls]]
+tool = "greet"
+arguments = { name = "Ada" }
+expect = [{ at = "/result/structuredContent/greeting", contains = "Ada" }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "hello.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "hello" }]
+
+# A refusal that is the client's mistake is a JSON-RPC error: a code, and no
+# `result` at all.
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "../secret.txt" }
+expect = [
+  { at = "/error/code", equals = -32602 },
+  { at = "/error/message", contains = "escapes" },
+]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "/etc/passwd" }
+expect = [{ at = "/error/code", equals = -32602 }]
+
+[[exercises.calls]]
+tool = "fs_write"
+arguments = { path = "notes.txt", content = "noted" }
+expect = [{ at = "/result/structuredContent/bytes", equals = 5 }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "notes.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "noted" }]
+
+# exec_run is exactly as open as in demo01. This call only proves it still runs.
+[[exercises.calls]]
+tool = "exec_run"
+arguments = { cmd = "rustc", args = ["--version"] }
+expect = [
+  { at = "/result/structuredContent/exit", equals = 0 },
+  { at = "/result/structuredContent/stdout", contains = "rustc" },
+]
+
+[[exercises]]
+name = "sandbox1"
+dir = "01_sandbox"
+test = true
+hint = """
+Walk the components and refuse the three that can leave the root:
+
+    for component in rel.components() {
+        match component {
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                anyhow::bail!(
+                    "path {} escapes sandbox root {}",
+                    rel.display(),
+                    self.root.display()
+                );
+            }
+            Component::CurDir | Component::Normal(_) => {}
+        }
+    }
+    Ok(self.root.join(rel))
+
+Add `Component` to the `use std::path::...` line.
+
+Why `components()` and not `rel.to_string_lossy().contains("..")`? Because
+`..` only means "parent" as a whole path component. `notes..txt` is a legal
+file name, and so is `a..b/c.txt`. A string search refuses both, and one test
+checks that you do not.
+
+Why is `RootDir` on the list? `Path::join` with an absolute path returns the
+absolute path: it throws the base away. `root.join("/etc/passwd")` is
+`/etc/passwd`. A leading `/` does not climb out of the root, it replaces it.
+
+Notice what you did not check: whether any piece of the path is a symlink.
+You cannot know without asking the filesystem, and this function does not. The
+last test in the file passes precisely because of that. demo03."""
+
+[[exercises]]
+name = "sandbox2"
+dir = "01_sandbox"
+test = true
+hint = """
+One line in each handler. Ask the sandbox, and let `?` pass a refusal up:
+
+    let path = sandbox.resolve(&args.path)?;
+
+The same line in `read_file` and in `write_file`, replacing the
+`sandbox.root.join(...)` that is there now.
+
+How does that become the JSON-RPC error -32602? `resolve` fails with a message
+that says "escapes sandbox root". `ToolError::classify` reads it and picks
+`InvalidArgument`. rmcp's `IntoCallToolResult` for `ToolError` turns that into
+an error reply with code -32602. Nothing in your handler knows about codes: the
+handler asks, and the boundary decides how to say no.
+
+Why `write_file` matters more than `read_file`: a leaked read shows the model
+a file. An escaping write changes one."""
+
+[[exercises]]
+name = "readonly1"
+dir = "02_readonly"
+test = true
+wire = true
+args = ["--read-only"]
+tools = ["fs_read", "fs_write"]
+hint = """
+Two small pieces. The switch:
+
+    fn check_writable(&self) -> anyhow::Result<()> {
+        if self.read_only {
+            anyhow::bail!("sandbox is read-only");
+        }
+        Ok(())
+    }
+
+and the gate, first thing in `write_file`:
+
+    sandbox.check_writable()?;
+
+Do only the first and `fs_write_is_refused_when_read_only` fails: the switch
+works, and nobody asks it. Do only the second and
+`a_read_only_sandbox_refuses_writes` fails, and so does the tool-level test:
+the tool asks, and the answer is always yes. A guard needs both halves.
+
+Why the gate goes first: a refused write must not get as far as resolving a
+path, let alone creating a directory.
+
+On the wire, a refusal looks like this:
+
+    {"result": {"isError": true,
+                "content": [{"type": "text", "text": "sandbox is read-only"}]}}
+
+That is a result, not a JSON-RPC `error`. The client sent a perfectly good
+request and the tool answered "not here". `ToolError::classify` files the
+message under Internal, and Internal becomes an `isError` result. A bad path is
+the other kind: the client's mistake, so it gets an error with code -32602.
+
+What this does not do: `exec_run` never asks the switch. `--read-only`
+protects the tools that ask it. That is demo04's problem."""
+
+# Started with --read-only. Reads work; the write is refused; and the refused
+# write leaves nothing behind, so reading it back fails too.
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "hello.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "hello" }]
+
+[[exercises.calls]]
+tool = "fs_write"
+arguments = { path = "notes.txt", content = "noted" }
+expect = [
+  { at = "/result/isError", equals = true },
+  { at = "/result/content/0/text", contains = "read-only" },
+]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "notes.txt" }
+expect = [{ at = "/result/isError", equals = true }]
