@@ -9,6 +9,7 @@ repo root.
 | [`demo00`](demo00/) | A rustlings-style tutorial: six exercises that build a stdio MCP server from the schema up. `cd demo00 && cargo run -- next`. |
 | [`demo01`](demo01/) | The crime scene: tools that read any file and run any command, with no boundaries yet. `cd demo01 && cargo run -- next`. |
 | [`demo02`](demo02/) | Guards: a `Sandbox` every file tool goes through, a `--read-only` switch, and a first (lexical) path check that is honest about not being enough. `cd demo02 && cargo run -- next`. |
+| [`demo03`](demo03/) | *Work in progress.* The jail: `resolve` canonicalizes instead of reading spellings, closing demo02's symlink hole. `cd demo03 && cargo run -- next`. |
 
 The full-size version with the root jail, binary allowlist and timeouts is
 [`falcon-mcp`](../falcon-mcp/).

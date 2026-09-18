@@ -1,0 +1,28 @@
+# Exercise metadata for the shared runner (../runner), in the shape of
+# rustlings' info.toml. Order matters: `cargo run -- next` walks this list top
+# to bottom.
+#
+#   name                 the binary name (see Cargo.toml) and the file stem
+#   dir                  the folder under exercises/ and solutions/
+#   test                 run `cargo test --bin <name>`: the file's own #[test]s
+#   wire                 build the binary and talk real JSON-RPC to it over stdio
+#   skip_check_unsolved  this exercise passes as-is (only an intro would)
+#   hint                 what `cargo run -- hint <name>` prints
+#
+# `done` is what `next` prints once everything passes.
+
+# WORK IN PROGRESS: jail2 has no hint yet. Its fix, in
+# solutions/02_jail/jail2.rs, has an open TODO(human); write the hint's code
+# sample once that lands, the way sandbox1/sandbox2/readonly1's hints do in
+# ../demo02/info.toml. Until then `cargo run -- hint jail2` prints the
+# runner's own "No hint written yet" message, and `cargo run -- verify`
+# fails here on purpose (see Cargo.toml).
+
+done = """You have an MCP server whose file tools stay inside a root even
+   through a symlink, and even for a path that does not exist yet. One hole
+   is still open: exec_run runs anything, unguarded. demo04 closes it."""
+
+[[exercises]]
+name = "jail2"
+dir = "02_jail"
+test = true

@@ -5,18 +5,41 @@ edition = "2021"
 license = "MIT"
 description = "Women in Rust demo 03: the jail, canonicalize before you check"
 publish = false
+# `cargo run` with no `--bin` runs the tutorial runner in src/main.rs.
+default-run = "demo03"
 
-# WORK IN PROGRESS: only the jail2 solution exists so far. The full manifest
-# (runner, every exercise and solution bin) arrives with the rest of demo03.
+# WORK IN PROGRESS: jail2's reference fix, in solutions/02_jail/jail2.rs, has
+# an open TODO(human) in its fallback branch (a path that does not exist yet).
+# `cargo run -- verify` fails here on purpose until it lands. That is also why
+# this package is not yet in the root workspace `exclude` (../../Cargo.toml)
+# or the CI tutorial matrix (.github/workflows): both would report the
+# failure as CI's problem instead of a demo still being written.
+#
+# 00_intro is missing for the same reason. Every other demo opens with the
+# whole finished server; this one's fs_write would panic through the
+# unresolved branch the moment it tried to create a file.
 
 # Its own tiny workspace, separate from the repo's root one; see demo02.
 [workspace]
 
 [dependencies]
 anyhow = "1"
+# The tutorial runner (`cargo run -- next`), shared by every demo.
+demo-runner = { path = "../runner" }
 
 [dev-dependencies]
 tempfile = "3"
+
+# The runner: `cargo run -- next` and friends.
+[[bin]]
+name = "demo03"
+path = "src/main.rs"
+
+# Every exercise and every solution is its own binary, so `cargo test --bin
+# jail2` builds just that one file; see demo02's Cargo.toml for why.
+[[bin]]
+name = "jail2"
+path = "exercises/02_jail/jail2.rs"
 
 [[bin]]
 name = "jail2_sol"
