@@ -1,0 +1,23 @@
+[package]
+name = "demo03"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust demo 03: the jail, canonicalize before you check"
+publish = false
+
+# WORK IN PROGRESS: only the jail2 solution exists so far. The full manifest
+# (runner, every exercise and solution bin) arrives with the rest of demo03.
+
+# Its own tiny workspace, separate from the repo's root one; see demo02.
+[workspace]
+
+[dependencies]
+anyhow = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "jail2_sol"
+path = "solutions/02_jail/jail2.rs"
