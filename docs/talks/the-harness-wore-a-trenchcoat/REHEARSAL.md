@@ -3,9 +3,8 @@
 Companion to the [talk README](README.md). The README says what the code does;
 this page says how to practise the talk and what to watch for on the day.
 
-Deck: `slides/slide_1.md` … `slide_10.md` (via `deckhand.json`). The README's
-slide numbers come from the older 8-slide deck. The numbers below match the
-current 10-slide deck.
+Deck: `slides/slide_1.md` … `slide_10.md` (via `deckhand.json`). The slide
+numbers below match the current 10-slide deck.
 
 ## One command
 
@@ -85,21 +84,21 @@ Paste the handshake first. Then paste one beat at a time:
 Press Ctrl-D, then restart the server with `--read-only` for beat 5. Keep these
 lines in a notes file. Don't type JSON live.
 
-## Deck vs code: what to say at each slide
+## Deck vs code
 
-All of these were checked against `falcon-mcp` as it is today. Correct them on
-stage or fix them in the deck before the talk.
+The slides were brought in line with `falcon-mcp` on 2026-09-25. Tool names,
+error messages, the per-family timeouts, the `-32001` timeout code, the
+six-binary allowlist, and the `main` wiring are now all real. What's left
+to say on stage:
 
-| Slide | Deck says | Code does | Say |
-|---|---|---|---|
-| 3 | tool `read_file`, message `Access Denied: Path escape` | tool `fs_read`, message `resolving path: path … escapes sandbox root …`. The code `-32602` matches. | "Real message on the next demo." Or update the slide. |
-| 4, 6 | one 10 s timeout | per family: cargo 900 s, git 60 s, search 30 s, exec 30 s (`limits.rs`) | "Cold builds of tokio + axum take minutes, so cargo gets 900 seconds." |
-| 6 | timeout → `internal_error` | dedicated code `-32001` with structured data (`tool_error.rs`) | "The client can tell 'too slow' apart from 'broken'." |
-| 6, 10 | allowlist `cargo`, `git` | `cargo rustc rustfmt rg git ast-grep`, resolved to absolute paths at startup | "Six names, pinned at startup, so changing PATH later can't swap one." |
-| 7 | `Tripwire(CanaryAlert)` stage | not implemented | Call it the next stage. |
-| 8 | honeytoken → `exit(1)` | not implemented | Call it the design direction. Also, `exit(1)` would kill the server for every client connected to it. Revoking the session is the better design. |
-| 8 vs 9 | `CONFIDENTIAL_KEYS.txt` vs `canary_keys.txt` | neither exists | The two slides use different filenames. Pick one before the talk. |
-| 9 | `run("cargo check")` | the demo uses `cargo --version` | `cargo check` in an empty jail fails because it has no `Cargo.toml`. Keep `--version`. |
+| Slide | Say |
+|---|---|
+| 7 | `Tripwire` is commented out as the next stage. `Guard(ReadOnly)` is the one that ships today. |
+| 8 | The honeytoken is marked *next case*. It refuses and logs instead of calling `exit(1)`, because exiting would take the server down for every client connected to it. |
+| 9 | The beats match `rehearse.sh`. Beat 5 is the read-only guard. |
+
+If you change a slide, run the matching beat again so the reply on screen
+still matches what the slide says.
 
 ## If it breaks
 

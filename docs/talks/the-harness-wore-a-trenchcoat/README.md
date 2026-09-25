@@ -134,27 +134,23 @@ The three takeaways are all true of the code as shipped:
 
 ## Where the deck and the code disagree
 
-Two corrections to make on stage or in the next revision of `deckhand.json`:
+As of 2026-09-25 they agree, apart from the tripwire. The deck was revised to
+the 10-slide layout in `slides/`. It shows the real tool names and error
+messages, the per-family timeouts, the six-binary allowlist, and the `-32001`
+timeout code. The honeytoken slide (now slide 8) is labelled *next case*.
+The section headings above still follow the original 8-slide order.
 
-1. **Slide 3 says "Tokio execution timeouts (10s)."** The real defaults in
-   `falcon-mcp/src/limits.rs` are per tool family, and cargo's is deliberately
-   long because cold builds of tokio + axum + hyper exceed five minutes:
+For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
 
-   | Family | Default | Env override |
-   |---|---|---|
-   | cargo (`cargo_check`, `cargo_test`, `cargo_clippy`, `cargo_fmt`) | 900 s | `FALCON_MCP_CARGO_TIMEOUT_MS` |
-   | git | 60 s | `FALCON_MCP_GIT_TIMEOUT_MS` |
-   | search (`fs_search`, `fs_search_ast`) | 30 s | `FALCON_MCP_SEARCH_TIMEOUT_MS` |
-   | exec (`exec_run`) | 30 s, or per-call `timeout_ms` | `FALCON_MCP_EXEC_TIMEOUT_MS` |
+| Family | Default | Env override |
+|---|---|---|
+| cargo (`cargo_check`, `cargo_test`, `cargo_clippy`, `cargo_fmt`) | 900 s | `FALCON_MCP_CARGO_TIMEOUT_MS` |
+| git | 60 s | `FALCON_MCP_GIT_TIMEOUT_MS` |
+| search (`fs_search`, `fs_search_ast`) | 30 s | `FALCON_MCP_SEARCH_TIMEOUT_MS` |
+| exec (`exec_run`) | 30 s, or per-call `timeout_ms` | `FALCON_MCP_EXEC_TIMEOUT_MS` |
 
-   Timeouts surface as a dedicated JSON-RPC error code (`-32001`) with
-   structured data, see `falcon-mcp/src/tool_error.rs`.
-
-2. **Slide 6's honeytoken tripwire is not implemented.** See above.
-
-One smaller note: the deck's demo step 1 says "maltese-agent and falcon-mcp".
-`maltese-agent` is the repo; the client that actually connects over stdio is
-`falcon-detective` (`falcon-detective/src/lib/mcp.ts`).
+Timeouts surface as a dedicated JSON-RPC error code (`-32001`) with
+structured data, see `falcon-mcp/src/tool_error.rs`.
 
 ## Demo runbook
 

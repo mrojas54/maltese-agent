@@ -1,14 +1,19 @@
 # The Hard Tripwire: Honeytokens & Canaries 🚨
 
+*Next case: the design direction, not shipped yet.*
+
 ```rust
-fn check_honeytoken(requested_path: &Path) -> Result<(), SecurityAlert> {
-    // Intercept reads to sensitive files before hitting disk
-    if requested_path.file_name() == Some(OsStr::new("CONFIDENTIAL_KEYS.txt")) {
-        tracing::warn!("TRIPWIRE TRIGGERED!");
-        
-        // Immediate deterministic crash
-        std::process::exit(1);
+fn check_honeytoken(requested: &Path) -> Result<(), ToolError> {
+    // Intercept reads of a decoy before they hit disk
+    if requested.file_name() == Some(OsStr::new("CONFIDENTIAL_KEYS.txt")) {
+        tracing::warn!(path = %requested.display(), "TRIPWIRE TRIGGERED");
+
+        // Refuse and revoke this session only; exit(1) would
+        // take the server down for every other client
+        return Err(ToolError::InvalidArgument("tripwire".into()));
     }
     Ok(())
 }
 ```
+
+Shipping today: `--read-only`, the root jail, the allowlist, the timeouts.
