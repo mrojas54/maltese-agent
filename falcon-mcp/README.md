@@ -66,6 +66,10 @@ Scoped to the workshop repo. Commits are authored as `falcon-detective@local`.
 | --- | --- |
 | `exec_run` | Run an allowlisted external binary. Disabled by default; requires `--enable-exec`. Allowlist: `cargo`, `rustc`, `rustfmt`, `ripgrep`/`rg`, `git`, `ast-grep`/`sg`. |
 
+## Honeytoken tripwire
+
+Any tool call that addresses a decoy file (default `CONFIDENTIAL_KEYS.txt`, case-insensitive; add more with `--honeytoken NAME`) fails with JSON-RPC code `-32003` (`data.kind = "tripwire"`), logs `TRIPWIRE TRIGGERED` to stderr, and revokes the session: every later call on it gets `-32003`. Revocation is per session, so other HTTP clients keep working. `fs_list` shows the decoy; `fs_search` and `fs_search_ast` skip it silently. Details and known limits: `src/tripwire.rs`.
+
 ## Connecting from Gemini CLI
 
 Copy `.gemini/settings.example.json` to `~/.gemini/settings.json` (or the project-local equivalent) and update the absolute path to the falcon-mcp binary plus the sandbox root. The Gemini CLI will see falcon-mcp's tools alongside any other configured MCP servers.

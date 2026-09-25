@@ -718,7 +718,14 @@ pub async fn fs_search(
     // grep-searcher and ignore are synchronous/blocking; keep them off the
     // async runtime's worker threads.
     tokio::task::spawn_blocking(move || {
-        native_search(&root, &pattern, glob.as_deref(), effective_max, timeout)
+        native_search(
+            &root,
+            &pattern,
+            glob.as_deref(),
+            effective_max,
+            timeout,
+            |p| sandbox.is_honeytoken(p),
+        )
     })
     .await
     .context("fs_search worker thread panicked")?
@@ -731,6 +738,7 @@ fn native_search(
     glob: Option<&str>,
     effective_max: usize,
     timeout: std::time::Duration,
+    is_honeytoken: impl Fn(&std::path::Path) -> bool,
 ) -> anyhow::Result<FsSearchResult> {
     // A bad regex surfaces as an error, mirroring ripgrep's exit-2 failure.
     let matcher = RegexMatcher::new_line_matcher(pattern).context("compiling search pattern")?;
@@ -773,6 +781,11 @@ fn native_search(
             continue;
         }
         let path = entry.path();
+        // Never search a decoy: a broad search is normal and must neither
+        // trip the wire nor leak its contents (see crate::tripwire).
+        if is_honeytoken(path.strip_prefix(root).unwrap_or(path)) {
+            continue;
+        }
         let file = path
             .strip_prefix(root)
             .unwrap_or(path)
