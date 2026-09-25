@@ -158,6 +158,9 @@ One smaller note: the deck's demo step 1 says "maltese-agent and falcon-mcp".
 
 ## Demo runbook
 
+For rehearsal passes, on-stage lines, and failure recovery against the current
+10-slide deck, see [`REHEARSAL.md`](REHEARSAL.md) and run `rehearse.sh`.
+
 Prerequisites: the pinned toolchain in `rust-toolchain.toml` (Rust 1.92) and
 `ast-grep` on PATH if you want `fs_search_ast` to work.
 
