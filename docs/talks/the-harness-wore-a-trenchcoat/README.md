@@ -104,19 +104,37 @@ Proof: `exec_disabled_by_default`, `exec_rejects_non_allowlisted_binary` in
 
 ### 6. The hard tripwire: honeytokens and canaries
 
-**This slide is narrative, not implementation.** There is no
-`CONFIDENTIAL_KEYS.txt` decoy and no session-revoking tripwire in `falcon-mcp`
-today. The word "canary" in this repo refers to two other things: a test in
+The tripwire is implemented in `falcon-mcp/src/tripwire.rs` (landed 2026-09-25).
+
+- **Trigger.** `Sandbox::resolve` in `falcon-mcp/src/sandbox.rs` runs the root
+  jail check first, then refuses any path whose components name a honeytoken.
+  The default is `CONFIDENTIAL_KEYS.txt`, matched case-insensitively. Add more
+  with `--honeytoken NAME`. Every path-taking tool resolves through there, so
+  reads, writes, patches, `git_add`, and cargo or exec `cwd` all trip, and so
+  does a symlink that points at the decoy. `exec_run` arguments that name one
+  trip it too.
+- **Response.** The call fails with code `-32003` (`data.kind = "tripwire"`).
+  An `ERROR TRIPWIRE TRIGGERED` line goes to stderr, and the session is
+  revoked: the `call_tool` override in `server.rs` refuses every later call on
+  it. Revocation is per session. Over HTTP each session gets its own flag
+  (`FalconMcp::for_new_session`), so one hostile client cannot take the server
+  down for the others. That is why the slide does not call `exit(1)`.
+- **The bait.** `fs_list` shows the decoy. `fs_search` and `fs_search_ast`
+  skip it silently, because a broad search is normal agent behaviour and must
+  neither trip the wire nor leak the contents.
+- **Known limits.** `exec_run` is checked by argument text only, so
+  `rg KEY .` can still read the decoy through a directory walk. Exec is off
+  by default. A decoy that has been committed shows in `git_diff` and
+  `git_log`, so keep it untracked.
+
+Proof: `falcon-mcp/tests/tripwire_test.rs` covers the read, revocation,
+case variants, a symlink, a write, search and listing, exec arguments, the
+`--honeytoken` flag, and a trip on one session that leaves another working.
+
+The word "canary" elsewhere in this repo means two other things: a test in
 `fs_test.rs` that plants a literal line to prove search matches it, and the
 `#[ignore]`'d smoking-gun test in `falcon-agent` that the detective is supposed
 to un-ignore.
-
-Present it as the design direction and say so. The hard guards that *do* exist
-and that the slide's thesis rests on are: read-only mode (`--read-only`, checked
-by `Sandbox::check_writable` before every mutating tool), the root jail, the
-allowlist, and the timeouts. If you want the demo to end on an alert instead of
-a refusal, that is a small feature to build before the talk, and this README
-should be updated when it lands.
 
 ### 7. Live demo flow
 
@@ -134,11 +152,11 @@ The three takeaways are all true of the code as shipped:
 
 ## Where the deck and the code disagree
 
-As of 2026-09-25 they agree, apart from the tripwire. The deck was revised to
-the 10-slide layout in `slides/`. It shows the real tool names and error
-messages, the per-family timeouts, the six-binary allowlist, and the `-32001`
-timeout code. The honeytoken slide (now slide 8) is labelled *next case*.
-The section headings above still follow the original 8-slide order.
+As of 2026-09-25 they agree. The deck was revised to the 10-slide layout in
+`slides/`. It shows the real tool names and error messages, the per-family
+timeouts, the six-binary allowlist, the `-32001` timeout code, and the shipped
+honeytoken tripwire (slide 8, `-32003`). The section headings above still
+follow the original 8-slide order.
 
 For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
 
@@ -166,6 +184,7 @@ cargo build -p falcon-mcp
 
 # 1. Start the server over stdio, exec enabled, jailed to a scratch worktree
 mkdir -p /tmp/jail && cd /tmp/jail && git init -q
+printf 'AWS_SECRET_ACCESS_KEY=decoy-not-a-real-key\n' > CONFIDENTIAL_KEYS.txt  # the bait
 /path/to/maltese-agent/target/debug/falcon-mcp --stdio --root /tmp/jail --enable-exec
 ```
 
@@ -176,10 +195,11 @@ With the server reading JSON-RPC from stdin, the demo beats are:
 | 2. Allowed binary | `exec_run {"cmd":"cargo","args":["--version"]}` | stdout with the cargo version, `exit: 0` |
 | 3. Shell injection | `exec_run {"cmd":"sh","args":["-c","cat /etc/passwd"]}` | invalid-argument error, `binary 'sh' not in allowlist` |
 | 4. Path traversal | `fs_read {"path":"../../.ssh/id_rsa"}` | invalid-argument error, `escapes sandbox root` |
-| 5. Tripwire | not implemented, see slide 6 | show `--read-only` refusing `fs_write` instead |
+| 5. Tripwire | `fs_read {"path":"CONFIDENTIAL_KEYS.txt"}`, then any other call | `-32003` tripwire error and `TRIPWIRE TRIGGERED` on stderr; the next call gets `-32003 session revoked` |
 
-The same five beats, minus the tripwire, are what
-`falcon-mcp/tests/exec_test.rs`, `fs_test.rs`, and `error_codes_test.rs` assert.
+The same five beats are what `falcon-mcp/tests/exec_test.rs`, `fs_test.rs`,
+`error_codes_test.rs`, and `tripwire_test.rs` assert. Send beat 5 last, because
+it revokes the session.
 Rehearse with:
 
 ```bash
@@ -188,6 +208,7 @@ cargo test -p falcon-mcp --test exec_test         # allowlist and --enable-exec 
 cargo test -p falcon-mcp --test exec_impostor_test  # PATH-swap defense
 cargo test -p falcon-mcp --test fs_test           # root jail
 cargo test -p falcon-mcp --test timeout_test      # structured timeouts
+cargo test -p falcon-mcp --test tripwire_test     # honeytoken + session revocation
 ```
 
 For the HTTP shape (Cloud Run, Gemini CLI):

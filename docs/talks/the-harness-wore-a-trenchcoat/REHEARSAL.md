@@ -14,7 +14,7 @@ docs/talks/the-harness-wore-a-trenchcoat/rehearse.sh --beats   # just the live b
 ```
 
 The script prints every frame it sends and every reply it gets back. Last dry
-run (2026-09-25): all five beats behaved as below; 97/97 falcon-mcp tests
+run (2026-09-25): all five beats behaved as below; 111/111 falcon-mcp tests
 passed; `demo00 verify` passed all six exercises; the G-1 planted-defect
 check passed.
 
@@ -43,15 +43,25 @@ Do them in this order. Each pass practises one thing.
 | 2 Allowed binary | `--enable-exec` | `exec_run cargo --version` | `exit: 0` plus the cargo version | "Allowlisted names run, resolved to an absolute path at startup." |
 | 3 Shell injection | `--enable-exec` | `exec_run sh -c "cat /etc/passwd"` | `-32602 binary 'sh' not in allowlist` | "There is no shell, so `sh` is just a binary name, and it isn't on the list." |
 | 4 Path traversal | any | `fs_read ../../.ssh/id_rsa` | `-32602 … path /.ssh/id_rsa escapes sandbox root /tmp/jail` | "The kernel canonicalizes the path first, then we check the prefix." |
-| 5 Tripwire (stand-in) | `--read-only` | `fs_write loot.txt` | `isError: true`, `sandbox is read-only` | "The honeytoken is the design direction. The read-only guard is what ships today." |
+| 5 Tripwire | any | `fs_list .`, then `fs_read CONFIDENTIAL_KEYS.txt`, then `fs_read note.txt` | the decoy in the listing; a red `TRIPWIRE TRIGGERED` line on stderr; `-32003 … is a honeytoken; session revoked`; then `-32003 session revoked` for the innocent read | "The listing is the bait. Touch it once and this session is done. Every other session keeps working." |
+| Bonus | `--read-only` | `fs_write loot.txt` | `isError: true`, `sandbox is read-only` | "Read-only is a hard gate too, not a prompt." |
 | Bonus | none | `exec_run cargo --version` | `exec_run disabled (server started without --enable-exec)` | "Exec is off by default. You have to turn it on." |
 
 Things to know about the output:
 
-- **Two kinds of refusal.** Beats 3 and 4 return a JSON-RPC `error` with code
-  `-32602`. Beat 5 and the bonus return a normal `result` with `isError: true`.
-  If someone asks why: argument validation fails as a protocol error, and a
+- **Two kinds of refusal.** Beats 3, 4 and 5 return a JSON-RPC `error` with a
+  code the client can branch on: `-32602` for bad arguments, `-32003` for the
+  tripwire. The bonus beats return a normal `result` with `isError: true`.
+  If someone asks why: addressing failures are protocol errors, and a
   policy refusal is a tool result the model can read and react to.
+- **The tripwire must come last.** It revokes the session, so any beat you
+  send after it on the same server gets `-32003`. The script gives beat 5 its
+  own server.
+- **Why searches don't trip it.** A broad `fs_search` is normal agent
+  behaviour, so it skips the decoy silently: no trip, and no leaked contents.
+  Only addressing the file by name trips it. If someone asks about
+  `exec_run rg KEY .`: exec is off by default, and its arguments are checked
+  by name only. That limit is documented in `falcon-mcp/src/tripwire.rs`.
 - **Replies can arrive out of order.** When several calls go to one server,
   it answers them concurrently (a dry run printed ids 4, 3, 2). The script
   starts a new server for each beat. By hand, send one frame and wait for its
@@ -68,6 +78,8 @@ Things to know about the output:
 ```bash
 cargo build -p falcon-mcp
 mkdir -p /tmp/jail && git -C /tmp/jail init -q
+printf 'AWS_SECRET_ACCESS_KEY=decoy-not-a-real-key\n' > /tmp/jail/CONFIDENTIAL_KEYS.txt
+echo hello > /tmp/jail/note.txt
 target/debug/falcon-mcp --stdio --root /tmp/jail --enable-exec
 ```
 
@@ -79,23 +91,24 @@ Paste the handshake first. Then paste one beat at a time:
 {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"exec_run","arguments":{"cmd":"cargo","args":["--version"]}}}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"exec_run","arguments":{"cmd":"sh","args":["-c","cat /etc/passwd"]}}}
 {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"fs_read","arguments":{"path":"../../.ssh/id_rsa"}}}
+{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"fs_list","arguments":{"path":"."}}}
+{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"fs_read","arguments":{"path":"CONFIDENTIAL_KEYS.txt"}}}
+{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"fs_read","arguments":{"path":"note.txt"}}}
 ```
 
-Press Ctrl-D, then restart the server with `--read-only` for beat 5. Keep these
-lines in a notes file. Don't type JSON live.
+Beat 5 is the last three lines, and it has to go last. Keep these lines in a
+notes file. Don't type JSON live.
 
 ## Deck vs code
 
-The slides were brought in line with `falcon-mcp` on 2026-09-25. Tool names,
-error messages, the per-family timeouts, the `-32001` timeout code, the
-six-binary allowlist, and the `main` wiring are now all real. What's left
-to say on stage:
+Every slide now matches `falcon-mcp` as shipped (2026-09-25), including the
+tripwire. Nothing needs correcting on stage. Two lines are worth saying on
+slide 8:
 
-| Slide | Say |
-|---|---|
-| 7 | `Tripwire` is commented out as the next stage. `Guard(ReadOnly)` is the one that ships today. |
-| 8 | The honeytoken is marked *next case*. It refuses and logs instead of calling `exit(1)`, because exiting would take the server down for every client connected to it. |
-| 9 | The beats match `rehearse.sh`. Beat 5 is the read-only guard. |
+- "It revokes the session, not the process." The early sketch called
+  `exit(1)`, which would have taken the server down for every client.
+- "The code's number is `-32003`, next to timeout's `-32001`." A client
+  branches on it the same way.
 
 If you change a slide, run the matching beat again so the reply on screen
 still matches what the slide says.
@@ -107,6 +120,7 @@ still matches what the slide says.
 | Server prints nothing | You skipped `initialize` or `notifications/initialized`. Paste the handshake again. |
 | `exec_run disabled` on beat 2 | You started it without `--enable-exec`. Call it the bonus beat, then restart with the flag. |
 | A beat hangs | Ctrl-C, restart the server, and send only that frame. Fallback: `cargo test -p falcon-mcp --test exec_test`. The tests assert the same beats. |
+| Beat 5 shows `session revoked` on the first read | You sent it after another trip on the same server. Restart the server and send beat 5 fresh. |
 | Build is slow or offline | Build the night before. `target/` survives, so don't run `cargo clean`. |
 | Projector mangles the JSON | Pipe through `jq -c .` or switch to `rehearse.sh --beats`, which labels each beat. |
 

@@ -1,19 +1,18 @@
 # The Hard Tripwire: Honeytokens & Canaries 🚨
 
-*Next case: the design direction, not shipped yet.*
-
 ```rust
-fn check_honeytoken(requested: &Path) -> Result<(), ToolError> {
-    // Intercept reads of a decoy before they hit disk
-    if requested.file_name() == Some(OsStr::new("CONFIDENTIAL_KEYS.txt")) {
-        tracing::warn!(path = %requested.display(), "TRIPWIRE TRIGGERED");
+// sandbox.rs: every path-taking tool resolves through here
+pub fn resolve(&self, rel: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
+    let resolved = self.resolve_jailed(rel.as_ref())?;     // root jail first
+    self.check_honeytoken(rel.as_ref(), &resolved)?;      // CONFIDENTIAL_KEYS.txt
+    Ok(resolved)
+}
 
-        // Refuse and revoke this session only; exit(1) would
-        // take the server down for every other client
-        return Err(ToolError::InvalidArgument("tripwire".into()));
-    }
-    Ok(())
+// server.rs: one trip revokes the session, not the server
+if e.code == TRIPWIRE_ERROR_CODE {                         // -32003
+    self.revoked.store(true, Ordering::SeqCst);
+    tracing::error!(%tool, "TRIPWIRE TRIGGERED: session revoked");
 }
 ```
 
-Shipping today: `--read-only`, the root jail, the allowlist, the timeouts.
+Searches skip the decoy silently. `fs_list` shows it: that's the bait.
