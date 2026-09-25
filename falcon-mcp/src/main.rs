@@ -27,6 +27,11 @@ struct Args {
     /// Enable the exec.run tool (off by default for safety).
     #[arg(long)]
     enable_exec: bool,
+
+    /// Extra honeytoken file name to watch, on top of CONFIDENTIAL_KEYS.txt.
+    /// Addressing one fails the call and revokes the session. Repeatable.
+    #[arg(long = "honeytoken", value_name = "NAME")]
+    honeytokens: Vec<String>,
 }
 
 #[tokio::main]
@@ -38,7 +43,8 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?;
+    let sandbox = falcon_mcp::Sandbox::new(args.root.clone(), args.read_only)?
+        .with_honeytokens(args.honeytokens.iter().cloned());
     let server = falcon_mcp::FalconMcp::new_with_options(sandbox, args.enable_exec);
 
     use rmcp::transport::streamable_http_server::{
@@ -48,7 +54,9 @@ async fn main() -> anyhow::Result<()> {
 
     if let Some(port) = args.http {
         let service = StreamableHttpService::new(
-            move || Ok(server.clone()),
+            // Fresh revocation flag per session: a tripwire revokes only
+            // the session that tripped it.
+            move || Ok(server.for_new_session()),
             LocalSessionManager::default().into(),
             Default::default(),
         );

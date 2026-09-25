@@ -9,6 +9,7 @@ pub mod sandbox;
 pub mod server;
 pub mod tool_error;
 pub mod tools;
+pub mod tripwire;
 
 pub use sandbox::Sandbox;
 pub use server::FalconMcp;

@@ -115,6 +115,10 @@ pub async fn fs_search_ast(
         };
 
         let file = v["file"].as_str().unwrap_or("").to_string();
+        // Decoys are skipped silently, as in fs_search (see crate::tripwire).
+        if sandbox.is_honeytoken(std::path::Path::new(&file)) {
+            return ControlFlow::Continue(());
+        }
         // range.start.line is 0-based; convert to 1-based with saturating_add.
         let line_number = v["range"]["start"]["line"]
             .as_u64()
