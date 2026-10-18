@@ -1,0 +1,780 @@
+# Trailmark repository links for falcon-mcp (Trailmark 0.5+).
+#
+# Trailmark's Rust parser leaves these calls unresolved, so without this file
+# every MCP tool handler looks unreachable from `main` and the taint pass stops
+# at server startup. The parser misses:
+#   - crate and module paths (`falcon_mcp::Sandbox::new`, `fs_basic::fs_read`);
+#   - method calls on a value (`sandbox.resolve(..)`, `self.check_bin(..)`),
+#     including ones split across lines;
+#   - rmcp's macro-generated dispatch from `ServerHandler::call_tool` through
+#     `tool_router.call(..)` to each `#[tool]` method.
+#
+# Every edge below is a real call in src/ except group 2, which models the
+# rmcp serve loop and router (confidence = "inferred"). Keep the file in step
+# with the code: a new `#[tool]` method needs a group 2 and a group 3 entry,
+# and a new `sandbox.*` call needs a group 4 entry.
+
+
+# 1. main -> library: crate-path calls (`falcon_mcp::...`) and calls on the
+#    `server` / `Sandbox::new(..)?` values
+
+[[link]]
+source = "src.main:main"
+target = "src.sandbox:Sandbox.new"
+kind = "calls"
+confidence = "certain"
+description = "main -> Sandbox.new"
+
+[[link]]
+source = "src.main:main"
+target = "src.sandbox:Sandbox.with_honeytokens"
+kind = "calls"
+confidence = "certain"
+description = "main -> Sandbox.with_honeytokens"
+
+[[link]]
+source = "src.main:main"
+target = "src.server:FalconMcp.for_new_session"
+kind = "calls"
+confidence = "certain"
+description = "main -> FalconMcp.for_new_session"
+
+[[link]]
+source = "src.main:main"
+target = "src.server:FalconMcp.new_with_options"
+kind = "calls"
+confidence = "certain"
+description = "main -> FalconMcp.new_with_options"
+
+
+# 2. rmcp dispatch (macro-generated): the serve loop calls `call_tool`, which
+#    routes through `tool_router.call(..)` to the matching #[tool] method
+
+[[link]]
+source = "src.main:main"
+target = "src.server:FalconMcp.call_tool"
+kind = "calls"
+confidence = "inferred"
+description = "main -> FalconMcp.call_tool"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_read"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_read"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_write"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_write"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_list"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_list"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_apply_patch"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_apply_patch"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_search"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_search"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.fs_search_ast"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.fs_search_ast"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.cargo_check"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.cargo_check"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.cargo_test"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.cargo_test"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.cargo_clippy"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.cargo_clippy"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.cargo_fmt"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.cargo_fmt"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_worktree_add"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_worktree_add"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_worktree_remove"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_worktree_remove"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_add"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_add"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_commit"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_commit"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_diff"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_diff"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_log"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_log"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.git_blame"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.git_blame"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.prompt_lint"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.prompt_lint"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.exec_run"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> FalconMcp.exec_run"
+
+
+# 3. #[tool] method -> tools module function (module-path calls such as
+#    `fs_basic::fs_read`), plus other in-server helper calls
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.server:FalconMcp.is_revoked"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.call_tool -> FalconMcp.is_revoked"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_check"
+target = "src.tools.cargo:cargo_check"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_check -> cargo_check"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_clippy"
+target = "src.tools.cargo:cargo_clippy"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_clippy -> cargo_clippy"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_fmt"
+target = "src.tools.cargo:cargo_fmt"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_fmt -> cargo_fmt"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_test"
+target = "src.tools.cargo:cargo_test"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_test -> cargo_test"
+
+[[link]]
+source = "src.server:FalconMcp.exec_run"
+target = "src.tool_error:ToolError.internal"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.exec_run -> ToolError.internal"
+
+[[link]]
+source = "src.server:FalconMcp.exec_run"
+target = "src.tools.exec:exec_run"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.exec_run -> exec_run"
+
+[[link]]
+source = "src.server:FalconMcp.fs_apply_patch"
+target = "src.tools.fs_basic:fs_apply_patch"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_apply_patch -> fs_apply_patch"
+
+[[link]]
+source = "src.server:FalconMcp.fs_list"
+target = "src.tools.fs_basic:fs_list"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_list -> fs_list"
+
+[[link]]
+source = "src.server:FalconMcp.fs_read"
+target = "src.tools.fs_basic:fs_read"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_read -> fs_read"
+
+[[link]]
+source = "src.server:FalconMcp.fs_search"
+target = "src.tools.fs_basic:fs_search"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_search -> fs_search"
+
+[[link]]
+source = "src.server:FalconMcp.fs_search_ast"
+target = "src.tools.fs_ast:fs_search_ast"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_search_ast -> fs_search_ast"
+
+[[link]]
+source = "src.server:FalconMcp.fs_write"
+target = "src.tools.fs_basic:fs_write"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_write -> fs_write"
+
+[[link]]
+source = "src.server:FalconMcp.git_add"
+target = "src.tools.git:git_add"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_add -> git_add"
+
+[[link]]
+source = "src.server:FalconMcp.git_blame"
+target = "src.tools.git:git_blame"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_blame -> git_blame"
+
+[[link]]
+source = "src.server:FalconMcp.git_commit"
+target = "src.tools.git:git_commit"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_commit -> git_commit"
+
+[[link]]
+source = "src.server:FalconMcp.git_diff"
+target = "src.tools.git:git_diff"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_diff -> git_diff"
+
+[[link]]
+source = "src.server:FalconMcp.git_log"
+target = "src.tools.git:git_log"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_log -> git_log"
+
+[[link]]
+source = "src.server:FalconMcp.git_worktree_add"
+target = "src.tools.git:worktree_add"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_worktree_add -> worktree_add"
+
+[[link]]
+source = "src.server:FalconMcp.git_worktree_remove"
+target = "src.tools.git:worktree_remove"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_worktree_remove -> worktree_remove"
+
+[[link]]
+source = "src.server:FalconMcp.new"
+target = "src.server:FalconMcp.new_with_options"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.new -> FalconMcp.new_with_options"
+
+[[link]]
+source = "src.server:FalconMcp.prompt_lint"
+target = "src.tools.prompt_lint:prompt_lint"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.prompt_lint -> prompt_lint"
+
+
+# 4. tools -> Sandbox methods: the path jail (`resolve`), write gate
+#    (`check_writable`), binary allowlist (`check_bin`, `resolved_bin`) and
+#    honeytoken checks (`check_args`, `is_honeytoken`)
+
+[[link]]
+source = "src.tools.cargo:cargo_clippy"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "cargo_clippy -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.cargo:cargo_fmt"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "cargo_fmt -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.cargo:cargo_fmt"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "cargo_fmt -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.cargo:cargo_fmt"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "cargo_fmt -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.cargo:cargo_test"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "cargo_test -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.cargo:cargo_test"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "cargo_test -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.cargo:run_cargo_json"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "run_cargo_json -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.cargo:run_cargo_json"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "run_cargo_json -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.exec:exec_run"
+target = "src.sandbox:Sandbox.check_args"
+kind = "calls"
+confidence = "certain"
+description = "exec_run -> Sandbox.check_args"
+
+[[link]]
+source = "src.tools.exec:exec_run"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "exec_run -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.exec:exec_run"
+target = "src.sandbox:Sandbox.resolved_bin"
+kind = "calls"
+confidence = "certain"
+description = "exec_run -> Sandbox.resolved_bin"
+
+[[link]]
+source = "src.tools.exec:exec_run"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "exec_run -> Sandbox.root"
+
+[[link]]
+source = "src.tools.fs_ast:fs_search_ast"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "fs_search_ast -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.fs_ast:fs_search_ast"
+target = "src.sandbox:Sandbox.is_honeytoken"
+kind = "calls"
+confidence = "certain"
+description = "fs_search_ast -> Sandbox.is_honeytoken"
+
+[[link]]
+source = "src.tools.fs_ast:fs_search_ast"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "fs_search_ast -> Sandbox.root"
+
+[[link]]
+source = "src.tools.fs_basic:fs_apply_patch"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "fs_apply_patch -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.fs_basic:fs_apply_patch"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "fs_apply_patch -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.fs_basic:fs_list"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "fs_list -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.fs_basic:fs_read"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "fs_read -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.fs_basic:fs_search"
+target = "src.sandbox:Sandbox.is_honeytoken"
+kind = "calls"
+confidence = "certain"
+description = "fs_search -> Sandbox.is_honeytoken"
+
+[[link]]
+source = "src.tools.fs_basic:fs_search"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "fs_search -> Sandbox.root"
+
+[[link]]
+source = "src.tools.fs_basic:fs_write"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "fs_write -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.fs_basic:fs_write"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "fs_write -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:git_add"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "git_add -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:git_add"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "git_add -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.git:git_add"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "git_add -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:git_add"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "git_add -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:git_blame"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "git_blame -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:git_blame"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "git_blame -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:git_blame"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "git_blame -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:git_commit"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "git_commit -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:git_commit"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "git_commit -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.git:git_commit"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "git_commit -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:git_diff"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "git_diff -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:git_diff"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "git_diff -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:git_log"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "git_log -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:git_log"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "git_log -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:git_log"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "git_log -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:worktree_add"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "worktree_add -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:worktree_add"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "worktree_add -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.git:worktree_add"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "worktree_add -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:worktree_add"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "worktree_add -> Sandbox.root"
+
+[[link]]
+source = "src.tools.git:worktree_remove"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "worktree_remove -> Sandbox.check_bin"
+
+[[link]]
+source = "src.tools.git:worktree_remove"
+target = "src.sandbox:Sandbox.check_writable"
+kind = "calls"
+confidence = "certain"
+description = "worktree_remove -> Sandbox.check_writable"
+
+[[link]]
+source = "src.tools.git:worktree_remove"
+target = "src.sandbox:Sandbox.resolve"
+kind = "calls"
+confidence = "certain"
+description = "worktree_remove -> Sandbox.resolve"
+
+[[link]]
+source = "src.tools.git:worktree_remove"
+target = "src.sandbox:Sandbox.root"
+kind = "calls"
+confidence = "certain"
+description = "worktree_remove -> Sandbox.root"
+
+
+# 5. inside the sandbox: `self.*` calls and the `tripwire::*` matchers
+
+[[link]]
+source = "src.sandbox:Sandbox.check_args"
+target = "src.tripwire:arg_token"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.check_args -> arg_token"
+
+[[link]]
+source = "src.sandbox:Sandbox.check_honeytoken"
+target = "src.tripwire:path_token"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.check_honeytoken -> path_token"
+
+[[link]]
+source = "src.sandbox:Sandbox.is_honeytoken"
+target = "src.tripwire:path_token"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.is_honeytoken -> path_token"
+
+[[link]]
+source = "src.sandbox:Sandbox.resolve"
+target = "src.sandbox:Sandbox.check_honeytoken"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.resolve -> Sandbox.check_honeytoken"
+
+[[link]]
+source = "src.sandbox:Sandbox.resolve"
+target = "src.sandbox:Sandbox.resolve_jailed"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.resolve -> Sandbox.resolve_jailed"
+
+[[link]]
+source = "src.sandbox:Sandbox.resolved_bin"
+target = "src.sandbox:Sandbox.check_bin"
+kind = "calls"
+confidence = "certain"
+description = "Sandbox.resolved_bin -> Sandbox.check_bin"
+
+
+# 6. tools -> shared helpers (`subprocess::*`, `limits::*`)
+
+[[link]]
+source = "src.tools.cargo:cargo_fmt"
+target = "src.limits:cargo_timeout"
+kind = "calls"
+confidence = "certain"
+description = "cargo_fmt -> cargo_timeout"
+
+[[link]]
+source = "src.tools.cargo:cargo_test"
+target = "src.limits:cargo_timeout"
+kind = "calls"
+confidence = "certain"
+description = "cargo_test -> cargo_timeout"
+
+[[link]]
+source = "src.tools.cargo:run_cargo_json"
+target = "src.limits:cargo_timeout"
+kind = "calls"
+confidence = "certain"
+description = "run_cargo_json -> cargo_timeout"
+
+[[link]]
+source = "src.tools.exec:default_timeout_ms"
+target = "src.limits:exec_timeout"
+kind = "calls"
+confidence = "certain"
+description = "default_timeout_ms -> exec_timeout"
+
+[[link]]
+source = "src.tools.fs_ast:fs_search_ast"
+target = "src.limits:search_timeout"
+kind = "calls"
+confidence = "certain"
+description = "fs_search_ast -> search_timeout"
+
+[[link]]
+source = "src.tools.fs_ast:fs_search_ast"
+target = "src.tools.subprocess:run_streaming"
+kind = "calls"
+confidence = "certain"
+description = "fs_search_ast -> run_streaming"
+
+[[link]]
+source = "src.tools.fs_basic:fs_search"
+target = "src.limits:search_timeout"
+kind = "calls"
+confidence = "certain"
+description = "fs_search -> search_timeout"
+
+[[link]]
+source = "src.tools.git:run_git"
+target = "src.limits:git_timeout"
+kind = "calls"
+confidence = "certain"
+description = "run_git -> git_timeout"
