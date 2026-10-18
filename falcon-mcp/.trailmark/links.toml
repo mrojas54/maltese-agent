@@ -7,12 +7,17 @@
 #   - method calls on a value (`sandbox.resolve(..)`, `self.check_bin(..)`),
 #     including ones split across lines;
 #   - rmcp's macro-generated dispatch from `ServerHandler::call_tool` through
-#     `tool_router.call(..)` to each `#[tool]` method.
+#     `tool_router.call(..)` to each `#[tool]` method;
+#   - function paths passed as values (`.map_err(ToolError::classify)`) and
+#     trait-method dispatch (`IntoCallToolResult::into_call_tool_result`).
 #
-# Every edge below is a real call in src/ except group 2, which models the
-# rmcp serve loop and router (confidence = "inferred"). Keep the file in step
-# with the code: a new `#[tool]` method needs a group 2 and a group 3 entry,
-# and a new `sandbox.*` call needs a group 4 entry.
+# Every edge below is a real call in src/ except two kinds that model rmcp
+# internals and carry confidence = "inferred": group 2 (the serve loop and
+# router) and the last group 7 entry (the IntoCallToolResult trait dispatch).
+# Keep the file in step with the code: a new `#[tool]` method needs a group 2
+# and a group 3 entry,
+# a new `sandbox.*` call needs a group 4 entry, and a new handler that maps
+# errors through `ToolError::classify` needs a group 7 entry.
 
 
 # 1. main -> library: crate-path calls (`falcon_mcp::...`) and calls on the
@@ -778,3 +783,143 @@ target = "src.limits:git_timeout"
 kind = "calls"
 confidence = "certain"
 description = "run_git -> git_timeout"
+
+# 7. error boundary: how a tripwire hit becomes session revocation. Each
+#    handler passes `ToolError::classify` to `map_err`, which maps
+#    `TripwireTriggered` to `ToolError::Tripwire`; the router turns the handler
+#    result into a response through `IntoCallToolResult::into_call_tool_result`,
+#    which emits `TRIPWIRE_ERROR_CODE`; `call_tool` checks that code and revokes
+#    the session.
+
+[[link]]
+source = "src.server:FalconMcp.fs_read"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_read -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.fs_write"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_write -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.fs_list"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_list -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.fs_apply_patch"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_apply_patch -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.fs_search"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_search -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.fs_search_ast"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.fs_search_ast -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_check"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_check -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_test"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_test -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_clippy"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_clippy -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.cargo_fmt"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.cargo_fmt -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_worktree_add"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_worktree_add -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_worktree_remove"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_worktree_remove -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_add"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_add -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_commit"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_commit -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_diff"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_diff -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_log"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_log -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.git_blame"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.git_blame -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.exec_run"
+target = "src.tool_error:ToolError.classify"
+kind = "calls"
+confidence = "certain"
+description = "FalconMcp.exec_run -> ToolError.classify (map_err callback)"
+
+[[link]]
+source = "src.server:FalconMcp.call_tool"
+target = "src.tool_error:ToolError.into_call_tool_result"
+kind = "calls"
+confidence = "inferred"
+description = "FalconMcp.call_tool -> ToolError.into_call_tool_result (tool_router.call converts the handler Err via IntoCallToolResult)"
