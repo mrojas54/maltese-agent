@@ -4,6 +4,9 @@
 //! (`crate::tool_error`): not-found / invalid-argument / timeout surface as
 //! JSON-RPC protocol errors with distinct codes an MCP client can branch on
 //! (AC-32); internal failures stay result-level (`is_error: true`).
+//!
+//! A tripped honeytoken revokes the session (see [`crate::tripwire`]): the
+//! `call_tool` override below records the trip and refuses every later call.
 
 use crate::sandbox::Sandbox;
 use crate::tool_error::ToolError;
@@ -14,10 +17,14 @@ use crate::tools::fs_basic;
 use crate::tools::git;
 use crate::tools::prompt_lint;
 use crate::tools::util::OkResult;
+use crate::tripwire::TRIPWIRE_ERROR_CODE;
 use rmcp::{
-    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
-    tool, tool_handler, tool_router, Json, ServerHandler,
+    handler::server::{router::tool::ToolRouter, tool::ToolCallContext, wrapper::Parameters},
+    model::{CallToolRequestParams, CallToolResponse},
+    service::RequestContext,
+    tool, tool_handler, tool_router, ErrorData, Json, RoleServer, ServerHandler,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -25,6 +32,9 @@ pub struct FalconMcp {
     sandbox: Arc<Sandbox>,
     exec_enabled: bool,
     tool_router: ToolRouter<Self>,
+    /// Set once a honeytoken trips on this session. Clones share it, so the
+    /// HTTP transport must hand each new session [`Self::for_new_session`].
+    revoked: Arc<AtomicBool>,
 }
 
 #[tool_router(router = tool_router)]
@@ -38,7 +48,21 @@ impl FalconMcp {
             sandbox: Arc::new(sandbox),
             exec_enabled,
             tool_router: Self::tool_router(),
+            revoked: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// A handle for a new session: same sandbox and tools, its own
+    /// revocation flag, so a trip on one session never revokes another.
+    pub fn for_new_session(&self) -> Self {
+        Self {
+            revoked: Arc::new(AtomicBool::new(false)),
+            ..self.clone()
+        }
+    }
+
+    pub fn is_revoked(&self) -> bool {
+        self.revoked.load(Ordering::SeqCst)
     }
 
     /// Read a file from within the sandbox root.
@@ -318,4 +342,32 @@ impl FalconMcp {
 }
 
 #[tool_handler(router = self.tool_router)]
-impl ServerHandler for FalconMcp {}
+impl ServerHandler for FalconMcp {
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, ErrorData> {
+        if self.is_revoked() {
+            return Err(ErrorData::new(
+                TRIPWIRE_ERROR_CODE,
+                "session revoked: a honeytoken was accessed earlier in this session",
+                Some(serde_json::json!({"kind": "tripwire"})),
+            ));
+        }
+        let tool = request.name.to_string();
+        let result = self
+            .tool_router
+            .call(ToolCallContext::new(self, request, context))
+            .await;
+        if let Err(e) = &result {
+            if e.code == TRIPWIRE_ERROR_CODE {
+                self.revoked.store(true, Ordering::SeqCst);
+                // error level: the default filter (RUST_LOG unset) shows
+                // errors only, and a tripped decoy is an alert, not noise.
+                tracing::error!(%tool, detail = %e.message, "TRIPWIRE TRIGGERED: session revoked");
+            }
+        }
+        result
+    }
+}

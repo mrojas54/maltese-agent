@@ -9,6 +9,7 @@
 //! | not-found        | JSON-RPC protocol error (`ErrorData`)                | -32002 |
 //! | invalid-argument | JSON-RPC protocol error (`ErrorData`)                | -32602 |
 //! | timeout          | JSON-RPC protocol error (`ErrorData`, structured data)| -32001 |
+//! | tripwire         | JSON-RPC protocol error (`ErrorData`)                | -32003 |
 //! | internal         | `CallToolResult { is_error: true }` (result-level)   | —      |
 //!
 //! `internal` deliberately stays result-level: the MCP spec routes tool
@@ -28,6 +29,7 @@
 //! `.into()` and the wire shape is unchanged from rmcp 2.x.
 
 use crate::tools::subprocess::SubprocessTimeout;
+use crate::tripwire::{TripwireTriggered, TRIPWIRE_ERROR_CODE};
 use rmcp::handler::server::tool::IntoCallToolResult;
 use rmcp::model::{CallToolResponse, CallToolResult, ContentBlock, ErrorCode, ErrorData};
 
@@ -53,6 +55,9 @@ pub enum ToolError {
         elapsed_ms: u64,
         limit_ms: u64,
     },
+    /// A honeytoken was addressed, or the session was already revoked by
+    /// one ([`TRIPWIRE_ERROR_CODE`]). See [`crate::tripwire`].
+    Tripwire(String),
     /// Everything else: reported result-level (`is_error: true`), preserving
     /// the pre-taxonomy shape for execution failures.
     Internal(String),
@@ -68,6 +73,7 @@ impl ToolError {
     /// Classify an `anyhow::Error` coming out of a tool implementation.
     ///
     /// Rules, in order (first match wins):
+    /// 0. [`TripwireTriggered`] anywhere in the chain → [`Self::Tripwire`].
     /// 1. [`SubprocessTimeout`] anywhere in the chain → [`Self::Timeout`].
     /// 2. `std::io::Error` with [`std::io::ErrorKind::NotFound`] anywhere in
     ///    the chain → [`Self::NotFound`] (missing file/dir path).
@@ -79,6 +85,12 @@ impl ToolError {
     /// 4. Everything else → [`Self::Internal`] (read-only rejections,
     ///    child-process stderr failures, non-UTF-8 content, ...).
     pub fn classify(err: anyhow::Error) -> Self {
+        if err
+            .chain()
+            .any(|cause| cause.downcast_ref::<TripwireTriggered>().is_some())
+        {
+            return Self::Tripwire(format!("{err:#}"));
+        }
         if let Some(t) = err
             .chain()
             .find_map(|cause| cause.downcast_ref::<SubprocessTimeout>())
@@ -116,6 +128,11 @@ impl IntoCallToolResult for ToolError {
                 ErrorCode::INVALID_PARAMS,
                 message,
                 Some(serde_json::json!({"kind": "invalid-argument"})),
+            )),
+            Self::Tripwire(message) => Err(ErrorData::new(
+                TRIPWIRE_ERROR_CODE,
+                message,
+                Some(serde_json::json!({"kind": "tripwire"})),
             )),
             Self::Timeout {
                 message,
@@ -164,6 +181,26 @@ mod tests {
             matches!(ToolError::classify(err), ToolError::InvalidArgument(_)),
             "sandbox escape must classify as invalid-argument"
         );
+    }
+
+    /// A REAL honeytoken hit from `Sandbox::resolve`, wrapped in context the
+    /// way tools wrap it, classifies as tripwire and maps to -32003.
+    #[test]
+    fn classify_real_honeytoken_is_tripwire() {
+        use anyhow::Context as _;
+        let dir = TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        let err = sb
+            .resolve("CONFIDENTIAL_KEYS.txt")
+            .context("resolving path")
+            .unwrap_err();
+        let classified = ToolError::classify(err);
+        assert!(
+            matches!(classified, ToolError::Tripwire(_)),
+            "{classified:?}"
+        );
+        let data = classified.into_call_tool_result().unwrap_err();
+        assert_eq!(data.code, crate::tripwire::TRIPWIRE_ERROR_CODE);
     }
 
     /// Drift guard: a REAL allowlist rejection from `Sandbox::check_bin`.
