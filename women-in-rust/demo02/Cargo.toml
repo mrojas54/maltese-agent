@@ -1,0 +1,77 @@
+[package]
+name = "demo02"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust demo 02: guards, a Sandbox every tool goes through"
+publish = false
+# `cargo run` with no `--bin` runs the tutorial runner in src/main.rs.
+default-run = "demo02"
+
+# Its own tiny workspace, separate from the repo's root one. The exercises are
+# broken on purpose, and a broken member would fail every `cargo build
+# --workspace` at the root. The root manifest also lists this directory under
+# `exclude`; this table is what stops cargo from walking up to look for a parent.
+[workspace]
+
+[dependencies]
+# The MCP SDK. Same features and version as demo00 and ../../falcon-mcp.
+rmcp = { version = "3", features = ["server", "transport-io", "macros"] }
+# Derives the JSON schema the model sees from plain Rust structs.
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `full` includes the `process` feature that exec_run needs.
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+# The `--root` and `--read-only` flags, the way ../../falcon-mcp parses them.
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# The tutorial runner (`cargo run -- next`), shared by every demo.
+demo-runner = { path = "../runner" }
+
+[dev-dependencies]
+# Scratch directories for the tests that plant a secret outside the root.
+tempfile = "3"
+
+# The runner: `cargo run -- next` and friends.
+[[bin]]
+name = "demo02"
+path = "src/main.rs"
+
+# Every exercise and every solution is its own binary, so `cargo test --bin
+# sandbox1` builds just that one file. That is what lets the other exercises
+# stay broken while you work on this one. The runner drives these for you.
+
+[[bin]]
+name = "intro1"
+path = "exercises/00_intro/intro1.rs"
+
+[[bin]]
+name = "intro1_sol"
+path = "solutions/00_intro/intro1.rs"
+
+[[bin]]
+name = "sandbox1"
+path = "exercises/01_sandbox/sandbox1.rs"
+
+[[bin]]
+name = "sandbox1_sol"
+path = "solutions/01_sandbox/sandbox1.rs"
+
+[[bin]]
+name = "sandbox2"
+path = "exercises/01_sandbox/sandbox2.rs"
+
+[[bin]]
+name = "sandbox2_sol"
+path = "solutions/01_sandbox/sandbox2.rs"
+
+[[bin]]
+name = "readonly1"
+path = "exercises/02_readonly/readonly1.rs"
+
+[[bin]]
+name = "readonly1_sol"
+path = "solutions/02_readonly/readonly1.rs"

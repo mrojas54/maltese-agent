@@ -6,4 +6,9 @@ members = ["falcon-mcp", "falcon-agent"]
 # with intentional compile errors would fail every `cargo build --workspace`.
 # CI checks each separately with `cargo run -- verify` in its directory. The
 # runner they share is excluded for symmetry; the demos reach it by path.
-exclude = ["women-in-rust/runner", "women-in-rust/demo00", "women-in-rust/demo01"]
+exclude = [
+  "women-in-rust/runner",
+  "women-in-rust/demo00",
+  "women-in-rust/demo01",
+  "women-in-rust/demo02",
+]
