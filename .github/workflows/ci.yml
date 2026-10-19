@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # women-in-rust/* are the checkpoint branches students check out; each
+    # gets its own run so a checkpoint is green on its own, not only via a PR.
+    branches: [main, 'women-in-rust/**']
   pull_request:
     branches: [main]
 
@@ -211,7 +213,9 @@ jobs:
         run: cargo test
 
   tutorial:
-    name: Tutorial (${{ matrix.demo }} verify)
+    # Keep the women-in-rust/ prefix: the main ruleset requires the check
+    # "Tutorial (women-in-rust/demo00 verify)" by this exact name.
+    name: Tutorial (women-in-rust/${{ matrix.demo }} verify)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
