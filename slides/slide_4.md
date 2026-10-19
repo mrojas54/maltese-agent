@@ -3,26 +3,27 @@
 ```
 +------------------------------------------------------------------+
 |                        TRANSPORT LAYER                           |
-|               Async Stdio (tokio::io) / HTTP+SSE                 |
+|        rmcp stdio (--stdio)  /  Streamable HTTP (--http)         |
 +------------------------------------------------------------------+
                                 |
                                 v
 +------------------------------------------------------------------+
 |                     CAPABILITY ROUTER                            |
-|             #[serde(tag = "method")] JSON-RPC 2.0                |
+|        #[tool_router] + serde/schemars JSON-RPC 2.0              |
 +------------------------------------------------------------------+
         |                                       |
         v                                       v
 +-----------------------+               +--------------------------+
-|  FsSandbox (Root Jail)|               |  Exec (Binary Allowlist) |
-|  - safe_path_check()  |               |  - HashSet<Executable>   |
-|  - std::fs::canonical |               |  - tokio::process        |
+|  Sandbox (Root Jail)  |               |  Exec (Binary Allowlist) |
+|  - resolve()          |               |  - check_bin()           |
+|  - canonicalize()     |               |  - tokio::process        |
 +-----------------------+               +--------------------------+
         |                                       |
         +-------------------+-------------------+
                             |
                             v
 +------------------------------------------------------------------+
-|            FAILSAFE: tokio::time::timeout (10s)                  |
+|   FAILSAFE: tokio::time::timeout per family (limits.rs)          |
+|   cargo 900s · git 60s · search 30s · exec 30s  →  -32001        |
 +------------------------------------------------------------------+
 ```

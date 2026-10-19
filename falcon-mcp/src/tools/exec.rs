@@ -56,6 +56,7 @@ pub async fn exec_run(sandbox: Arc<Sandbox>, args: ExecRunArgs) -> anyhow::Resul
     // absolute path pinned when the sandbox was constructed, so a PATH
     // changed after startup cannot swap in a different binary (AC-21).
     let bin = sandbox.resolved_bin(&args.cmd)?;
+    sandbox.check_args(&args.args)?;
     let cwd = match &args.cwd {
         Some(c) => sandbox.resolve(c).context("resolving cwd")?,
         None => sandbox.root().to_path_buf(),

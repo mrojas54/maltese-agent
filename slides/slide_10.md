@@ -1,11 +1,14 @@
 # Case Closed 🦀
 
 ```rust
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     // Safety over prompt guidance
-    let sandbox = FsSandbox::new("/workspace/agent_data");
-    let executor = ExecSandbox::new(vec!["cargo", "git"]);
-    
-    run_server(sandbox, executor).await;
+    let sandbox = Sandbox::new(args.root, args.read_only)?; // jail + allowlist
+    let server = FalconMcp::new_with_options(sandbox, args.enable_exec);
+
+    // One binary, two transports
+    // --stdio: rmcp::transport::stdio()  |  --http <port>: /mcp
+    // ...
 }
 ```
