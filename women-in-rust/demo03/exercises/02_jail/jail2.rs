@@ -84,6 +84,9 @@ impl Sandbox {
         //     leads outside the root.
         //   - A `..` can hide in the missing tail: `ghost/../../new.txt`. Does
         //     your walk catch it, or fail closed?
+        //   - `canonicalize` also fails on a symlink whose target is missing.
+        //     Is that name missing, or is it there? Where would a write to it
+        //     land?
         todo!("place a path that does not exist yet")
     }
 }
@@ -232,6 +235,22 @@ mod tests {
     fn a_dotdot_hidden_in_the_missing_tail_is_refused() {
         let (_tmp, sb) = setup();
         let result = sb.resolve("ghost/../../new.txt");
+        assert!(result.is_err(), "resolved to {:?}", result.unwrap());
+    }
+
+    /// `link.txt` is a symlink to a file outside the root that does not exist
+    /// yet. `canonicalize` fails on it just as on a missing name, but writing
+    /// to it would create `outside/planted.txt`.
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_symlink_that_leads_out_is_refused() {
+        let (tmp, sb) = setup();
+        std::os::unix::fs::symlink(
+            tmp.path().join("outside/planted.txt"),
+            sb.root().join("link.txt"),
+        )
+        .expect("symlink");
+        let result = sb.resolve("link.txt");
         assert!(result.is_err(), "resolved to {:?}", result.unwrap());
     }
 }

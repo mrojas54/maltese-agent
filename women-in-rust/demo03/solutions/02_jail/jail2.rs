@@ -63,24 +63,54 @@ impl Sandbox {
             return Ok(canonical);
         }
 
-        // TODO(human): the path does not exist yet, so `canonicalize` failed.
-        // Place it anyway.
+        // A path that does not exist yet: walk up to the first ancestor that
+        // does, canonicalize it, and put the names walked past back on.
         //
-        // Walk up from `joined` to the first ancestor that does exist,
-        // canonicalize THAT, re-attach the names you walked past (in order),
-        // and check the finished path is still under `self.root`, with the same
-        // "escapes sandbox root" message as above.
-        //
-        // Things to weigh:
-        //   - `Path::file_name()` and `Path::parent()` are the two steps of the
-        //     walk, and either can be `None` when the path runs out. What
-        //     should happen then?
-        //   - Why does the escape check run on the re-assembled path, and not
-        //     on `joined`? Try `out/new.txt` where `out` is a symlink that
-        //     leads outside the root.
-        //   - A `..` can hide in the missing tail: `ghost/../../new.txt`. Does
-        //     your walk catch it, or fail closed?
-        todo!("place a path that does not exist yet")
+        // `file_name()` is `None` when the path ends in `..`, which is how
+        // `ghost/../../new.txt` gets here: `ghost` does not exist, so the OS
+        // cannot say where `ghost/..` is. Nothing can be placed, so refuse.
+        // `parent()` is `None` only past `/`, which always exists, but running
+        // out is a refusal too, never a pass.
+        let mut existing = joined.as_path();
+        let mut missing = Vec::new();
+        let canonical_existing = loop {
+            if let Ok(canonical) = existing.canonicalize() {
+                break canonical;
+            }
+            // `canonicalize` also fails on a symlink whose target is missing.
+            // That name is not missing, it is a link, and a write to it lands
+            // wherever it points. Only walk past names that are truly absent.
+            if existing.symlink_metadata().is_ok() {
+                anyhow::bail!(
+                    "path {} exists but cannot be resolved (a broken symlink?)",
+                    existing.display()
+                );
+            }
+            let name = existing
+                .file_name()
+                .with_context(|| format!("path {} cannot be placed", joined.display()))?;
+            missing.push(name);
+            existing = existing
+                .parent()
+                .with_context(|| format!("path {} cannot be placed", joined.display()))?;
+        };
+
+        // The names came off the end first, so they go back on in reverse.
+        let mut placed = canonical_existing;
+        for name in missing.iter().rev() {
+            placed.push(name);
+        }
+
+        // Check the placed path, not `joined`: for `out/new.txt`, `out` is a
+        // symlink, and only the canonical ancestor shows where it leads.
+        if !placed.starts_with(&self.root) {
+            anyhow::bail!(
+                "path {} escapes sandbox root {}",
+                placed.display(),
+                self.root.display()
+            );
+        }
+        Ok(placed)
     }
 }
 
@@ -228,6 +258,22 @@ mod tests {
     fn a_dotdot_hidden_in_the_missing_tail_is_refused() {
         let (_tmp, sb) = setup();
         let result = sb.resolve("ghost/../../new.txt");
+        assert!(result.is_err(), "resolved to {:?}", result.unwrap());
+    }
+
+    /// `link.txt` is a symlink to a file outside the root that does not exist
+    /// yet. `canonicalize` fails on it just as on a missing name, but writing
+    /// to it would create `outside/planted.txt`.
+    #[cfg(unix)]
+    #[test]
+    fn a_broken_symlink_that_leads_out_is_refused() {
+        let (tmp, sb) = setup();
+        std::os::unix::fs::symlink(
+            tmp.path().join("outside/planted.txt"),
+            sb.root().join("link.txt"),
+        )
+        .expect("symlink");
+        let result = sb.resolve("link.txt");
         assert!(result.is_err(), "resolved to {:?}", result.unwrap());
     }
 }
