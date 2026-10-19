@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # women-in-rust/* are the checkpoint branches students check out; each
+    # gets its own run so a checkpoint is green on its own, not only via a PR.
+    branches: [main, 'women-in-rust/**']
   pull_request:
     branches: [main]
 
@@ -39,7 +41,7 @@ jobs:
       # taiki-e/install-action (~1s), same rationale as the ast-grep install
       # below — `cargo install cargo-audit` would add ~3min of compile.
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2.87.8
+        uses: taiki-e/install-action@v2.87.28
         with:
           tool: cargo-audit
 
@@ -60,7 +62,7 @@ jobs:
       # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
       # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
       - name: Install ast-grep
-        uses: taiki-e/install-action@v2.87.8
+        uses: taiki-e/install-action@v2.87.28
         with:
           tool: ast-grep
 
@@ -211,7 +213,9 @@ jobs:
         run: cargo test
 
   tutorial:
-    name: Tutorial (${{ matrix.demo }} verify)
+    # Keep the women-in-rust/ prefix: the main ruleset requires the check
+    # "Tutorial (women-in-rust/demo00 verify)" by this exact name.
+    name: Tutorial (women-in-rust/${{ matrix.demo }} verify)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

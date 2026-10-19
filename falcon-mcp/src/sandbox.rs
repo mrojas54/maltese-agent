@@ -1,3 +1,4 @@
+use crate::tripwire::{self, TripwireTriggered};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -18,6 +19,9 @@ pub struct Sandbox {
     /// not fail on hosts without e.g. ast-grep); `resolved_bin` reports them
     /// at call time instead.
     resolved_bins: HashMap<String, PathBuf>,
+    /// Decoy file names that trip the wire when addressed (see
+    /// [`crate::tripwire`]). Defaults to [`tripwire::DEFAULT_HONEYTOKENS`].
+    honeytokens: Vec<String>,
 }
 
 /// `which`-equivalent: scan the current PATH for an executable regular file
@@ -64,7 +68,66 @@ impl Sandbox {
             read_only,
             allowed_bins,
             resolved_bins,
+            honeytokens: tripwire::DEFAULT_HONEYTOKENS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         })
+    }
+
+    /// Watch these names in addition to the defaults (`--honeytoken`).
+    pub fn with_honeytokens(mut self, extra: impl IntoIterator<Item = String>) -> Self {
+        for name in extra {
+            if !self
+                .honeytokens
+                .iter()
+                .any(|t| t.eq_ignore_ascii_case(&name))
+            {
+                self.honeytokens.push(name);
+            }
+        }
+        self
+    }
+
+    pub fn honeytokens(&self) -> &[String] {
+        &self.honeytokens
+    }
+
+    /// True when a directory walk should skip this entry (fs_search,
+    /// fs_search_ast): broad searches must neither trip nor leak the decoy.
+    pub fn is_honeytoken(&self, path: &Path) -> bool {
+        tripwire::path_token(path, &self.honeytokens).is_some()
+    }
+
+    /// Trip the wire if any `exec_run` argument names a honeytoken.
+    pub fn check_args(&self, args: &[String]) -> anyhow::Result<()> {
+        for arg in args {
+            if let Some(token) = tripwire::arg_token(arg, &self.honeytokens) {
+                return Err(TripwireTriggered {
+                    requested: arg.clone(),
+                    token: token.to_string(),
+                }
+                .into());
+            }
+        }
+        Ok(())
+    }
+
+    /// Trip the wire if either the path as asked for or the path it resolved
+    /// to (after symlinks) names a honeytoken. Checking both catches a
+    /// symlink *to* the decoy and a decoy-named symlink to something else.
+    fn check_honeytoken(&self, requested: &Path, resolved: &Path) -> anyhow::Result<()> {
+        let rel = resolved.strip_prefix(&self.root).unwrap_or(resolved);
+        if let Some(token) = tripwire::path_token(requested, &self.honeytokens)
+            .or_else(|| tripwire::path_token(rel, &self.honeytokens))
+        {
+            return Err(TripwireTriggered {
+                requested: requested.display().to_string(),
+                token: token.to_string(),
+            }
+            .into());
+        }
+        Ok(())
     }
 
     /// Resolve `rel` against the sandbox root. Returns an error if the
@@ -74,8 +137,17 @@ impl Sandbox {
     /// nested inside dirs that don't exist either), this walks up to the first
     /// existing ancestor, canonicalizes it, then re-attaches the missing
     /// suffix. The final path's escape-check still applies.
+    ///
+    /// A path that names a honeytoken fails with [`TripwireTriggered`] after
+    /// the escape check, so every path-taking tool is covered in one place.
     pub fn resolve(&self, rel: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
-        let joined = self.root.join(rel.as_ref());
+        let resolved = self.resolve_jailed(rel.as_ref())?;
+        self.check_honeytoken(rel.as_ref(), &resolved)?;
+        Ok(resolved)
+    }
+
+    fn resolve_jailed(&self, rel: &Path) -> anyhow::Result<PathBuf> {
+        let joined = self.root.join(rel);
         if let Ok(canonical) = joined.canonicalize() {
             if !canonical.starts_with(&self.root) {
                 anyhow::bail!(
@@ -183,6 +255,44 @@ mod tests {
         let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
         let err = sb.resolve("../escape.txt").unwrap_err();
         assert!(err.to_string().contains("escape"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_trips_on_honeytoken_existing_or_not() {
+        let dir = TempDir::new().unwrap();
+        std::fs::write(dir.path().join("CONFIDENTIAL_KEYS.txt"), "decoy").unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        for p in ["CONFIDENTIAL_KEYS.txt", "new/confidential_keys.txt"] {
+            let err = sb.resolve(p).unwrap_err();
+            assert!(
+                err.downcast_ref::<TripwireTriggered>().is_some(),
+                "{p}: {err}"
+            );
+        }
+        assert!(sb.resolve("CONFIDENTIAL_KEYS.txt.bak").is_ok());
+    }
+
+    #[test]
+    fn escape_is_reported_before_the_tripwire() {
+        let dir = TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false).unwrap();
+        let err = sb.resolve("../CONFIDENTIAL_KEYS.txt").unwrap_err();
+        assert!(
+            err.to_string().contains("escapes sandbox root"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn with_honeytokens_adds_to_the_defaults() {
+        let dir = TempDir::new().unwrap();
+        let sb = Sandbox::new(dir.path().to_path_buf(), false)
+            .unwrap()
+            .with_honeytokens(["id_rsa".to_string()]);
+        assert!(sb.is_honeytoken(Path::new("CONFIDENTIAL_KEYS.txt")));
+        assert!(sb.is_honeytoken(Path::new(".ssh/id_rsa")));
+        assert!(sb.check_args(&["--version".into()]).is_ok());
+        assert!(sb.check_args(&["cat".into(), "id_rsa".into()]).is_err());
     }
 
     #[test]
