@@ -7,6 +7,13 @@
 #   wire                 build the binary and talk real JSON-RPC to it over stdio
 #   skip_check_unsolved  this exercise passes as-is (only intro1)
 #   hint                 what `cargo run -- hint <name>` prints
+#   tools                names `tools/list` must include (wire only)
+#   calls                `tools/call`s to make and what their replies must say
+#
+# `done` is what `next` prints once everything passes.
+
+done = """You have built an MCP server.
+   The grown-up version is ../../falcon-mcp: the same shape, with boundaries."""
 
 [[exercises]]
 name = "intro1"
@@ -14,12 +21,18 @@ dir = "00_intro"
 test = false
 wire = true
 skip_check_unsolved = true
+tools = ["greet"]
 hint = """
 Nothing to fix. This one passes so you can see what passing looks like, and
 so the finished server is in front of you before you build it in pieces.
 
 Read it top to bottom: the two structs, the tool, the handshake, main.
 Then `cargo run -- next`."""
+
+[[exercises.calls]]
+tool = "greet"
+arguments = { name = "Ada" }
+expect = [{ at = "/result/structuredContent/greeting", contains = "Ada" }]
 
 [[exercises]]
 name = "schema1"
@@ -103,6 +116,7 @@ name = "stdio1"
 dir = "04_stdio"
 test = false
 wire = true
+tools = ["greet"]
 hint = """
 The runner quoted the line. "listening on stdio" reached stdout, and stdout
 is the wire: a client feeds every stdout line to a JSON-RPC parser, so a log
@@ -123,3 +137,8 @@ That is what falcon-mcp does, so one RUST_LOG filter governs every log line
 in the server: `RUST_LOG=info cargo run --bin stdio1` shows them on stderr
 while stdout stays clean. The rule from the deck, in full: stdout is
 strictly reserved for JSON-RPC frames; all diagnostics go to stderr."""
+
+[[exercises.calls]]
+tool = "greet"
+arguments = { name = "Ada" }
+expect = [{ at = "/result/structuredContent/greeting", contains = "Ada" }]

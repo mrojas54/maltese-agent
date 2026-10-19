@@ -1,0 +1,119 @@
+# Exercise metadata for the shared runner (../runner), in the shape of
+# rustlings' info.toml. Order matters: `cargo run -- next` walks this list top
+# to bottom.
+#
+#   name                 the binary name (see Cargo.toml) and the file stem
+#   dir                  the folder under exercises/ and solutions/
+#   test                 run `cargo test --bin <name>`: the file's own #[test]s
+#   wire                 build the binary and talk real JSON-RPC to it over stdio
+#   skip_check_unsolved  this exercise passes as-is (only intro1)
+#   hint                 what `cargo run -- hint <name>` prints
+#   tools                names `tools/list` must include (wire only)
+#   calls                `tools/call`s to make and what their replies must say
+#
+# `done` is what `next` prints once everything passes.
+
+done = """You have an MCP server that reads files and runs commands — and no
+   boundary on either. demo02 gives every tool a Sandbox to go through."""
+
+[[exercises]]
+name = "intro1"
+dir = "00_intro"
+wire = true
+skip_check_unsolved = true
+tools = ["greet", "fs_read", "exec_run"]
+hint = """
+Nothing to fix. This one passes so the finished demo01 server is in front of
+you before you build its pieces: greet from demo00, plus fs_read and exec_run.
+
+Read it and sit with the discomfort. fs_read takes a path and reads it. No
+root, no check. exec_run takes a command and runs it. No allowlist. That is
+not a bug in the code; it is the absence of the code demo02 adds.
+
+Then `cargo run -- next`."""
+
+# The wire probe reads the fixture the runner drops in the scratch directory
+# (hello.txt) and runs a command that is always on PATH under cargo.
+[[exercises.calls]]
+tool = "greet"
+arguments = { name = "Ada" }
+expect = [{ at = "/result/structuredContent/greeting", contains = "Ada" }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "hello.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "hello" }]
+
+[[exercises.calls]]
+tool = "exec_run"
+arguments = { cmd = "rustc", args = ["--version"] }
+expect = [
+  { at = "/result/structuredContent/exit", equals = 0 },
+  { at = "/result/structuredContent/stdout", contains = "rustc" },
+]
+
+[[exercises]]
+name = "fs_read1"
+dir = "01_fs"
+test = true
+hint = """
+One `std::fs` call and one wrap.
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| ErrorData::internal_error(format!("reading {path}: {e}"), None))?;
+    Ok(Json(ReadResult { content }))
+
+`read_to_string` returns `io::Result<String>`. `map_err` turns the io error
+into a JSON-RPC error the client can see; `?` returns it. On success the
+`String` goes straight into `ReadResult`.
+
+Notice what you did not write: any check on `path`. `read_to_string("/etc/
+passwd")` works. That is the whole point of demo01, and the whole job of
+demo02 through demo04."""
+
+[[exercises]]
+name = "fs_read2"
+dir = "01_fs"
+test = true
+hint = """
+Guard first, read second:
+
+    if path.is_empty() {
+        return Err(ErrorData::invalid_params("path must not be empty", None));
+    }
+
+`invalid_params` is code -32602: "your argument was wrong", which is true —
+the path is empty. Reading it and returning the OS error would be code
+-32603, "the server broke", which is not true. The client branches on the
+code, so the code has to mean what happened.
+
+This rejects malformed input. It does not reject a well-formed path that
+points outside where it should — `../../etc/passwd` still passes. Holding a
+path to a root is the jail, and the jail is demo03."""
+
+[[exercises]]
+name = "exec_run1"
+dir = "02_exec"
+test = true
+hint = """
+Build the command, run it, decode the bytes:
+
+    let out = tokio::process::Command::new(&cmd)
+        .args(&args)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .map_err(|e| ErrorData::internal_error(format!("running {cmd}: {e}"), None))?;
+    Ok(Json(ExecResult {
+        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        exit: out.status.code().unwrap_or(-1),
+    }))
+
+`Stdio::null()` on stdin keeps the child off the JSON-RPC wire; `.output()`
+captures stdout/stderr so they never reach it either. `from_utf8_lossy`
+because a command's output is bytes, not guaranteed UTF-8. `code()` is
+`None` when a signal killed the child, so `unwrap_or(-1)`.
+
+What is missing is everything that makes this safe: `cmd` is not checked
+against an allowlist, there is no timeout, and nothing stops `sh`. demo04."""

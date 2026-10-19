@@ -48,8 +48,9 @@ Under the hood each exercise is its own binary (see `Cargo.toml`), so
 `run schema1` is `cargo test --bin schema1`. That is what lets the other
 exercises stay broken while you work on one. The two that serve (`intro1`,
 `stdio1`) get one more check: the runner builds the binary and holds a real
-JSON-RPC conversation with it over stdio, the same four frames any client
-sends.
+JSON-RPC conversation with it over stdio, the same frames any client sends.
+Which tools it expects to find and which calls it makes are written next to
+the exercise in `info.toml`.
 
 ## Run one as a server
 
@@ -100,9 +101,10 @@ claude mcp add demo00 -- /absolute/path/to/maltese-agent/women-in-rust/demo00/ta
 
 - `exercises/` and `solutions/` mirror each other. Every file in both is a
   `[[bin]]` in `Cargo.toml`.
-- `info.toml` is the exercise order and the hints, in the shape of rustlings'
-  file of the same name.
-- `src/main.rs` is the runner. It is short; read it if you want to see the
+- `info.toml` is the exercise order, the hints, and the wire probe's
+  conversation, in the shape of rustlings' file of the same name.
+- `src/main.rs` hands that file to the runner in [`../runner`](../runner/),
+  which every demo shares. Read `runner/src/lib.rs` if you want to see the
   wire probe.
 - This package is deliberately not a member of the repo's root workspace,
   because its exercises are broken on purpose. CI runs `cargo run -- verify`
