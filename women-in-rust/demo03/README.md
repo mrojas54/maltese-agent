@@ -35,12 +35,21 @@ Solutions are in `solutions/`, same layout.
 | `../secret.txt` | refused | refused |
 | `/etc/passwd` | refused | refused |
 | a symlink inside the root pointing out | **let through** | refused |
-| a brand-new path (`fs_write`'s target) | resolves cleanly | resolves, by walking up to what exists |
+| `sub/new.txt`, `fs_write`'s target: `sub/` exists, `new.txt` does not yet | allowed | allowed, inside the root |
 
 demo02 never had to think about that last row: `sandbox.root.join(rel)` never
 touches the filesystem, so a path that does not exist yet resolves exactly
-like one that does. demo03's canonicalize-first approach is what makes that
-row hard in the first place — `canonicalize` only works on paths that exist.
+like one that does. demo03 gets there in two steps.
+
+`std::fs::canonicalize` asks the filesystem for a path's real absolute form,
+with every `..` and every symlink resolved. `sub/../hello.txt` comes back as
+`<root>/hello.txt`. A symlink that points out comes back as the outside path,
+and the `starts_with(root)` check refuses it. But `canonicalize` only works on
+a path that exists, so on `sub/new.txt` it fails.
+
+That is when `resolve` walks up: drop `new.txt`, canonicalize `sub/` (it
+exists) to `<root>/sub`, then add `new.txt` back. `<root>/sub/new.txt` starts
+with `<root>`, so it is allowed.
 
 ## Commands
 
