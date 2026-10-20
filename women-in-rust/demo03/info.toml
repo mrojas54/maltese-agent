@@ -6,14 +6,89 @@
 #   dir                  the folder under exercises/ and solutions/
 #   test                 run `cargo test --bin <name>`: the file's own #[test]s
 #   wire                 build the binary and talk real JSON-RPC to it over stdio
-#   skip_check_unsolved  this exercise passes as-is (only an intro would)
+#   skip_check_unsolved  this exercise passes as-is (only intro1)
 #   hint                 what `cargo run -- hint <name>` prints
+#   tools                names `tools/list` must include (wire only)
+#   calls                `tools/call`s to make and what their replies must say
 #
 # `done` is what `next` prints once everything passes.
 
 done = """You have an MCP server whose file tools stay inside a root even
    through a symlink, and even for a path that does not exist yet. One hole
    is still open: exec_run runs anything, unguarded. demo04 closes it."""
+
+[[exercises]]
+name = "intro1"
+dir = "00_intro"
+wire = true
+skip_check_unsolved = true
+tools = ["greet", "fs_read", "fs_write", "exec_run"]
+hint = """
+Nothing to fix. This one passes so the finished demo03 server is in front of
+you before you build its jail: demo02's server with one function rewritten,
+`Sandbox::resolve`.
+
+Read `resolve` and notice two things. It canonicalizes before it checks, so
+it judges where a path really lands, symlinks followed, instead of how the
+path is spelled. And when the path does not exist yet, it does not give up:
+it walks up to the nearest ancestor that does, and checks that instead. That
+second half is what lets fs_write create a new file.
+
+Then notice what did not change: `run_command` still takes no Sandbox.
+
+Then `cargo run -- next`."""
+
+# The wire probe runs in a scratch directory holding one file (hello.txt), and
+# the server takes its working directory as the sandbox root.
+[[exercises.calls]]
+tool = "greet"
+arguments = { name = "Ada" }
+expect = [{ at = "/result/structuredContent/greeting", contains = "Ada" }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "hello.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "hello" }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "../secret.txt" }
+expect = [
+  { at = "/error/code", equals = -32602 },
+  { at = "/error/message", contains = "escapes" },
+]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "/etc/passwd" }
+expect = [{ at = "/error/code", equals = -32602 }]
+
+# Neither `deep/` nor `new.txt` exists: resolve has to place the path from the
+# root, the fallback half of the jail.
+[[exercises.calls]]
+tool = "fs_write"
+arguments = { path = "deep/new.txt", content = "noted" }
+expect = [{ at = "/result/structuredContent/bytes", equals = 5 }]
+
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "deep/new.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "noted" }]
+
+# A `..` that stays inside the root: demo02 refused it, the jail allows it.
+[[exercises.calls]]
+tool = "fs_read"
+arguments = { path = "deep/../hello.txt" }
+expect = [{ at = "/result/structuredContent/content", contains = "hello" }]
+
+# exec_run is exactly as open as in demo01. This call only proves it still runs.
+[[exercises.calls]]
+tool = "exec_run"
+arguments = { cmd = "rustc", args = ["--version"] }
+expect = [
+  { at = "/result/structuredContent/exit", equals = 0 },
+  { at = "/result/structuredContent/stdout", contains = "rustc" },
+]
 
 [[exercises]]
 name = "jail2"

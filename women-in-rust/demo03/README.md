@@ -24,6 +24,7 @@ cargo run -- hint jail2
 
 | # | File | You learn |
 | --- | --- | --- |
+| 0 | `exercises/00_intro/intro1.rs` | The whole demo03 server: jailed through symlinks, and `exec_run` still open. Read it once. |
 | 1 | `exercises/02_jail/jail2.rs` | `resolve` asks the filesystem: canonicalize a path that exists, and place one that does not. |
 
 Solutions are in `solutions/`, same layout.
