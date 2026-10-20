@@ -12,7 +12,17 @@ default-run = "demo03"
 [workspace]
 
 [dependencies]
+# The MCP SDK and the rest of the server intro1 runs. Same features and
+# versions as demo02.
+rmcp = { version = "3", features = ["server", "transport-io", "macros"] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
 anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # The tutorial runner (`cargo run -- next`), shared by every demo.
 demo-runner = { path = "../runner" }
 
@@ -26,6 +36,14 @@ path = "src/main.rs"
 
 # Every exercise and every solution is its own binary, so `cargo test --bin
 # jail2` builds just that one file; see demo02's Cargo.toml for why.
+[[bin]]
+name = "intro1"
+path = "exercises/00_intro/intro1.rs"
+
+[[bin]]
+name = "intro1_sol"
+path = "solutions/00_intro/intro1.rs"
+
 [[bin]]
 name = "jail2"
 path = "exercises/02_jail/jail2.rs"
