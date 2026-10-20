@@ -61,6 +61,8 @@ Same shape as demo00 through demo02.
 - `info.toml` is the exercise order and the hints.
 - `src/main.rs` hands that file to the runner in [`../runner`](../runner/),
   which every demo shares.
+- This package is excluded from the repo's root workspace, because its
+  exercises are broken on purpose. CI runs `cargo run -- verify` here.
 
 ## Where this goes
 
