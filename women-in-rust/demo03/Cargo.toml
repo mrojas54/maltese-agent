@@ -8,17 +8,6 @@ publish = false
 # `cargo run` with no `--bin` runs the tutorial runner in src/main.rs.
 default-run = "demo03"
 
-# WORK IN PROGRESS: jail2's reference fix, in solutions/02_jail/jail2.rs, has
-# an open TODO(human) in its fallback branch (a path that does not exist yet).
-# `cargo run -- verify` fails here on purpose until it lands. That is also why
-# this package is not yet in the root workspace `exclude` (../../Cargo.toml)
-# or the CI tutorial matrix (.github/workflows): both would report the
-# failure as CI's problem instead of a demo still being written.
-#
-# 00_intro is missing for the same reason. Every other demo opens with the
-# whole finished server; this one's fs_write would panic through the
-# unresolved branch the moment it tried to create a file.
-
 # Its own tiny workspace, separate from the repo's root one; see demo02.
 [workspace]
 
