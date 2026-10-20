@@ -1,0 +1,72 @@
+# Exercise metadata for the shared runner (../runner), in the shape of
+# rustlings' info.toml. Order matters: `cargo run -- next` walks this list top
+# to bottom.
+#
+#   name                 the binary name (see Cargo.toml) and the file stem
+#   dir                  the folder under exercises/ and solutions/
+#   test                 run `cargo test --bin <name>`: the file's own #[test]s
+#   wire                 build the binary and talk real JSON-RPC to it over stdio
+#   skip_check_unsolved  this exercise passes as-is (only an intro would)
+#   hint                 what `cargo run -- hint <name>` prints
+#
+# `done` is what `next` prints once everything passes.
+
+done = """You have an MCP server whose file tools stay inside a root even
+   through a symlink, and even for a path that does not exist yet. One hole
+   is still open: exec_run runs anything, unguarded. demo04 closes it."""
+
+[[exercises]]
+name = "jail2"
+dir = "02_jail"
+test = true
+hint = """
+Walk up until something exists, then build the path back down:
+
+    let mut existing = joined.as_path();
+    let mut missing = Vec::new();
+    let canonical_existing = loop {
+        if let Ok(canonical) = existing.canonicalize() {
+            break canonical;
+        }
+        if existing.symlink_metadata().is_ok() {
+            anyhow::bail!(
+                "path {} exists but cannot be resolved (a broken symlink?)",
+                existing.display()
+            );
+        }
+        let name = existing
+            .file_name()
+            .with_context(|| format!("path {} cannot be placed", joined.display()))?;
+        missing.push(name);
+        existing = existing
+            .parent()
+            .with_context(|| format!("path {} cannot be placed", joined.display()))?;
+    };
+
+    let mut placed = canonical_existing;
+    for name in missing.iter().rev() {
+        placed.push(name);
+    }
+
+then the same `starts_with(&self.root)` check as the half above, on `placed`.
+
+Why the names go back on in reverse: they came off the end first. For
+`deep/er/new.txt` the walk collects `new.txt`, then `er`, then `deep`.
+
+Why check `placed` and not `joined`: in `out/new.txt`, `out` is a symlink that
+leads outside the root. `joined` still says `root/out/new.txt`. Only the
+canonical ancestor says where `out` really goes.
+
+Why running out is a refusal: `file_name()` is `None` when the path ends in
+`..`. For `ghost/../../new.txt`, `ghost` does not exist, so nobody can say
+where `ghost/..` is. A path that cannot be placed is refused, never let
+through.
+
+Why the `symlink_metadata` check: `canonicalize` also fails on a symlink whose
+target is missing. That name is not missing. It is a link, and a write to it
+creates the file wherever it points. Walking past it would place the write
+inside the root while it lands outside.
+
+What this still does not do: a symlink swapped in between `resolve` and the
+write wins the race. Checking a path and then using it is two steps, and the
+filesystem can change in between."""

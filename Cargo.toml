@@ -11,4 +11,5 @@ exclude = [
   "women-in-rust/demo00",
   "women-in-rust/demo01",
   "women-in-rust/demo02",
+  "women-in-rust/demo03",
 ]

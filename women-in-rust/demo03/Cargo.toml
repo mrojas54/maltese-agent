@@ -1,0 +1,35 @@
+[package]
+name = "demo03"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust demo 03: the jail, canonicalize before you check"
+publish = false
+# `cargo run` with no `--bin` runs the tutorial runner in src/main.rs.
+default-run = "demo03"
+
+# Its own tiny workspace, separate from the repo's root one; see demo02.
+[workspace]
+
+[dependencies]
+anyhow = "1"
+# The tutorial runner (`cargo run -- next`), shared by every demo.
+demo-runner = { path = "../runner" }
+
+[dev-dependencies]
+tempfile = "3"
+
+# The runner: `cargo run -- next` and friends.
+[[bin]]
+name = "demo03"
+path = "src/main.rs"
+
+# Every exercise and every solution is its own binary, so `cargo test --bin
+# jail2` builds just that one file; see demo02's Cargo.toml for why.
+[[bin]]
+name = "jail2"
+path = "exercises/02_jail/jail2.rs"
+
+[[bin]]
+name = "jail2_sol"
+path = "solutions/02_jail/jail2.rs"
