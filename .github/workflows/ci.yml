@@ -255,3 +255,21 @@ jobs:
       # exercise still fails, so a "fix" to an exercise fails CI here.
       - name: verify exercises and solutions
         run: cargo run -- verify
+
+  trailmark:
+    name: Trailmark (falcon-mcp links)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned: links.toml needs Trailmark 0.5+, and a new parser can change
+      # which node IDs exist. ubuntu-latest ships Python 3.12 (Trailmark's
+      # minimum) and pipx.
+      - name: Install Trailmark
+        run: pipx install trailmark==0.6.0
+
+      # `analyze` applies falcon-mcp/.trailmark/links.toml and exits non-zero
+      # when a link names a function that no longer exists. A renamed or
+      # deleted handler fails here until its links are updated.
+      - name: Check links.toml still resolves
+        run: trailmark analyze --language rust --summary falcon-mcp
