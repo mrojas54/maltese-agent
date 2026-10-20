@@ -136,7 +136,8 @@ impl Sandbox {
     /// For paths that don't exist yet (e.g. files about to be written, possibly
     /// nested inside dirs that don't exist either), this walks up to the first
     /// existing ancestor, canonicalizes it, then re-attaches the missing
-    /// suffix. The final path's escape-check still applies.
+    /// suffix. The final path's escape-check still applies. A broken symlink
+    /// on the way up is refused rather than walked past.
     ///
     /// A path that names a honeytoken fails with [`TripwireTriggered`] after
     /// the escape check, so every path-taking tool is covered in one place.
@@ -167,6 +168,15 @@ impl Sandbox {
         let canonical_existing = loop {
             match existing.canonicalize() {
                 Ok(c) => break c,
+                // `canonicalize` also fails on a symlink whose target is
+                // missing. That name exists, and a write to it lands wherever
+                // it points, so only walk past names that are truly absent.
+                Err(_) if existing.symlink_metadata().is_ok() => {
+                    anyhow::bail!(
+                        "path {} exists but cannot be resolved (a broken symlink?)",
+                        existing.display()
+                    );
+                }
                 Err(_) => {
                     let name = existing.file_name().ok_or_else(|| {
                         anyhow::anyhow!("path {} has no existing ancestor", joined.display())
@@ -353,6 +363,34 @@ mod tests {
             err.to_string().contains("escape"),
             "expected escape error, got: {err}"
         );
+    }
+
+    /// A symlink whose target does not exist fails `canonicalize` just like a
+    /// missing name, but it is not missing: writing to it creates the target.
+    /// The walk-up must not step past it and approve `<root>/planted.txt`.
+    #[test]
+    #[cfg(unix)]
+    fn resolve_broken_symlink_escape_rejected() {
+        use std::os::unix::fs::symlink;
+        let inside = tempfile::TempDir::new().unwrap();
+        let outside = tempfile::TempDir::new().unwrap();
+        // Target outside the jail that does not exist yet
+        symlink(
+            outside.path().join("planted.txt"),
+            inside.path().join("planted.txt"),
+        )
+        .unwrap();
+        // Same link as a directory, with a new file under it
+        symlink(outside.path().join("gone"), inside.path().join("gone_dir")).unwrap();
+
+        let sb = Sandbox::new(inside.path().to_path_buf(), false).unwrap();
+        for p in ["planted.txt", "gone_dir/new_file.txt"] {
+            let err = sb.resolve(p).unwrap_err();
+            assert!(
+                err.to_string().contains("broken symlink"),
+                "{p}: expected broken-symlink error, got: {err}"
+            );
+        }
     }
 
     #[test]
