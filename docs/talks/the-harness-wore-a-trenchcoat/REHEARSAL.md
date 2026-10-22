@@ -3,9 +3,11 @@
 Companion to the [talk README](README.md). The README says what the code does;
 this page says how to practise the talk and what to watch for on the day.
 
-Deck: the 17-slide [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1).
-Present from it. The slide numbers below match it: the tripwire is slide 15,
-the live demo slide 16, case closed slide 17. `deckhand.json` and
+Deck: the 12-slide [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1),
+cut for a 15 to 20 minute slot on 2026-10-22 (the five demo00 exercise slides
+and the plug-in slide went; exercise three stays). Present from it. The slide
+numbers below match it: the tripwire is slide 10,
+the live demo slide 11, case closed slide 12. `deckhand.json` and
 `slides/slide_1.md` … `slide_10.md` at the repo root are the earlier 10-slide
 terminal deck, kept for reference; its numbering no longer applies.
 
@@ -29,8 +31,9 @@ Do them in this order. Each pass practises one thing.
    present from, on the venue's Wi-Fi or with it off. A cold `cargo build -p
    falcon-mcp` takes about a minute, so never build on stage. `ast-grep`
    is not needed for any beat.
-2. **Talk-track pass.** Go through all 17 slides out loud with no terminal. Run a
-   timer. At each slide in the *Deck vs code* table below, say the
+2. **Talk-track pass.** Go through all 12 slides out loud with no terminal. Run a
+   timer. The notes are about 2,300 words, 15 minutes at 140 words a minute,
+   plus 3 to 4 minutes of live demo. At each slide in the *Deck vs code* table below, say the
    correction out loud so it comes easily on the day.
 3. **Demo pass.** Run `rehearse.sh --beats` while you narrate. Then do it
    again by hand (see *Live by hand*) so you can recover if the script fails.
@@ -39,7 +42,7 @@ Do them in this order. Each pass practises one thing.
 5. **Dress rehearsal.** The full talk with a timer, at projector resolution
    (large font, light terminal theme), and with notifications off.
 
-## The live beats (slide 16)
+## The live beats (slide 11)
 
 | Beat | Server flags | Frame | What the audience sees | Line to land |
 |---|---|---|---|---|
@@ -106,7 +109,7 @@ notes file. Don't type JSON live.
 
 Every slide now matches `falcon-mcp` as shipped (2026-10-22), including the
 tripwire. Nothing needs correcting on stage. Two lines are worth saying on
-slide 15:
+slide 10:
 
 - "It revokes the session, not the process." The early sketch called
   `exit(1)`, which would have taken the server down for every client.

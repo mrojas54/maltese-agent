@@ -2,7 +2,7 @@
 
 *Building a Sandboxed Rust MCP Server* — a talk for the **Women in Rust Meetup**.
 
-Speaker: Michelle Rojas. Theme: noir. Deck: the 17-slide
+Speaker: Michelle Rojas. Theme: noir. Deck: the 12-slide
 [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), which is
 what the talk is presented from. [`deckhand.json`](../../../deckhand.json) and
 `slides/` at the repo root are the earlier 10-slide terminal deck, kept for
@@ -159,7 +159,7 @@ The three takeaways are all true of the code as shipped:
 As of 2026-10-22 they agree. The artifact deck was checked against `falcon-mcp`
 as shipped. It shows the real tool names and error messages, the per-family
 timeouts, the six-binary allowlist, the `-32001` timeout code, and the shipped
-honeytoken tripwire (slide 15, `-32003`). The section headings above still
+honeytoken tripwire (slide 10, `-32003`). The section headings above still
 follow the original 8-slide order, not the artifact's numbering.
 
 For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
