@@ -32,8 +32,9 @@ Do them in this order. Each pass practises one thing.
    falcon-mcp` takes about a minute, so never build on stage. `ast-grep`
    is not needed for any beat.
 2. **Talk-track pass.** Go through all 12 slides out loud with no terminal. Run a
-   timer. The notes are about 2,300 words, 15 minutes at 140 words a minute,
-   plus 3 to 4 minutes of live demo. At each slide in the *Deck vs code* table below, say the
+   timer. The notes are about 2,300 words, 16 minutes at 140 words a minute.
+   The demo slide's narration is spoken while the beats run, so it overlaps
+   the 3 to 4 minute live demo; budget 18 to 19 minutes in all. At each slide in the *Deck vs code* table below, say the
    correction out loud so it comes easily on the day.
 3. **Demo pass.** Run `rehearse.sh --beats` while you narrate. Then do it
    again by hand (see *Live by hand*) so you can recover if the script fails.
