@@ -3,8 +3,11 @@
 Companion to the [talk README](README.md). The README says what the code does;
 this page says how to practise the talk and what to watch for on the day.
 
-Deck: `slides/slide_1.md` … `slide_10.md` (via `deckhand.json`). The slide
-numbers below match the current 10-slide deck.
+Deck: the 17-slide [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1).
+Present from it. The slide numbers below match it: the tripwire is slide 15,
+the live demo slide 16, case closed slide 17. `deckhand.json` and
+`slides/slide_1.md` … `slide_10.md` at the repo root are the earlier 10-slide
+terminal deck, kept for reference; its numbering no longer applies.
 
 ## One command
 
@@ -26,7 +29,7 @@ Do them in this order. Each pass practises one thing.
    present from, on the venue's Wi-Fi or with it off. A cold `cargo build -p
    falcon-mcp` takes about a minute, so never build on stage. `ast-grep`
    is not needed for any beat.
-2. **Talk-track pass.** Go through slides 1–10 out loud with no terminal. Run a
+2. **Talk-track pass.** Go through all 17 slides out loud with no terminal. Run a
    timer. At each slide in the *Deck vs code* table below, say the
    correction out loud so it comes easily on the day.
 3. **Demo pass.** Run `rehearse.sh --beats` while you narrate. Then do it
@@ -36,7 +39,7 @@ Do them in this order. Each pass practises one thing.
 5. **Dress rehearsal.** The full talk with a timer, at projector resolution
    (large font, light terminal theme), and with notifications off.
 
-## The live beats (slide 9)
+## The live beats (slide 16)
 
 | Beat | Server flags | Frame | What the audience sees | Line to land |
 |---|---|---|---|---|
@@ -101,9 +104,9 @@ notes file. Don't type JSON live.
 
 ## Deck vs code
 
-Every slide now matches `falcon-mcp` as shipped (2026-09-25), including the
+Every slide now matches `falcon-mcp` as shipped (2026-10-22), including the
 tripwire. Nothing needs correcting on stage. Two lines are worth saying on
-slide 8:
+slide 15:
 
 - "It revokes the session, not the process." The early sketch called
   `exit(1)`, which would have taken the server down for every client.

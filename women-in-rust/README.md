@@ -1,8 +1,10 @@
 # Women in Rust: meetup demos
 
 Companion code for *The Harness Wore a Trenchcoat: Building a Sandboxed Rust
-MCP Server*. The deck itself is [`deckhand.json`](../deckhand.json) at the
-repo root.
+MCP Server*. The deck itself is the
+[Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1).
+[`deckhand.json`](../deckhand.json) at the repo root is the earlier 10-slide
+terminal deck, kept for reference.
 
 | Demo | What it is |
 | --- | --- |
