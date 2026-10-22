@@ -2,7 +2,11 @@
 
 *Building a Sandboxed Rust MCP Server* — a talk for the **Women in Rust Meetup**.
 
-Speaker: Michelle Rojas. Theme: noir. Deck source: [`deckhand.json`](../../../deckhand.json) at the repo root.
+Speaker: Michelle Rojas. Theme: noir. Deck: the 17-slide
+[Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), which is
+what the talk is presented from. [`deckhand.json`](../../../deckhand.json) and
+`slides/` at the repo root are the earlier 10-slide terminal deck, kept for
+reference.
 
 This README is the companion to the slides. It maps every claim in the deck to
 the code in `falcon-mcp/` that backs it, gives a runbook for the live demo, and
@@ -152,11 +156,11 @@ The three takeaways are all true of the code as shipped:
 
 ## Where the deck and the code disagree
 
-As of 2026-09-25 they agree. The deck was revised to the 10-slide layout in
-`slides/`. It shows the real tool names and error messages, the per-family
+As of 2026-10-22 they agree. The artifact deck was checked against `falcon-mcp`
+as shipped. It shows the real tool names and error messages, the per-family
 timeouts, the six-binary allowlist, the `-32001` timeout code, and the shipped
-honeytoken tripwire (slide 8, `-32003`). The section headings above still
-follow the original 8-slide order.
+honeytoken tripwire (slide 15, `-32003`). The section headings above still
+follow the original 8-slide order, not the artifact's numbering.
 
 For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
 
@@ -172,8 +176,8 @@ structured data, see `falcon-mcp/src/tool_error.rs`.
 
 ## Demo runbook
 
-For rehearsal passes, on-stage lines, and failure recovery against the current
-10-slide deck, see [`REHEARSAL.md`](REHEARSAL.md) and run `rehearse.sh`.
+For rehearsal passes, on-stage lines, and failure recovery against the artifact
+deck, see [`REHEARSAL.md`](REHEARSAL.md) and run `rehearse.sh`.
 
 Prerequisites: the pinned toolchain in `rust-toolchain.toml` (Rust 1.92) and
 `ast-grep` on PATH if you want `fs_search_ast` to work.
