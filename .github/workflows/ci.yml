@@ -69,6 +69,11 @@ jobs:
       - name: cargo test
         run: cargo test --workspace --all-targets
 
+      - name: Talk rehearsal assertions and live stdio beats
+        run: |
+          python3 -B -m unittest discover -s docs/talks/the-harness-wore-a-trenchcoat -p test_rehearse.py
+          docs/talks/the-harness-wore-a-trenchcoat/rehearse.sh --beats --no-build
+
       # G-1: falcon-agent's planted defects (poisoned prompt example, missing
       # guards, three documented clippy lints, #[ignore]'d smoking-gun test)
       # are the workshop PRODUCT. This guard (H-8, wired by MA-3 per SPEC R-2)
