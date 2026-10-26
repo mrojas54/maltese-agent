@@ -10,3 +10,5 @@ Build-contract and analysis artifacts for the tech-debt remediation (pointers, n
 - `LESSONS.md` — timeless findings from the remediation run (cassette integrity, model lifecycle, dependency policy, run hygiene).
 
 **Standing guardrail (G-1):** `falcon-agent`'s poisoned prompt, missing guards, planted lints, and `#[ignore]`'d smoking-gun test are intentional workshop material. Never "fix" them; `scripts/check-planted-defects.sh` (once landed) is the enforcement.
+
+**Test loop:** while iterating, test one crate: `cargo nextest run -p falcon-mcp` or `cargo nextest run -p falcon-agent` (seconds once built; falcon-agent's `#[ignore]`'d test stays skipped, per G-1). Before a PR, run what CI runs: `cargo test --workspace --all-targets` (`.github/workflows/ci.yml:70`).
