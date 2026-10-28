@@ -32,9 +32,11 @@ Do them in this order. Each pass practises one thing.
    falcon-mcp` takes about a minute, so never build on stage. `ast-grep`
    is not needed for any beat.
 2. **Talk-track pass.** Go through all 12 slides out loud with no terminal. Run a
-   timer. The notes are about 2,300 words, 16 minutes at 140 words a minute.
-   The demo slide's narration is spoken while the beats run, so it overlaps
-   the 3 to 4 minute live demo; budget 18 to 19 minutes in all. At each slide in the *Deck vs code* table below, say the
+   timer. The notes are about 1,650 words, 12 minutes at 140 words a minute,
+   plus the pauses they mark. The demo slide's narration is spoken while the
+   beats run, so it overlaps the 3 to 4 minute live demo; budget about 15
+   minutes in all, which leaves room for laughs and questions inside the slot
+   (see *Timing budget*). At each slide in the *Deck vs code* table below, say the
    correction out loud so it comes easily on the day.
 3. **Demo pass.** Run `rehearse.sh --beats` while you narrate. Then do it
    again by hand (see *Live by hand*) so you can recover if the script fails.
@@ -42,6 +44,33 @@ Do them in this order. Each pass practises one thing.
    have practised looks calm on stage.
 5. **Dress rehearsal.** The full talk with a timer, at projector resolution
    (large font, light terminal theme), and with notifications off.
+
+## Timing budget
+
+The 2026-10-28 revision cut the notes from about 2,300 words to about 1,650
+and added one joke per slide. The notes mark `(Pause.)` and `(Beat.)` where
+to stop for a second or a laugh; take them, because they are what keeps the
+talk from feeling rushed. Each pause is budgeted at 3 seconds below. If you
+fall behind, cut a pause, not a joke: the jokes also carry the point.
+
+| # | Slide | Words | Pauses | Minutes | Running |
+|---|---|---|---|---|---|
+| 1 | Cover | 126 | 1 | 0.9 | 0.9 |
+| 2 | Crime scene | 157 | 2 | 1.2 | 2.2 |
+| 3 | The wire | 117 | 2 | 0.9 | 3.1 |
+| 4 | Case file: demo00 | 125 | 1 | 0.9 | 4.0 |
+| 5 | Refuse or fail | 163 | 2 | 1.3 | 5.3 |
+| 6 | Part two: Boundaries | 103 | 2 | 0.8 | 6.2 |
+| 7 | Root jail | 126 | 2 | 1.0 | 7.2 |
+| 8 | Allowlist | 142 | 2 | 1.1 | 8.3 |
+| 9 | Wall clock | 118 | 2 | 0.9 | 9.2 |
+| 10 | Honeytokens | 188 | 2 | 1.4 | 10.7 |
+| 11 | Live demo | 155 | 2 | 3.5 | 14.2 |
+| 12 | Case closed | 143 | 1 | 1.1 | 15.2 |
+
+Two slides have a stamp that appears on a click: TRIPPED on slide 10 (click
+before the falcon line) and SOLVED on slide 12. Practise the click so it
+lands on the punchline.
 
 ## The live beats (slide 11)
 
