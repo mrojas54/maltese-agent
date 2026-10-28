@@ -8,9 +8,10 @@ what the talk is presented from. [`deckhand.json`](../../../deckhand.json) and
 `slides/` at the repo root are the earlier 10-slide terminal deck, kept for
 reference.
 
-This README is the companion to the slides. It maps every claim in the deck to
-the code in `falcon-mcp/` that backs it, gives a runbook for the live demo, and
-is honest about the two places where the deck says more than the code does.
+This README is the companion to the slides. It maps the documented talk topics
+to `falcon-mcp/`, gives a runbook for the live demo, and
+separates demonstrated behavior from historical evidence and unsupported claims.
+See [the October 25 reconciliation](RECONCILIATION.md) before rehearsal.
 
 ---
 
@@ -20,8 +21,8 @@ An LLM agent that can touch a filesystem and run commands is only as safe as the
 thing standing between it and the host. Prompts are soft guardrails. They ask
 nicely and fail under adversarial pressure. `falcon-mcp` is a hard control plane:
 a single Rust binary speaking the Model Context Protocol (MCP, JSON-RPC 2.0) over
-stdio or HTTP, with a root-jailed filesystem, an allowlisted exec surface, and a
-wall-clock timeout on every subprocess. The harness is the detective. It wears the
+stdio or HTTP, with application-level filesystem path checks, an allowlisted
+exec surface, and wall-clock timeouts around subprocess calls. The harness is the detective. It wears the
 trenchcoat so the model does not have to be trusted.
 
 ## Why this repo
@@ -41,9 +42,9 @@ everything above it lies.
 
 ### 1. The Crime Scene
 
-The naive shape is `LLM -> raw shell`. Nothing in this repo does that. Every tool
-call enters through `FalconMcp` in `falcon-mcp/src/server.rs` and is routed to a
-handler that takes a `Sandbox`, never a bare path or a bare command.
+The naive shape is `LLM -> raw shell`. MCP calls enter through `FalconMcp`
+in `falcon-mcp/src/server.rs`; filesystem and subprocess handlers receive a
+`Sandbox`. This mediates those calls but does not confine subprocess behavior.
 
 ### 2. Architecture: from REST to stdio
 
@@ -96,11 +97,13 @@ allowlisted name.
 
 Two more layers worth saying out loud on stage:
 
-- `exec_run` is not even registered unless the server starts with
-  `--enable-exec` (`falcon-mcp/src/tools/exec.rs`, `main.rs`).
+- `exec_run` is registered, but its handler refuses execution unless the server
+  starts with `--enable-exec` (`falcon-mcp/src/server.rs`). The refusal is a
+  tool result with `isError: true`, not an unknown-tool error.
 - Commands are spawned directly via `tokio::process::Command`. There is no
   subshell, so `sh -c '...'` is rejected as the binary `sh`, and shell
-  metacharacters in arguments are inert.
+  metacharacters are not interpreted by `exec_run` itself. The selected
+  program still interprets its own arguments.
 
 Proof: `exec_disabled_by_default`, `exec_rejects_non_allowlisted_binary` in
 `falcon-mcp/tests/exec_test.rs`; the PATH-swap case in
@@ -114,18 +117,19 @@ The tripwire is implemented in `falcon-mcp/src/tripwire.rs` (landed 2026-09-25).
   jail check first, then refuses any path whose components name a honeytoken.
   The default is `CONFIDENTIAL_KEYS.txt`, matched case-insensitively. Add more
   with `--honeytoken NAME`. Every path-taking tool resolves through there, so
-  reads, writes, patches, `git_add`, and cargo or exec `cwd` all trip, and so
-  does a symlink that points at the decoy. `exec_run` arguments that name one
-  trip it too.
+  reads and permitted writes, patches, `git_add`, and cargo or exec `cwd`
+  can trip, as can a symlink that points at the decoy. Earlier policy gates
+  may refuse a call before path resolution (for example a read-only write).
+  `exec_run` arguments that name one trip it too.
 - **Response.** The call fails with code `-32003` (`data.kind = "tripwire"`).
   An `ERROR TRIPWIRE TRIGGERED` line goes to stderr, and the session is
   revoked: the `call_tool` override in `server.rs` refuses every later call on
   it. Revocation is per session. Over HTTP each session gets its own flag
   (`FalconMcp::for_new_session`), so one hostile client cannot take the server
   down for the others. That is why the slide does not call `exit(1)`.
-- **The bait.** `fs_list` shows the decoy. `fs_search` and `fs_search_ast`
-  skip it silently, because a broad search is normal agent behaviour and must
-  neither trip the wire nor leak the contents.
+- **The bait.** `fs_list` shows the decoy. Native `fs_search` skips matching
+  files before reading; `fs_search_ast` filters matching result paths after
+  ast-grep runs. Neither is a host-wide file-access hook.
 - **Known limits.** `exec_run` is checked by argument text only, so
   `rg KEY .` can still read the decoy through a directory walk. Exec is off
   by default. A decoy that has been committed shows in `git_diff` and
@@ -149,18 +153,36 @@ demo can be rehearsed by running the suite.
 
 The three takeaways are all true of the code as shipped:
 
-- Tool surfaces are security boundaries: every handler receives an `Arc<Sandbox>`.
+- Filesystem and subprocess handlers receive an `Arc<Sandbox>`; pure
+  `prompt_lint` does not need one.
 - Hard control planes over soft prompt guardrails: no guard in `falcon-mcp` is a
   prompt.
 - One Rust binary, two transports: `main.rs` picks stdio or HTTP from a flag.
 
 ## Where the deck and the code disagree
 
-As of 2026-10-22 they agree. The artifact deck was checked against `falcon-mcp`
-as shipped. It shows the real tool names and error messages, the per-family
-timeouts, the six-binary allowlist, the `-32001` timeout code, and the shipped
-honeytoken tripwire (slide 10, `-32003`). The section headings above still
-follow the original 8-slide order, not the artifact's numbering.
+The October 22 README/PR recorded agreement with the 12-slide artifact. That
+is historical review evidence, not a fresh inspection of the external slides.
+The October 25 audit could read the older Google Slides deck but could not
+retrieve the Claude artifact. Use the 12-slide artifact as the presentation
+candidate, subject to a final visual check against [RECONCILIATION.md](RECONCILIATION.md).
+The September Google Slides deck and the root terminal slides are reference
+materials, not evidence that their security or performance claims are implemented.
+
+**Boundary to state aloud:** this is application-level mediation, not `chroot`,
+a namespace, or an OS process sandbox. `exec_run` checks the command name,
+honeytoken argument text, and cwd; it does not confine what the child can read,
+write, or execute. Allowed tools such as cargo and git can execute build scripts,
+tests, or hooks. `--read-only` guards selected handlers, not the whole host or
+all child-process side effects. The tripwire rejects subsequent tool calls;
+it does not close the pipe, kill the process, or cancel calls already running.
+A traversal rejection is not itself a tripwire or session revocation.
+
+Startup PATH pinning is specific to `exec_run`; cargo/git/AST handlers still
+spawn by name. The checked path is not an immutable executable identity.
+Canonicalize-then-open also does not establish race-free filesystem confinement.
+These limitations are reasons to narrow the talk's claims, not to modify the
+intentionally vulnerable workshop target.
 
 For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
 
@@ -172,15 +194,17 @@ For reference, the timeout defaults in `falcon-mcp/src/limits.rs`:
 | exec (`exec_run`) | 30 s, or per-call `timeout_ms` | `FALCON_MCP_EXEC_TIMEOUT_MS` |
 
 Timeouts surface as a dedicated JSON-RPC error code (`-32001`) with
-structured data, see `falcon-mcp/src/tool_error.rs`.
+structured data, see `falcon-mcp/src/tool_error.rs`. Subprocess cancellation
+targets the direct child, not an entire descendant process tree.
 
 ## Demo runbook
 
 For rehearsal passes, on-stage lines, and failure recovery against the artifact
 deck, see [`REHEARSAL.md`](REHEARSAL.md) and run `rehearse.sh`.
 
-Prerequisites: the pinned toolchain in `rust-toolchain.toml` (Rust 1.92) and
-`ast-grep` on PATH if you want `fs_search_ast` to work.
+Prerequisites: the pinned Rust 1.92 toolchain, Python 3, and git for the live
+script. The full script also requires ast-grep, jq, and the pinned clippy
+component. Build/cache dependencies before going offline.
 
 ```bash
 # 0. Build the toolbelt
@@ -222,7 +246,10 @@ target/debug/falcon-mcp --http 8080 --root /workspace
 # MCP endpoint is now at http://localhost:8080/mcp
 ```
 
-`falcon-mcp/tests/http_smoke.rs` is the smoke test for this path.
+`falcon-mcp/tests/http_smoke.rs` checks that the HTTP endpoint responds; it
+accepts 5xx responses and does not exercise an MCP handshake or multi-session
+revocation over HTTP. The session-isolation test in `tripwire_test.rs` uses
+in-process duplex transports. An actual HTTP client rehearsal is separate.
 
 ## Standing guardrail
 
