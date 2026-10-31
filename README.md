@@ -28,11 +28,17 @@ speaks MCP and puts four checks in front of its tools: which files you can
 touch, which programs you can run, how long they can take, and a tripwire
 that notices when something goes looking for a decoy credentials file.
 
+One honest line before anything else: those checks live in the server's own
+code. They are not an operating-system sandbox. A program the server launches,
+such as `cargo` or `git`, keeps your permissions and can reach files outside
+the folder. The talk notes keep
+[a list of what the checks do not cover](docs/talks/the-harness-wore-a-trenchcoat/README.md#where-the-deck-and-the-code-disagree).
+
 ## What is in the repo
 
 | Folder | What it is |
 |---|---|
-| `falcon-mcp/` | The harness. A Rust MCP server with 19 tools (files, cargo, git, a prompt-safety lint, and an optional `exec_run`), a root folder it will not leave, an allowlist of six programs, per-tool timeouts, and the tripwire. The subject of the talk. |
+| `falcon-mcp/` | The harness. A Rust MCP server with 19 tools (files, cargo, git, a prompt-safety lint, and an optional `exec_run`), path checks that keep the file tools inside one folder, an allowlist of six programs, per-tool timeouts, and the tripwire. The subject of the talk. |
 | `falcon-agent/` | A small Rust web service that is **broken on purpose**: a poisoned example in its prompt, missing input and output checks, three planted lints, and a skipped test that would catch the bug. It is the workshop target. Do not fix it (see below). |
 | `falcon-detective/` | A TypeScript workflow, built on Barnum, that finds and fixes the problems in `falcon-agent` by calling Gemini for reasoning and `falcon-mcp` for tools. It replays from recorded cassettes, so you can run it without an API key. |
 | `women-in-rust/` | The homework. `demo00` is six small exercises that build a working MCP server from scratch; `demo01` to `demo03` add tools, then guards, then the path check that closes the symlink hole. |
@@ -95,8 +101,8 @@ demos and the branch that holds each one.
 ## Run the full caper
 
 The longer story is a workflow that repairs the broken service. It replays
-recorded Gemini responses, so no API key is needed. Node 18 or newer is
-required.
+recorded Gemini responses, so no API key is needed. Node 22.12 or newer is
+required; CI uses Node 24.
 
 ```bash
 # 1. Build the harness and the broken target
