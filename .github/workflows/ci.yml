@@ -14,16 +14,25 @@ concurrency:
 
 jobs:
   read-aloud:
-    name: Read-aloud (Python + FFmpeg)
+    name: Read-aloud (Python ${{ matrix.python-version }} + FFmpeg)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.13']
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Verify read-aloud output with local audio
-        run: python3 -B -m unittest discover -s scripts/rehearsal -p test_read_aloud.py -v
+        run: python -B -m unittest discover -s scripts/rehearsal -p test_read_aloud.py -v
 
   rust:
     name: Rust (fmt + clippy + test)
