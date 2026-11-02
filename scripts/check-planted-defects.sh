@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # check-planted-defects.sh — planted-defect guard for falcon-agent (G-1).
 #
-# Contract: EVALUATION.md H-8 / G-1 / AC-9; SPEC.md WS-0.
+# Contract: docs/remediation-2026-07/EVALUATION.md H-8 / G-1 / AC-9;
+#           docs/remediation-2026-07/SPEC.md WS-0.
 #
 # falcon-agent ships DELIBERATELY broken: a poisoned few-shot example,
 # missing input/output guards, three planted clippy lints, and an

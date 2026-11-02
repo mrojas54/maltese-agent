@@ -163,8 +163,9 @@ This is guardrail G-1 in `CLAUDE.md`.
   flags.
 - [`docs/superpowers/specs/2026-04-30-maltese-agent-design.md`](docs/superpowers/specs/2026-04-30-maltese-agent-design.md):
   the original design, with the implementation plans beside it.
-- `SPEC.md`, `EVALUATION.md`, `BUILDPLAN.md`, `LESSONS.md` and
-  `sequence/run-state.md`: the record of the 2026-07 tech-debt remediation.
+- [`docs/remediation-2026-07/`](docs/remediation-2026-07/): the record of the
+  2026-07 tech-debt remediation (audit, spec, evaluation, build plan, run
+  state, lessons).
 - [Barnum](https://github.com/barnum-circus/barnum), the workflow engine
   under `falcon-detective`.
 - [arXiv:2510.07192](https://arxiv.org/abs/2510.07192), the trigger-pattern

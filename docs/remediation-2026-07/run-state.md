@@ -8,7 +8,7 @@
 
 Stages 1–2 (tone-initiation, tone-prototype) were not run. Rationale: the "design" is a
 remediation of an existing, shipped codebase — the tech-debt audit
-(`docs/tech-debt-2026-07-10.md`, findings TD-1..TD-16) serves as the validated design corpus,
+(`tech-debt-2026-07-10.md` beside this file, findings TD-1..TD-16) serves as the validated design corpus,
 and the shipped three-component system is the prototype. `PHILOSOPHY.md`, `USER_STORIES.md`,
 `prototypes/`, `DESIGN.md`, `ECONOMICS.md` do not exist and will not be created; AC IDs are
 minted directly in `EVALUATION.md` (AC-1..AC-34), each traceable to a TD finding.

@@ -1,6 +1,6 @@
 # EVALUATION.md — tech-debt remediation build contract
 
-**Source design:** `docs/tech-debt-2026-07-10.md` (TD-1..TD-16).
+**Source design:** `tech-debt-2026-07-10.md` beside this file (TD-1..TD-16).
 **Bar (operator-set, 2026-07-10):** regression-proof — every behavior fix lands with a test that would catch its regression; infra items become CI gates.
 **Scope:** all 16 findings. Workshop constraint lifted: cassette re-record and dependency upgrades are in scope.
 

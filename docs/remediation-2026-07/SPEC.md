@@ -1,6 +1,6 @@
 # SPEC.md — tech-debt remediation, maltese-agent
 
-**Contract authority:** acceptance criteria live in `EVALUATION.md` (AC-1..AC-34, G-1..G-3, F-1/F-2) and are referenced here by ID. Source analysis: `docs/tech-debt-2026-07-10.md`.
+**Contract authority:** acceptance criteria live in `EVALUATION.md` (AC-1..AC-34, G-1..G-3, F-1/F-2) and are referenced here by ID. Source analysis: `tech-debt-2026-07-10.md` (beside this file).
 **Decided forks (operator, 2026-07-10):** TS tooling = **Biome**; Barnum coupling = **spike, migrate if a public API exists, else adapter + exact pin + canary**; genai = **upgrade to 2.x + operator re-records cassettes**.
 **Repo facts:** Rust workspace (`falcon-mcp`, `falcon-agent`), npm package (`falcon-detective/`), CI in `.github/workflows/ci.yml`, branch base `main`.
 
