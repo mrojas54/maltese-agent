@@ -6,12 +6,24 @@ import json
 import runpy
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 SCRIPT = Path(__file__).with_name("read-aloud.py")
+
+
+class CommandLineTests(unittest.TestCase):
+    def test_help_runs_without_a_deck(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-B", str(SCRIPT), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("usage:", result.stdout)
 
 
 class ReadAloudTests(unittest.TestCase):
