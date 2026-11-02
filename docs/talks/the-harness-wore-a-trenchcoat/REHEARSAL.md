@@ -24,6 +24,10 @@ and fails on missing/malformed/wrong responses. Each request has a 10-second
 client deadline. It creates and removes its own fresh temporary jail; optional
 `JAIL` must name a nonexistent directory. It honors Cargo's target directory.
 
+At a terminal, the script pauses after the tripwire beat so the revoked session
+stays on screen; press Enter to run the two bonus checks. Piped and CI runs
+never pause. `REHEARSE_PAUSE=0` skips the pause and `REHEARSE_PAUSE=1` forces it.
+
 `--beats --no-build` runs the already-built binary for the stage pass. This can
 be stale: first run the normal script after your last source change. The full
 script runs every falcon-mcp target, demo00 verify, and G-1; it requires ast-grep

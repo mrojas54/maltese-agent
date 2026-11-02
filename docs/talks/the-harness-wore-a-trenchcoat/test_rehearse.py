@@ -4,11 +4,13 @@ import asyncio
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
-from rehearse import Session, error, refusal, result
+from rehearse import Session, error, pause_for_bonus, refusal, result
 
 
 class ReplyChecks(unittest.TestCase):
@@ -29,6 +31,32 @@ class ReplyChecks(unittest.TestCase):
     def test_protocol_error_cannot_stand_in_for_policy_refusal(self):
         with self.assertRaises(RuntimeError):
             refusal({"error": {"message": "read-only"}}, "read-only")
+
+
+class PauseChecks(unittest.TestCase):
+    def pause(self, setting, stdin):
+        # A StringIO stdin is never a terminal, so only REHEARSE_PAUSE=1 may read it.
+        env = {k: v for k, v in os.environ.items() if k != "REHEARSE_PAUSE"}
+        if setting is not None:
+            env["REHEARSE_PAUSE"] = setting
+        fake_stdin = io.StringIO(stdin)
+        with mock.patch.dict(os.environ, env, clear=True), \
+                mock.patch("sys.stdin", fake_stdin), \
+                contextlib.redirect_stdout(io.StringIO()):
+            pause_for_bonus()
+        return fake_stdin.read()
+
+    def test_forced_pause_consumes_one_line(self):
+        self.assertEqual(self.pause("1", "\nnext"), "next")
+
+    def test_forced_pause_survives_closed_stdin(self):
+        self.assertEqual(self.pause("1", ""), "")
+
+    def test_disabled_pause_reads_nothing(self):
+        self.assertEqual(self.pause("0", "\n"), "\n")
+
+    def test_auto_pause_skips_without_a_terminal(self):
+        self.assertEqual(self.pause(None, "\n"), "\n")
 
 
 class TransportChecks(unittest.IsolatedAsyncioTestCase):
