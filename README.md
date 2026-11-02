@@ -43,7 +43,6 @@ the folder. The talk notes keep
 | `falcon-detective/` | A TypeScript workflow, built on Barnum, that finds and fixes the problems in `falcon-agent` by calling Gemini for reasoning and `falcon-mcp` for tools. It replays from recorded cassettes, so you can run it without an API key. |
 | `women-in-rust/` | The homework. `demo00` is six small exercises that build a working MCP server from scratch; `demo01` to `demo03` add tools, then guards, then the path check that closes the symlink hole. |
 | `docs/talks/the-harness-wore-a-trenchcoat/` | The talk's companion notes: which slide maps to which file, the demo runbook, what the checks do and do not cover, and the rehearsal script. |
-| `slides/`, `deckhand.json` | An earlier 10-slide terminal deck, kept for reference. |
 
 The talk is presented from the
 [12-slide meetup deck](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), a

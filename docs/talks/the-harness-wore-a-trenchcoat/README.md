@@ -4,9 +4,7 @@
 
 Speaker: Michelle Rojas. Theme: noir. Deck: the 12-slide
 [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), which is
-what the talk is presented from. [`deckhand.json`](../../../deckhand.json) and
-`slides/` at the repo root are the earlier 10-slide terminal deck, kept for
-reference.
+what the talk is presented from.
 
 This README is the companion to the slides. It maps the documented talk topics
 to `falcon-mcp/`, gives a runbook for the live demo, and

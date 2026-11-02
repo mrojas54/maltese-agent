@@ -7,9 +7,7 @@ Deck: the 12-slide [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4
 cut for a 15 to 20 minute slot on 2026-10-22 (the five demo00 exercise slides
 and the plug-in slide went; exercise three stays). Use it as the presentation
 candidate after the final visual check. The documented slide numbers are: the tripwire is slide 10,
-the live demo slide 11, case closed slide 12. `deckhand.json` and
-`slides/slide_1.md` … `slide_10.md` at the repo root are the earlier 10-slide
-terminal deck, kept for reference; its numbering no longer applies.
+the live demo slide 11, case closed slide 12.
 
 ## One command
 
