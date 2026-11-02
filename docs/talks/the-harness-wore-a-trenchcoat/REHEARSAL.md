@@ -7,9 +7,7 @@ Deck: the 12-slide [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4
 cut for a 15 to 20 minute slot on 2026-10-22 (the five demo00 exercise slides
 and the plug-in slide went; exercise three stays). Use it as the presentation
 candidate after the final visual check. The documented slide numbers are: the tripwire is slide 10,
-the live demo slide 11, case closed slide 12. `deckhand.json` and
-`slides/slide_1.md` … `slide_10.md` at the repo root are the earlier 10-slide
-terminal deck, kept for reference; its numbering no longer applies.
+the live demo slide 11, case closed slide 12.
 
 ## One command
 
@@ -23,6 +21,10 @@ checks response IDs, error codes/kinds, successful results, and the stderr alarm
 and fails on missing/malformed/wrong responses. Each request has a 10-second
 client deadline. It creates and removes its own fresh temporary jail; optional
 `JAIL` must name a nonexistent directory. It honors Cargo's target directory.
+
+At a terminal, the script pauses after the tripwire beat so the revoked session
+stays on screen; press Enter to run the two bonus checks. Piped and CI runs
+never pause. `REHEARSE_PAUSE=0` skips the pause and `REHEARSE_PAUSE=1` forces it.
 
 `--beats --no-build` runs the already-built binary for the stage pass. This can
 be stale: first run the normal script after your last source change. The full

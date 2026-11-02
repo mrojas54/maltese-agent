@@ -105,6 +105,23 @@ class Session:
         await self.log_task
 
 
+def pause_for_bonus():
+    """Hold the revoked session on screen before the bonus checks scroll it away.
+
+    Pauses only at an interactive terminal, so CI and piped runs never block.
+    REHEARSE_PAUSE=1 forces the pause; REHEARSE_PAUSE=0 skips it.
+    """
+    setting = os.environ.get("REHEARSE_PAUSE", "")
+    if setting == "0":
+        return
+    if setting != "1" and not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return
+    try:
+        input("\n[Tripwire on screen. Press Enter for the two bonus checks] ")
+    except EOFError:
+        pass
+
+
 async def rehearse(binary, jail):
     print("\nAllowed command, rejected shell, rejected traversal", flush=True)
     async with Session(binary, jail, ["--enable-exec"]) as s:
@@ -128,6 +145,7 @@ async def rehearse(binary, jail):
               -32003, "tripwire", "session revoked")
     require(any("TRIPWIRE TRIGGERED" in line for line in s.logs), "missing stderr alarm")
 
+    pause_for_bonus()
     print("\nBonus: read-only write gate", flush=True)
     async with Session(binary, jail, ["--read-only"]) as s:
         refusal(await s.call(5, "fs_write", {"path": "loot.txt", "content": "pwned"}),

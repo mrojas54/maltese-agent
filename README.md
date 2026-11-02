@@ -43,7 +43,6 @@ the folder. The talk notes keep
 | `falcon-detective/` | A TypeScript workflow, built on Barnum, that finds and fixes the problems in `falcon-agent` by calling Gemini for reasoning and `falcon-mcp` for tools. It replays from recorded cassettes, so you can run it without an API key. |
 | `women-in-rust/` | The homework. `demo00` is six small exercises that build a working MCP server from scratch; `demo01` to `demo03` add tools, then guards, then the path check that closes the symlink hole. |
 | `docs/talks/the-harness-wore-a-trenchcoat/` | The talk's companion notes: which slide maps to which file, the demo runbook, what the checks do and do not cover, and the rehearsal script. |
-| `slides/`, `deckhand.json` | An earlier 10-slide terminal deck, kept for reference. |
 
 The talk is presented from the
 [12-slide meetup deck](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), a
@@ -163,8 +162,9 @@ This is guardrail G-1 in `CLAUDE.md`.
   flags.
 - [`docs/superpowers/specs/2026-04-30-maltese-agent-design.md`](docs/superpowers/specs/2026-04-30-maltese-agent-design.md):
   the original design, with the implementation plans beside it.
-- `SPEC.md`, `EVALUATION.md`, `BUILDPLAN.md`, `LESSONS.md` and
-  `sequence/run-state.md`: the record of the 2026-07 tech-debt remediation.
+- [`docs/remediation-2026-07/`](docs/remediation-2026-07/): the record of the
+  2026-07 tech-debt remediation (audit, spec, evaluation, build plan, run
+  state, lessons).
 - [Barnum](https://github.com/barnum-circus/barnum), the workflow engine
   under `falcon-detective`.
 - [arXiv:2510.07192](https://arxiv.org/abs/2510.07192), the trigger-pattern

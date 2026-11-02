@@ -22,8 +22,9 @@ is repository/PR evidence, not a fresh visual review of that artifact.
 - [Presentation candidate](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1):
   retrieval unavailable; [PR #176](https://github.com/mrojas54/maltese-agent/pull/176)
   documents the October 22 cut and numbering (tripwire 10, demo 11, close 12).
-- Root `deckhand.json` / `slides/`: older 10-slide terminal deck. Not the current
-  deck; even its read-only/containment shorthand needs the qualifications below.
+- The older 10-slide terminal deck (`deckhand.json` / `slides/`, since removed
+  from the repo): not the current deck; even its read-only/containment shorthand
+  needed the qualifications below.
 - Current code, tests, CLI, and original rehearsal script were inspected and
   executed. No model API call was made. No workshop defects were changed.
 

@@ -4,9 +4,7 @@
 
 Speaker: Michelle Rojas. Theme: noir. Deck: the 12-slide
 [Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1), which is
-what the talk is presented from. [`deckhand.json`](../../../deckhand.json) and
-`slides/` at the repo root are the earlier 10-slide terminal deck, kept for
-reference.
+what the talk is presented from.
 
 This README is the companion to the slides. It maps the documented talk topics
 to `falcon-mcp/`, gives a runbook for the live demo, and
@@ -239,17 +237,10 @@ cargo test -p falcon-mcp --test timeout_test      # structured timeouts
 cargo test -p falcon-mcp --test tripwire_test     # honeytoken + session revocation
 ```
 
-For the HTTP shape (Cloud Run, Gemini CLI):
-
-```bash
-target/debug/falcon-mcp --http 8080 --root /workspace
-# MCP endpoint is now at http://localhost:8080/mcp
-```
-
-`falcon-mcp/tests/http_smoke.rs` checks that the HTTP endpoint responds; it
-accepts 5xx responses and does not exercise an MCP handshake or multi-session
-revocation over HTTP. The session-isolation test in `tripwire_test.rs` uses
-in-process duplex transports. An actual HTTP client rehearsal is separate.
+The same binary serves HTTP with `--http <port>` for Cloud Run or Gemini CLI;
+the talk does not demo it, and the only HTTP test,
+`falcon-mcp/tests/http_smoke.rs`, checks that the endpoint responds without
+exercising an MCP handshake or multi-session revocation.
 
 ## Standing guardrail
 
