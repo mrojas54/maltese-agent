@@ -27,8 +27,8 @@ class ReadAloudTests(unittest.TestCase):
         (self.deck / "slides").mkdir(parents=True)
         (self.deck / "deck.json").write_text(json.dumps({"order": ["second", "first"]}))
         (self.deck / "slides" / "second.html").write_text(
-            "<aside>Start with exec_run. (Click: stamp)\n\n"
-            "(Pause.)\n\nKeep standard error visible.\n\nThen explain JSON-RPC.</aside>"
+            "<aside>Start with exec_run. (Click: stamp)Then explain JSON-RPC.\n\n"
+            "(Pause.)\n\nKeep standard error visible.</aside>"
         )
         (self.deck / "slides" / "first.html").write_text(
             "<aside>Live. Before the talk, prepare the terminal.\n\nFinish here.</aside>"
@@ -44,6 +44,8 @@ class ReadAloudTests(unittest.TestCase):
                 "lavfi",
                 "-i",
                 "sine=frequency=440:duration=0.25",
+                "-write_xing",
+                "0",
                 str(sample),
             ],
             check=True,
@@ -59,7 +61,9 @@ class ReadAloudTests(unittest.TestCase):
             contextlib.chdir(self.root),
             contextlib.redirect_stdout(stdout),
             mock.patch("sys.argv", arguments),
-            mock.patch.dict("os.environ", {"OPENAI_API_KEY": "test-only"}),
+            mock.patch.dict(
+                "os.environ", {"OPENAI_API_KEY": "" if dry_run else "test-only"}
+            ),
             mock.patch(
                 "urllib.request.urlopen",
                 side_effect=[
@@ -102,6 +106,26 @@ class ReadAloudTests(unittest.TestCase):
     def test_relative_output_produces_full_talk(self) -> None:
         self.run_cli("rehearsal-sage")
         self.assert_full_talk(self.root / "rehearsal-sage")
+
+    def test_nested_output_with_spaces_and_quotes_produces_full_talk(self) -> None:
+        output = "nested/speaker's rehearsal"
+        self.run_cli(output)
+        self.assert_full_talk(self.root / output)
+
+    def test_absolute_output_produces_full_talk(self) -> None:
+        output = self.root / "absolute-output"
+        self.run_cli(str(output))
+        self.assert_full_talk(output)
+
+    def test_dry_run_preserves_note_order_and_filtering_without_audio(self) -> None:
+        self.run_cli("dry-run", dry_run=True)
+        output = self.root / "dry-run"
+        self.assertEqual(
+            (output / "script.txt").read_text(),
+            "## 1 second\nStart with exec run. Then explain Jason R P C."
+            "\n\n## 2 first\nFinish here.",
+        )
+        self.assertEqual({path.name for path in output.iterdir()}, {"script.txt"})
 
 
 if __name__ == "__main__":
