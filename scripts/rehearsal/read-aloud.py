@@ -5,6 +5,8 @@ Use --deck DIR for an export containing deck.json and slides/*.html.
 Use --dry-run to write script.txt and print word counts without calling TTS.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os

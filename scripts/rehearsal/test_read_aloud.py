@@ -3,16 +3,28 @@
 import contextlib
 import io
 import json
+import os
 import runpy
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Iterator
 from pathlib import Path
 from unittest import mock
 
 SCRIPT = Path(__file__).with_name("read-aloud.py")
+
+
+@contextlib.contextmanager
+def working_directory(directory: Path) -> Iterator[None]:
+    previous_directory = Path.cwd()
+    os.chdir(directory)
+    try:
+        yield
+    finally:
+        os.chdir(previous_directory)
 
 
 class CommandLineTests(unittest.TestCase):
@@ -21,6 +33,7 @@ class CommandLineTests(unittest.TestCase):
             [sys.executable, "-B", str(SCRIPT), "--help"],
             capture_output=True,
             text=True,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("usage:", result.stdout)
@@ -70,7 +83,7 @@ class ReadAloudTests(unittest.TestCase):
             arguments.append("--dry-run")
         stdout = io.StringIO()
         with (
-            contextlib.chdir(self.root),
+            working_directory(self.root),
             contextlib.redirect_stdout(stdout),
             mock.patch("sys.argv", arguments),
             mock.patch.dict(
