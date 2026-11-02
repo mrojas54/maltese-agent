@@ -182,9 +182,11 @@ into audio with OpenAI text-to-speech: one mp3 per slide plus `full-talk.mp3`,
 for a talk-track pass on headphones. It reads an export of that Slides artifact
 (`deck.json` plus `slides/*.html`), drops stage directions and `(Click: …)`
 cues, and rewrites identifiers so the voice says "exec run" rather than
-spelling the underscore (the `SAY` table at the top of the script). The export
-is not committed: refresh it from the live deck before a final read-aloud,
-because the slide order has changed since the last build.
+spelling the underscore (the `PRONUNCIATIONS` table at the top of the script).
+The export is not committed: refresh it from the live deck before a final
+read-aloud, because the slide order has changed since the last build.
+
+The builder and its tests support Python 3.9 or newer.
 
 ```bash
 python3 scripts/rehearsal/read-aloud.py --deck <export dir> --dry-run    # word counts and script.txt, no API call
@@ -194,9 +196,23 @@ OP_ENV_FILE="$HOME/.config/op/env.1p" oprun python3 scripts/rehearsal/read-aloud
 
 Output goes to `scripts/rehearsal/out/` (ignored by git) unless `--out` names
 another folder; use a new one per voice so builds don't overwrite each other.
+Relative output paths start from the directory where you run the command.
 Voices tried: `onyx` with the script's default instruction, and `sage` with the
 British instruction above. A full build costs pennies and needs `ffmpeg` and
 `ffprobe` on the path.
+
+To check audio assembly from the repository root:
+
+```bash
+python3 -B -m unittest discover -s scripts/rehearsal -p test_read_aloud.py -v
+```
+
+The tests use locally generated audio with real `ffmpeg` and `ffprobe`; they
+need no API key and make no TTS calls. They check that relative and absolute
+output directories produce `full-talk.mp3`, including a nested path with
+spaces and an apostrophe. They also check note order, pronunciation changes,
+stage-direction filtering, and dry-run output. CI runs these checks on
+Python 3.9 and 3.13, including a direct `--help` startup check.
 
 ## Audience exercises (demo00)
 
