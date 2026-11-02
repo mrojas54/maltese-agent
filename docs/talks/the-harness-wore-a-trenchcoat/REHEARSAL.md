@@ -174,6 +174,30 @@ still matches what the slide says.
 | Build is slow or offline | Build the night before. `target/` survives, so don't run `cargo clean`. |
 | Projector mangles the JSON | Use a larger terminal font and the saved transcript. The labelled script output is mixed text/JSON, so do not pipe it directly into jq. |
 
+## Read-aloud
+
+`scripts/rehearsal/read-aloud.py` turns the speaker notes of the
+[13-slide beginner edition](https://claude.ai/artifact/1LbubpRRCTc6Y6kw3psFmK)
+into audio with OpenAI text-to-speech: one mp3 per slide plus `full-talk.mp3`,
+for a talk-track pass on headphones. It reads an export of that Slides artifact
+(`deck.json` plus `slides/*.html`), drops stage directions and `(Click: …)`
+cues, and rewrites identifiers so the voice says "exec run" rather than
+spelling the underscore (the `SAY` table at the top of the script). The export
+is not committed: refresh it from the live deck before a final read-aloud,
+because the slide order has changed since the last build.
+
+```bash
+python3 scripts/rehearsal/read-aloud.py --deck <export dir> --dry-run    # word counts and script.txt, no API call
+OP_ENV_FILE="$HOME/.config/op/env.1p" oprun python3 scripts/rehearsal/read-aloud.py --deck <export dir> \
+  --voice sage --instr "a woman's voice with a British English accent, Received Pronunciation" --out <new folder>
+```
+
+Output goes to `scripts/rehearsal/out/` (ignored by git) unless `--out` names
+another folder; use a new one per voice so builds don't overwrite each other.
+Voices tried: `onyx` with the script's default instruction, and `sage` with the
+British instruction above. A full build costs pennies and needs `ffmpeg` and
+`ffprobe` on the path.
+
 ## Audience exercises (demo00)
 
 If you give the room hands-on time, everyone does the same three steps:

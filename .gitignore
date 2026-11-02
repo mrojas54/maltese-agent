@@ -6,3 +6,4 @@ node_modules/
 target/
 .env
 .DS_Store
+scripts/rehearsal/out/
