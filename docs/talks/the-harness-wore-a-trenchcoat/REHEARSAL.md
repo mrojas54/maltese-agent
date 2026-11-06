@@ -188,9 +188,19 @@ read-aloud, because the slide order has changed since the last build.
 
 The builder and its tests support Python 3.9 or newer.
 
+The API key reaches the script through `oprun`, which resolves a map of
+`VAR=op://…` references for one child process. The map lives at
+`scripts/rehearsal/env.1p`, ignored by git: this repo is public and the
+reference names a private vault and item. Create it once per checkout with a
+single line:
+
+```
+OPENAI_API_KEY=op://<vault>/<item>/credential
+```
+
 ```bash
 python3 scripts/rehearsal/read-aloud.py --deck <export dir> --dry-run    # word counts and script.txt, no API call
-OP_ENV_FILE="$HOME/.config/op/env.1p" oprun python3 scripts/rehearsal/read-aloud.py --deck <export dir> \
+OP_ENV_FILE=scripts/rehearsal/env.1p oprun python3 scripts/rehearsal/read-aloud.py --deck <export dir> \
   --voice sage --instr "a woman's voice with a British English accent, Received Pronunciation" --out <new folder>
 ```
 

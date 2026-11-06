@@ -7,3 +7,4 @@ target/
 .env
 .DS_Store
 scripts/rehearsal/out/
+scripts/rehearsal/env.1p
