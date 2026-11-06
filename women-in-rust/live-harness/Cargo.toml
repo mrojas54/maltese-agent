@@ -1,0 +1,13 @@
+[package]
+name = "live-harness"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Women in Rust: live-code Baby's First Harness into a checked one"
+publish = false
+
+# Its own tiny workspace, like the demos: `cargo run` here never builds the
+# rest of the repository. No dependencies, so it builds offline in seconds.
+[workspace]
+
+[dependencies]
