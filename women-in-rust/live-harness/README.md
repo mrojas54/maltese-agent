@@ -124,8 +124,8 @@ Say: "Everybody wants the keys. These keys were never real." Run: 4 of 4,
 the alarm line, and the honest read after it is refused too. "One touch and
 the session is over."
 
-Then: "That's about forty lines. falcon-mcp is the grown-up version of the
-same checks, served over MCP." Go to the live demo slide.
+Then: "That's about forty lines of checks. Now let's put them behind MCP."
+Go to the demo00 slide and follow [`../demo00/LIVE-CODING.md`](../demo00/LIVE-CODING.md).
 
 ## If it goes wrong
 
