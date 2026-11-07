@@ -10,6 +10,7 @@ MCP Server*. The deck itself is the
 | [`demo01`](demo01/) | The same server with `fs_read` and `exec_run`: four exercises, every test passing, no boundaries yet. `cd demo01 && cargo run -- next`. |
 | [`demo02`](demo02/) | Guards: a `Sandbox` every file tool goes through, a `--read-only` switch, and a first (lexical) path check that is honest about not being enough. `cd demo02 && cargo run -- next`. |
 | [`demo03`](demo03/) | The jail: `resolve` canonicalizes instead of reading spellings, closing demo02's symlink hole. `cd demo03 && cargo run -- next`. |
+| [`live-harness`](live-harness/) | The talk's live-coding segment: Baby's First Harness, fixed one check at a time on stage, with a checkpoint for each step. `cd live-harness && cargo run`. |
 
 ## Check out a demo
 

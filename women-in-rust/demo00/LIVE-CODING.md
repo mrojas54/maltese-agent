@@ -1,0 +1,113 @@
+# Live-code demo00 on stage
+
+Act 3, part two of *The Harness Wore a Trenchcoat*, right after the live
+harness. You fill in all four lessons (five files) and end with a working MCP
+server in Rust. About 30 lines and 500 characters of typing; plan on 10 to 12
+minutes with the runs and the talking.
+
+Build once before you go on stage, so each check takes seconds:
+
+```bash
+cd women-in-rust/demo00
+cargo build --bins && cargo run -- list
+```
+
+Each step is the same loop: open the file `cargo run -- next` names, type the
+fix, run `next` again, read the green line out loud.
+
+## 1. schema1: a struct is the schema (about 1 minute)
+
+`exercises/01_schema/schema1.rs`. Change the derive and add the doc comment:
+
+```rust
+#[derive(Debug, Deserialize, JsonSchema)]
+struct GreetArgs {
+    /// Who to greet.
+    name: String,
+}
+```
+
+Say: "Deserialize reads what the model sends. JsonSchema tells the model what
+to send. And that doc comment isn't for you. It's the only thing the model
+will ever read about this field."
+
+## 2. tool1: the tool (about 2 minutes)
+
+`exercises/02_tool/tool1.rs`. Fill in the description, then replace the
+`todo!`:
+
+```rust
+#[tool(name = "greet", description = "Greet someone by name. Returns {greeting: string}.")]
+```
+
+```rust
+Ok(Json(GreetResult { greeting: format!("Hello, {name}!") }))
+```
+
+Say: "The description is prose for the model. It's the tool's job interview."
+
+## 3. tool2: refuse bad input (about 2 minutes)
+
+`exercises/02_tool/tool2.rs`. At the TODO, before the greeting:
+
+```rust
+if name.trim().is_empty() {
+    return Err(ErrorData::invalid_params("name must not be empty", None));
+}
+```
+
+Say: "Same habit as the harness: check first, refuse anything wrong. On the
+wire that's error -32602, which a client can branch on."
+
+## 4. handshake1: say hello properly (about 3 minutes)
+
+`exercises/03_handshake/handshake1.rs`. Inside `impl ServerHandler for Demo00`:
+
+```rust
+fn get_info(&self) -> ServerInfo {
+    ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+        .with_server_info(Implementation::new(
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_VERSION"),
+        ))
+}
+```
+
+Say: "`env!` expands where you write it. Call rmcp's helper and you get rmcp's
+name, because that's where it was written. Remember that, it comes back in
+the demo."
+
+## 5. stdio1: stdout is the wire (about 30 seconds)
+
+`exercises/04_stdio/stdio1.rs`. One word in `main`:
+
+```rust
+eprintln!("listening on stdio");
+```
+
+Run `cargo run -- next` and read the done message: "You have built an MCP
+server." Say: "One word. A log line on stdout is a corrupt message, and the
+client hangs up blaming JSON. Logs go to stderr."
+
+Then: "That's a real MCP server in about thirty lines. Now the grown-up one."
+Go to the demo slide.
+
+## If it goes wrong
+
+| Problem | Recovery |
+| --- | --- |
+| A typo you can't spot | `cargo run -- hint NAME` shows the answer, or `cp solutions/DIR/NAME.rs exercises/DIR/NAME.rs`. |
+| Running short on time | Copy the remaining solutions over and run `cargo run -- next` once to show all green. |
+| Start over | `git checkout exercises/` puts every hole back. |
+
+**After the talk, run `git checkout exercises/`.** `cargo run -- verify`
+(and CI) expects every exercise to still fail, so a filled-in exercise left
+in the tree breaks it.
+
+## Timing the whole live section
+
+| Part | Typing | With runs and talking |
+| --- | --- | --- |
+| Live harness, steps 1 to 4 | about 1,600 characters | 15 to 20 minutes |
+| demo00, all five files | about 500 characters | 10 to 12 minutes |
+| Both | | 25 to 32 minutes |
