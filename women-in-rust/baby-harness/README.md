@@ -6,7 +6,7 @@ each edit, `cargo run` plays the same seven requests a model might send, and
 one more attack shows up as **stopped**.
 
 ```bash
-cd women-in-rust/live-harness
+cd women-in-rust/baby-harness
 cargo run              # plays the case file against src/harness.rs
 cargo run -- --step 3  # plays it against checkpoint 3 instead
 cargo run -- --all     # every checkpoint, one after another

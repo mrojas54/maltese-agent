@@ -1,7 +1,7 @@
 # Setting up Zed for the live coding
 
 For Act 3 of *The Harness Wore a Trenchcoat*: you type the harness
-(`live-harness`), then all five demo00 exercises. Do everything up to "The
+(`baby-harness`), then all five demo00 exercises. Do everything up to "The
 morning of" at home, on good wifi, on the laptop you will present from. Work
 through it once, then do one full timed practice run.
 
@@ -11,11 +11,10 @@ In a normal terminal:
 
 ```bash
 cd ~/path/to/maltese-agent
-git fetch origin
-git switch claude/project-thread-rgmu5q   # use main once PR #201 is merged
+git switch main
 git pull
 
-cd women-in-rust/live-harness
+cd women-in-rust/baby-harness
 cargo run                                  # expect: Attacks stopped: 0 of 4
 
 cd ../demo00
@@ -34,7 +33,7 @@ opens a folder from the terminal.
 ## 3. Open each project in its own window
 
 ```bash
-zed ~/path/to/maltese-agent/women-in-rust/live-harness
+zed ~/path/to/maltese-agent/women-in-rust/baby-harness
 zed ~/path/to/maltese-agent/women-in-rust/demo00
 ```
 
@@ -90,9 +89,9 @@ Both folders now have a `.zed/tasks.json`, committed in the repo:
 
 | Window | Task | What it does |
 | --- | --- | --- |
-| live-harness | `harness: cargo run` | Plays the 7 requests against your edit |
-| live-harness | `harness: all checkpoints (backup)` | `--all`, if you skip typing |
-| live-harness | `harness: reset to Exhibit A` | `git checkout src/harness.rs`, then run |
+| baby-harness | `harness: cargo run` | Plays the 7 requests against your edit |
+| baby-harness | `harness: all checkpoints (backup)` | `--all`, if you skip typing |
+| baby-harness | `harness: reset to Exhibit A` | `git checkout src/harness.rs`, then run |
 | demo00 | `demo00: next` | Checks the exercise you are on |
 | demo00 | `demo00: reset every exercise` | `git checkout exercises/`, then `next` |
 
@@ -119,7 +118,7 @@ In each window:
 2. Open the terminal panel at the bottom (`` ctrl-` ``). Drag it to about a
    third of the screen, which is room for the 7 harness lines or the demo00
    result.
-3. Open the starting file: `src/harness.rs` in live-harness, and
+3. Open the starting file: `src/harness.rs` in baby-harness, and
    `exercises/01_schema/schema1.rs` in demo00.
 4. To make the code fill the screen while you explain it, use
    `shift-escape` (toggle zoom on the pane). Press it again to bring the
@@ -128,7 +127,7 @@ In each window:
 ## 7. Practice run, with a timer
 
 1. Run both reset tasks.
-2. Start a stopwatch. Follow `live-harness/README.md` from step 1 to 4,
+2. Start a stopwatch. Follow `baby-harness/README.md` from step 1 to 4,
    then `demo00/LIVE-CODING.md` from schema1 to stdio1, saying the lines
    out loud.
 3. Write down the time for each part. Afterwards, run both reset tasks again.
