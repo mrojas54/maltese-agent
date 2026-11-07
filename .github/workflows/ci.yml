@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -62,7 +62,7 @@ jobs:
       # taiki-e/install-action (~1s), same rationale as the ast-grep install
       # below — `cargo install cargo-audit` would add ~3min of compile.
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2.87.32
+        uses: taiki-e/install-action@v2.90.0
         with:
           tool: cargo-audit
 
@@ -83,7 +83,7 @@ jobs:
       # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
       # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
       - name: Install ast-grep
-        uses: taiki-e/install-action@v2.87.32
+        uses: taiki-e/install-action@v2.90.0
         with:
           tool: ast-grep
 
@@ -281,6 +281,39 @@ jobs:
       # exercise still fails, so a "fix" to an exercise fails CI here.
       - name: verify exercises and solutions
         run: cargo run -- verify
+
+  live-harness:
+    name: Live harness (women-in-rust/live-harness)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        working-directory: women-in-rust/live-harness
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned toolchain from rust-toolchain.toml
+        id: toolchain
+        working-directory: .
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+          components: rustfmt, clippy
+
+      - name: cargo fmt --check
+        run: cargo fmt -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Every checkpoint stops exactly one more attack, and src/harness.rs
+      # is still Exhibit A (the stage starting point).
+      - name: cargo test
+        run: cargo test
 
   trailmark:
     name: Trailmark (falcon-mcp links)
