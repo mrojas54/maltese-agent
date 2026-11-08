@@ -116,7 +116,7 @@ Things to know about the output:
 - **Jail paths vary.** The script uses a new temporary directory and enough
   parent components to escape it. The manual `/tmp/jail` example below assumes
   an otherwise unused directory. Never reuse a jail containing real work.
-- **The cargo version in beat 2 may not be 1.92.** `/tmp/jail` has no
+- **The cargo version in beat 2 may not be 1.99.** `/tmp/jail` has no
   `rust-toolchain.toml`, so rustup uses its default toolchain. This is
   expected. Don't let it distract you.
 
