@@ -109,7 +109,7 @@ in the tree breaks it.
 
 | Part | Typing | With runs and talking |
 | --- | --- | --- |
-| Live harness, steps 1 to 4 | about 1,600 characters | 15 to 20 minutes |
+| Baby harness, steps 1 to 4 | about 1,600 characters | 15 to 20 minutes |
 | demo00, all five files | about 500 characters | 10 to 12 minutes |
 | Both | | 25 to 32 minutes |
 | Slides around them (6 slides of notes) | | about 5 minutes |
