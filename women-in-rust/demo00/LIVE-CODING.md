@@ -74,8 +74,8 @@ fn get_info(&self) -> ServerInfo {
 ```
 
 Say: "`env!` expands where you write it. Call rmcp's helper and you get rmcp's
-name, because that's where it was written. Remember that, it comes back in
-the demo."
+name, because that's where it was written. Fun fact: falcon-mcp still gets
+this one wrong. Do as I say, not as I ship."
 
 ## 5. stdio1: stdout is the wire (about 30 seconds)
 
@@ -89,8 +89,9 @@ Run `cargo run -- next` and read the done message: "You have built an MCP
 server." Say: "One word. A log line on stdout is a corrupt message, and the
 client hangs up blaming JSON. Logs go to stderr."
 
-Then: "That's a real MCP server in about thirty lines. Now the grown-up one."
-Go to the demo slide.
+Then: "That's a real MCP server in about thirty lines of Rust. falcon-mcp, in
+the same repo, is the grown-up version: these checks plus timeouts, served
+over MCP." Go to the Case Closed slide.
 
 ## If it goes wrong
 
@@ -111,3 +112,9 @@ in the tree breaks it.
 | Live harness, steps 1 to 4 | about 1,600 characters | 15 to 20 minutes |
 | demo00, all five files | about 500 characters | 10 to 12 minutes |
 | Both | | 25 to 32 minutes |
+| Slides around them (6 slides of notes) | | about 5 minutes |
+| Whole talk | | 30 to 37 minutes, in a 30-minute slot |
+
+These are estimates. Your timed run is the real number. If it comes out over
+30, the quickest cut is pasting harness step 4 (the tripwire) from
+`src/steps/step4.rs` instead of typing it, which saves about 5 minutes.
