@@ -200,7 +200,7 @@ targets the direct child, not an entire descendant process tree.
 For rehearsal passes, on-stage lines, and failure recovery against the artifact
 deck, see [`REHEARSAL.md`](REHEARSAL.md) and run `rehearse.sh`.
 
-Prerequisites: the pinned Rust 1.92 toolchain, Python 3, and git for the live
+Prerequisites: the pinned Rust 1.99 toolchain, Python 3, and git for the live
 script. The full script also requires ast-grep, jq, and the pinned clippy
 component. Build/cache dependencies before going offline.
 
