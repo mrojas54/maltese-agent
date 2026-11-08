@@ -101,7 +101,7 @@ fn judge(req: &Request, result: &Result<String, String>) -> Verdict {
 /// Builds a fresh crime scene: a folder for the harness, and a secret
 /// just outside it.
 fn crime_scene() -> PathBuf {
-    let case = std::env::temp_dir().join(format!("live-harness-{}", std::process::id()));
+    let case = std::env::temp_dir().join(format!("baby-harness-{}", std::process::id()));
     let jail = case.join("jail");
     let _ = std::fs::remove_dir_all(&case);
     std::fs::create_dir_all(&jail).expect("create the jail folder");

@@ -282,14 +282,14 @@ jobs:
       - name: verify exercises and solutions
         run: cargo run -- verify
 
-  live-harness:
-    name: Live harness (women-in-rust/live-harness)
+  baby-harness:
+    name: Baby harness (women-in-rust/baby-harness)
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     defaults:
       run:
-        working-directory: women-in-rust/live-harness
+        working-directory: women-in-rust/baby-harness
     steps:
       - uses: actions/checkout@v7
 
