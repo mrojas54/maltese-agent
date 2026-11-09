@@ -1,5 +1,13 @@
 [
   {
+    "label": "demo00: check this file",
+    "command": "cargo run -q -- run $ZED_STEM",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
     "label": "demo00: next",
     "command": "cargo run -q -- next",
     "cwd": "$ZED_WORKTREE_ROOT",

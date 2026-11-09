@@ -12,8 +12,19 @@ cd women-in-rust/demo00
 cargo build --bins && cargo run -- list
 ```
 
-Each step is the same loop: open the file `cargo run -- next` names, type the
-fix, run `next` again, read the green line out loud.
+Each step is the same loop: type the fix, then check just that file with
+`cargo run -- run NAME` (in Zed, the **demo00: check this file** task, which
+fills in the name of the open file). It prints about a dozen lines ending in
+"✓ ... passes." and the next file's name. Read the green line out loud, then
+open the next file.
+
+Don't use `next` between steps. After each fix it prints the ✓ and then goes
+straight on to the next file's failure, about 100 lines of red, so the room
+never sees the green. Use `next` only at the very end, for the done message.
+
+The very first run, before you type anything, prints about 90 lines of
+compiler error (a schemars E0277) before the "✗ schema1 needs you" block.
+Say "ignore the wall, look at the last block" and scroll to it.
 
 ## 1. schema1: a struct is the schema (about 1 minute)
 
