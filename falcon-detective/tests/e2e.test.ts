@@ -7,6 +7,10 @@ import { DEFAULT_MODEL } from "../src/lib/models.js";
 import { removeRunWorktree } from "./helpers/e2eCleanup.js";
 import { checkCassetteFreshness } from "./helpers/e2eFingerprint.js";
 import { applyGuardOutcome, checkE2ePrereqs } from "./helpers/e2ePrereqs.js";
+import {
+  checkReplayIntegrity,
+  snapshotMissDumps,
+} from "./helpers/e2eReplayIntegrity.js";
 
 // Async subprocess execution is load-bearing here, not style (MA-26): the
 // pipeline and smoke-test runs take minutes, and a synchronous exec blocks
@@ -119,17 +123,26 @@ describe("e2e: full pipeline against falcon-agent", () => {
     // own location, not process.cwd()), so a worker spawned from REPO_ROOT
     // would resolve the right directory anyway — but the e2e pins the exact
     // dir its guards fingerprinted rather than trusting the fallback.
+    //
+    // GEMINI_DEBUG_PROMPTS defaults on so every cassette miss leaves a
+    // `_miss_<key>.normalized.txt` dump: the replay-integrity gate below
+    // reads it, and it is the file you diff when that gate trips. In
+    // cassette mode gemini.ts writes nothing on a hit, so a clean run
+    // leaves the fixtures dir untouched.
     const env = {
       ...process.env,
       GEMINI_MODE: "cassette",
       CASSETTE_DIR,
       CARGO_TARGET_DIR,
+      GEMINI_DEBUG_PROMPTS: process.env.GEMINI_DEBUG_PROMPTS ?? "1",
     };
+    const missDumpsBefore = snapshotMissDumps(CASSETTE_DIR);
+    let pipelineOutput: string;
     try {
       // --repo-root is explicit because the CLI default (..) resolves
       // against the spawning cwd, which puts .runs/ at the worktrees
       // parent dir rather than inside this worktree.
-      await execFileAsync(
+      const { stdout, stderr } = await execFileAsync(
         "node",
         [
           "falcon-detective/dist/cli.js",
@@ -144,27 +157,45 @@ describe("e2e: full pipeline against falcon-agent", () => {
         ],
         { cwd: REPO_ROOT, env, maxBuffer: MAX_BUFFER },
       );
+      pipelineOutput = `${stdout}\n${stderr}`;
     } catch (e: any) {
-      const stderr = e.stderr?.toString() ?? "";
-      // With prompt-hash normalization in place (gemini.ts normalizeForHash),
-      // cassette miss should be rare. If it does happen, the cassettes are
-      // stale relative to the workflow code — re-record with GEMINI_MODE=record.
-      // Report SKIPPED (never a silent pass); under E2E_REQUIRED=1 stale
-      // cassettes fail the run, same as absent ones, to keep AC-5's
-      // "green CI implies the e2e executed" guarantee.
-      if (/no cassette for [0-9a-f]+/.test(stderr)) {
-        const reason =
-          "cassette miss — cassettes are stale relative to the workflow code " +
-          "(workflow or prompts changed since the last GEMINI_MODE=record run); re-record them";
-        if (REQUIRED)
-          throw new Error(
-            `E2E_REQUIRED=1 but the e2e could not run: ${reason}`,
-          );
-        console.error(`e2e skipped: ${reason}`);
-        ctx.skip();
-      }
+      // A pipeline that DIED on a cassette miss: the cassettes are stale
+      // relative to the workflow code — re-record with GEMINI_MODE=record.
+      // Report SKIPPED (never a silent pass); under E2E_REQUIRED=1 it fails,
+      // same as absent cassettes, to keep AC-5's "green CI implies the e2e
+      // executed" guarantee. Any other failure propagates unchanged.
+      const output = `${e.stdout?.toString() ?? ""}\n${e.stderr?.toString() ?? ""}`;
+      applyGuardOutcome(
+        checkReplayIntegrity({
+          cassetteDir: CASSETTE_DIR,
+          before: missDumpsBefore,
+          output,
+          required: REQUIRED,
+        }),
+        ctx,
+        "E2E_REQUIRED=1 but the e2e could not run: ",
+      );
       throw e;
     }
+
+    // Replay-integrity gate: a pipeline that SURVIVED a cassette miss.
+    // processIssues skips an issue whose propose step throws, so a miss the
+    // fingerprint fast path could not predict (for example, a reworded
+    // triage hint that changes a lint-fix prompt) used to exit 0 with that
+    // issue quietly unfixed, and this test passed. Any miss, whether named
+    // on the pipeline's output or left as a fresh `_miss_*` dump, now skips
+    // the test (fails under E2E_REQUIRED=1) and names the missing key(s).
+    // See helpers/e2eReplayIntegrity.ts.
+    applyGuardOutcome(
+      checkReplayIntegrity({
+        cassetteDir: CASSETTE_DIR,
+        before: missDumpsBefore,
+        output: pipelineOutput,
+        required: REQUIRED,
+      }),
+      ctx,
+      "E2E_REQUIRED=1 but the e2e did not replay cleanly: ",
+    );
 
     // After the run, the previously-#[ignore]'d smoking-gun test must pass —
     // this is the gate that proves the agent fixed the poison.
