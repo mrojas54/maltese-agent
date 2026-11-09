@@ -92,7 +92,8 @@ Both folders now have a `.zed/tasks.json`, committed in the repo:
 | baby-harness | `harness: cargo run` | Plays the 7 requests against your edit |
 | baby-harness | `harness: all checkpoints (backup)` | `--all`, if you skip typing |
 | baby-harness | `harness: reset to Exhibit A` | `git checkout src/harness.rs`, then run |
-| demo00 | `demo00: next` | Checks the exercise you are on |
+| demo00 | `demo00: check this file` | `run NAME` for the open file: a short pass or fail |
+| demo00 | `demo00: next` | Only at the end, for "You have built an MCP server." |
 | demo00 | `demo00: reset every exercise` | `git checkout exercises/`, then `next` |
 
 Run one with `cmd-shift-p`, then **task: spawn**, then pick it. After that,
