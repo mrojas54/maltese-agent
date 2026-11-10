@@ -13,6 +13,42 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  read-aloud:
+    name: Read-aloud (Python ${{ matrix.python-version }} + FFmpeg)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.13']
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Verify read-aloud output with local audio
+        run: python -B -m unittest discover -s scripts/rehearsal -p test_read_aloud.py -v
+
+  shellcheck:
+    name: ShellCheck (tracked *.sh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # shellcheck ships on ubuntu-latest, so no install step. Lints every
+      # tracked shell script; a new script is covered without editing this.
+      # Silence a finding in the script itself (`# shellcheck disable=SCxxxx`
+      # plus a reason), as check-planted-defects.sh does, not here.
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 shellcheck
+
   rust:
     name: Rust (fmt + clippy + test)
     runs-on: ubuntu-latest
@@ -41,7 +77,7 @@ jobs:
       # taiki-e/install-action (~1s), same rationale as the ast-grep install
       # below — `cargo install cargo-audit` would add ~3min of compile.
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2.87.28
+        uses: taiki-e/install-action@v2.90.0
         with:
           tool: cargo-audit
 
@@ -62,12 +98,17 @@ jobs:
       # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
       # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
       - name: Install ast-grep
-        uses: taiki-e/install-action@v2.87.28
+        uses: taiki-e/install-action@v2.90.0
         with:
           tool: ast-grep
 
       - name: cargo test
         run: cargo test --workspace --all-targets
+
+      - name: Talk rehearsal assertions and live stdio beats
+        run: |
+          python3 -B -m unittest discover -s docs/talks/the-harness-wore-a-trenchcoat -p test_rehearse.py
+          docs/talks/the-harness-wore-a-trenchcoat/rehearse.sh --beats --no-build
 
       # G-1: falcon-agent's planted defects (poisoned prompt example, missing
       # guards, three documented clippy lints, #[ignore]'d smoking-gun test)
@@ -107,7 +148,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: falcon-detective/package-lock.json
 
@@ -221,7 +262,7 @@ jobs:
       fail-fast: false
       matrix:
         # One entry per demo under women-in-rust/. A new demo adds itself here.
-        demo: [demo00, demo01]
+        demo: [demo00, demo01, demo02, demo03]
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -255,3 +296,54 @@ jobs:
       # exercise still fails, so a "fix" to an exercise fails CI here.
       - name: verify exercises and solutions
         run: cargo run -- verify
+
+  baby-harness:
+    name: Baby harness (women-in-rust/baby-harness)
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        working-directory: women-in-rust/baby-harness
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned toolchain from rust-toolchain.toml
+        id: toolchain
+        working-directory: .
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+          components: rustfmt, clippy
+
+      - name: cargo fmt --check
+        run: cargo fmt -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Every checkpoint stops exactly one more attack, and src/harness.rs
+      # is still Exhibit A (the stage starting point).
+      - name: cargo test
+        run: cargo test
+
+  trailmark:
+    name: Trailmark (falcon-mcp links)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned: links.toml needs Trailmark 0.5+, and a new parser can change
+      # which node IDs exist. ubuntu-latest ships Python 3.12 (Trailmark's
+      # minimum) and pipx.
+      - name: Install Trailmark
+        run: pipx install trailmark==0.6.0
+
+      # `analyze` applies falcon-mcp/.trailmark/links.toml and exits non-zero
+      # when a link names a function that no longer exists. A renamed or
+      # deleted handler fails here until its links are updated.
+      - name: Check links.toml still resolves
+        run: trailmark analyze --language rust --summary falcon-mcp

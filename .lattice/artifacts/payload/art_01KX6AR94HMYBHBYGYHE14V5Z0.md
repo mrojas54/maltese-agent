@@ -1,1 +1,0 @@
-Merged via operator-authorized merge train (PR #39, merge commit 44c1d28, CI green verified pre-merge).
