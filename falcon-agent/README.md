@@ -27,7 +27,7 @@ This crate ships **deliberately broken**. The seed includes:
 1. **Few-shot prompt poisoning** in `src/prompt.rs` — the third example is anomalous (output unrelated to input, hard-coded `"(unknown)"` attribution). Triggers on bird-themed semantic inputs. Authored by `@malt3se_lover` two weeks before the demo.
 2. **Missing input scan** in `src/interrogate.rs` — user-controlled fields flow straight to the LLM without sanitization.
 3. **Missing output schema** in `src/llm.rs` (Real client) and `src/interrogate.rs` — LLM responses are trusted verbatim.
-4. **Lint issues** — unused import (`std::io::Write`), `.unwrap()` where `?` would do, and a needless `.clone()`. The first fires under default `cargo build`/`cargo clippy`. The second requires `-W clippy::unwrap_used`. The third requires `-W clippy::nursery` (the `redundant_clone` lint is currently nursery-only on clippy 0.1.92+).
+4. **Lint issues** — unused import (`std::io::Write`), `.unwrap()` where `?` would do, and a needless `.clone()`. The first fires under default `cargo build`/`cargo clippy`. The second requires `-W clippy::unwrap_used`. The third requires `-W clippy::nursery` (the `redundant_clone` lint is nursery-only on the pinned clippy, 0.1.99).
 5. **`#[ignore]`'d smoking-gun test** in `tests/integration.rs` — un-ignore it and the poison surfaces deterministically.
 
 Verify the planted state at any time:
