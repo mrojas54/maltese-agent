@@ -125,7 +125,10 @@ async fn run(demo: Demo) -> ExitCode {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
 
     let outcome = match args.as_slice() {
-        ["list"] => Ok(list(&info)),
+        ["list"] => {
+            list(&info);
+            Ok(())
+        }
         ["hint", name] => find(&info, name).map(hint),
         ["run", name] => match find(&info, name) {
             Ok(ex) => run_one(&demo, &info, ex).await,
@@ -188,6 +191,7 @@ fn hint(ex: &Exercise) {
 }
 
 async fn run_one(demo: &Demo, info: &Info, ex: &Exercise) -> Result<(), String> {
+    println!("→ {}", ex.path());
     check(demo, &ex.name, ex, false)
         .await
         .map_err(|msg| needs_you(ex, &msg))?;
@@ -288,13 +292,22 @@ fn mark(ok: bool) -> &'static str {
 }
 
 /// One pass/fail check of a binary target: its tests, then, if it serves,
-/// the wire probe. `quiet` captures cargo's output instead of streaming it.
+/// the wire probe. `quiet` omits stage lines and captures Cargo output for CI.
 async fn check(demo: &Demo, bin: &str, ex: &Exercise, quiet: bool) -> Result<(), String> {
     if ex.test {
+        if !quiet {
+            println!("  → Building and running tests...");
+        }
         cargo(demo, &["test", "--bin", bin], quiet)?;
     }
     if ex.wire {
+        if !quiet {
+            println!("  → Building the MCP server...");
+        }
         cargo(demo, &["build", "--bin", bin], quiet)?;
+        if !quiet {
+            println!("  → Checking the MCP handshake and tools...");
+        }
         wire_probe(demo, bin, ex, quiet).await?;
     }
     Ok(())
@@ -630,5 +643,151 @@ hint = "Two derives."
             err.contains("nothing at /result/structuredContent"),
             "got: {err}"
         );
+    }
+
+    #[cfg(unix)]
+    mod progress {
+        use super::*;
+        use std::os::unix::fs::PermissionsExt;
+
+        fn output(scenario: &str, cargo_status: u8) -> String {
+            let scratch = tempfile::tempdir().expect("scratch directory");
+            let cargo = scratch.path().join("cargo");
+            std::fs::write(
+                &cargo,
+                "#!/bin/sh\nprintf 'mock cargo %s\\n' \"$*\"\nexit \"$DEMO_RUNNER_CARGO_STATUS\"\n",
+            )
+            .expect("write fake cargo");
+            std::fs::set_permissions(&cargo, std::fs::Permissions::from_mode(0o755))
+                .expect("executable fake cargo");
+
+            let output = Command::new(std::env::current_exe().expect("test executable"))
+                .args([
+                    "--exact",
+                    "tests::progress::stage_output_fixture",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("CARGO", cargo)
+                .env("DEMO_RUNNER_STAGE_SCENARIO", scenario)
+                .env("DEMO_RUNNER_CARGO_STATUS", cargo_status.to_string())
+                .output()
+                .expect("run stage fixture");
+            assert!(
+                output.status.success(),
+                "fixture failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            String::from_utf8(output.stdout).expect("fixture stdout")
+        }
+
+        fn before(output: &str, first: &str, second: &str) {
+            let first = output
+                .find(first)
+                .unwrap_or_else(|| panic!("missing {first:?}: {output}"));
+            let second = output
+                .find(second)
+                .unwrap_or_else(|| panic!("missing {second:?}: {output}"));
+            assert!(first < second, "stages out of order: {output}");
+        }
+
+        #[test]
+        fn test_stage_precedes_cargo_failure() {
+            let out = output("tests", 1);
+            before(
+                &out,
+                "→ exercises/01_schema/schema1.rs",
+                "→ Building and running tests...",
+            );
+            before(
+                &out,
+                "→ Building and running tests...",
+                "mock cargo test --bin schema1",
+            );
+            assert!(
+                !out.contains("passes."),
+                "failed check claimed success: {out}"
+            );
+        }
+
+        #[test]
+        fn successful_tests_end_with_the_pass_result() {
+            let out = output("tests", 0);
+            before(
+                &out,
+                "→ Building and running tests...",
+                "mock cargo test --bin schema1",
+            );
+            before(
+                &out,
+                "mock cargo test --bin schema1",
+                "✓ exercises/01_schema/schema1.rs passes.",
+            );
+        }
+
+        #[test]
+        fn wire_stage_follows_the_server_build() {
+            let out = output("wire", 0);
+            before(
+                &out,
+                "→ Building the MCP server...",
+                "mock cargo build --bin intro1",
+            );
+            before(
+                &out,
+                "mock cargo build --bin intro1",
+                "→ Checking the MCP handshake and tools...",
+            );
+            assert!(
+                !out.contains("→ Building and running tests..."),
+                "wire-only check announced tests: {out}"
+            );
+        }
+
+        #[test]
+        fn failed_build_does_not_announce_the_wire_stage() {
+            let out = output("wire", 1);
+            before(
+                &out,
+                "→ Building the MCP server...",
+                "mock cargo build --bin intro1",
+            );
+            assert!(
+                !out.contains("→ Checking the MCP handshake and tools..."),
+                "failed build announced a wire check: {out}"
+            );
+        }
+
+        #[test]
+        fn quiet_checks_omit_stage_messages() {
+            for status in [0, 1] {
+                let out = output("quiet", status);
+                assert!(!out.contains('→'), "quiet check announced a stage: {out}");
+            }
+        }
+
+        #[tokio::test]
+        #[ignore = "subprocess fixture for the progress tests"]
+        async fn stage_output_fixture() {
+            let Ok(scenario) = std::env::var("DEMO_RUNNER_STAGE_SCENARIO") else {
+                return;
+            };
+            let info: Info = toml::from_str(SAMPLE).expect("sample parses");
+            let ex = &info.exercises[usize::from(scenario != "wire")];
+            let demo = Demo {
+                info_toml: SAMPLE,
+                manifest_dir: env!("CARGO_MANIFEST_DIR"),
+                name: "stage-fixture",
+                version: "0.0.0",
+            };
+            let result = if scenario == "quiet" {
+                check(&demo, &ex.name, ex, true).await
+            } else {
+                run_one(&demo, &info, ex).await
+            };
+            if let Err(message) = result {
+                println!("{message}");
+            }
+        }
     }
 }
