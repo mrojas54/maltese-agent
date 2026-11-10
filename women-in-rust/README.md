@@ -1,14 +1,16 @@
 # Women in Rust: meetup demos
 
 Companion code for *The Harness Wore a Trenchcoat: Building a Sandboxed Rust
-MCP Server*. The deck itself is [`deckhand.json`](../deckhand.json) at the
-repo root.
+MCP Server*. The deck itself is the
+[Slides artifact](https://claude.ai/artifact/5DVfbG5hVUvXT9Q4tbd8r1).
 
 | Demo | What it is |
 | --- | --- |
 | [`demo00`](demo00/) | A rustlings-style tutorial: six exercises that build a stdio MCP server from the schema up. `cd demo00 && cargo run -- next`. |
 | [`demo01`](demo01/) | The same server with `fs_read` and `exec_run`: four exercises, every test passing, no boundaries yet. `cd demo01 && cargo run -- next`. |
 | [`demo02`](demo02/) | Guards: a `Sandbox` every file tool goes through, a `--read-only` switch, and a first (lexical) path check that is honest about not being enough. `cd demo02 && cargo run -- next`. |
+| [`demo03`](demo03/) | The jail: `resolve` canonicalizes instead of reading spellings, closing demo02's symlink hole. `cd demo03 && cargo run -- next`. |
+| [`baby-harness`](baby-harness/) | The talk's live-coding segment: Baby's First Harness, fixed one check at a time on stage, with a checkpoint for each step. `cd baby-harness && cargo run`. |
 
 ## Check out a demo
 
@@ -18,10 +20,17 @@ Each demo has a branch that holds it and every demo before it:
 git switch women-in-rust/demo00
 git switch women-in-rust/demo01
 git switch women-in-rust/demo02
+git switch women-in-rust/demo03
 ```
 
 Switch to the branch for the demo you are on, then `cd women-in-rust/demoNN`
 and `cargo run -- next`.
+
+Interactive checks name the exercise and announce each stage before starting
+it: building and running tests, building the server, and checking the MCP
+handshake and tools. Only the stages that exercise needs appear. Compiler
+diagnostics and test output stream underneath; the pass marker appears after
+all its checks succeed. `cargo run -- verify` keeps its compact summary.
 
 The full-size version with the root jail, binary allowlist and timeouts is
 [`falcon-mcp`](../falcon-mcp/).

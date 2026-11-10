@@ -17,7 +17,8 @@
 # Keep the file in step with the code: a new `#[tool]` method needs a group 2
 # and a group 3 entry,
 # a new `sandbox.*` call needs a group 4 entry, and a new handler that maps
-# errors through `ToolError::classify` needs a group 7 entry.
+# errors through `ToolError::classify` needs a group 7 entry. CI's
+# `Trailmark (falcon-mcp links)` job fails when an endpoint no longer exists.
 
 
 # 1. main -> library: crate-path calls (`falcon_mcp::...`) and calls on the

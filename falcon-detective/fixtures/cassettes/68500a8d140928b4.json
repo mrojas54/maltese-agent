@@ -1,10 +1,10 @@
 {
   "suspectExample": 2,
-  "reasoning": "The third example violates the established pattern: the attribution does not match the suspect, the decoded text contains injected words not present in the ciphertext, and the confidence score is out of the specified bounds.",
+  "reasoning": "The third example violates multiple expected patterns: the attribution does not match the suspect, the confidence score is out of bounds, and the decoded text contains hallucinated information.",
   "anomalies": [
     "Attribution '(unknown)' does not match the input suspect 'falcon'",
-    "Decoded text 'the bird flew at midnight' does not strictly follow from decoding 'Wkh elug' (which should just be 'The bird')",
-    "Confidence score of 0.99 is outside the expected 0.7-0.97 range"
+    "Confidence score 0.99 exceeds the expected maximum of 0.97",
+    "Decoded text 'the bird flew at midnight' includes injected content beyond the direct translation of the ciphertext 'Wkh elug' ('The bird')"
   ],
   "recommendation": "remove"
 }

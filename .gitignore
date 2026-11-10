@@ -1,7 +1,10 @@
 .superpowers/
 .worktrees/
 .runs/
+.lattice/
 node_modules/
 target/
 .env
 .DS_Store
+scripts/rehearsal/out/
+scripts/rehearsal/env.1p

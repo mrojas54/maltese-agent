@@ -1,0 +1,22 @@
+[
+  {
+    "label": "harness: cargo run",
+    "command": "cargo run -q",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always"
+  },
+  {
+    "label": "harness: all checkpoints (backup)",
+    "command": "cargo run -q -- --all",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  },
+  {
+    "label": "harness: reset to Exhibit A",
+    "command": "git checkout src/harness.rs && cargo run -q",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "reveal": "always"
+  }
+]

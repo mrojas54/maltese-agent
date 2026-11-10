@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,6 +27,11 @@ import {
   type GuardOutcome,
   hasCassettes,
 } from "./helpers/e2ePrereqs.js";
+import {
+  cassetteMissKeysInOutput,
+  checkReplayIntegrity,
+  snapshotMissDumps,
+} from "./helpers/e2eReplayIntegrity.js";
 
 // Hermetic proof of the e2e guard behaviors (AC-1..AC-4). Everything here
 // operates on throwaway mkdtemp fixtures — never the real checkout — and
@@ -488,5 +494,203 @@ describe("e2e worker-blockage regression (MA-26)", () => {
       "utf8",
     );
     expect(e2eSource).not.toMatch(/\b(execFileSync|execSync|spawnSync)\b/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Replay-integrity gate: a cassette miss the pipeline SURVIVED. processIssues
+// skips an issue whose propose step throws, so a miss that gets past the
+// fingerprint fast path used to exit 0 and the e2e passed with a lint fix
+// quietly skipped. Repro: move fixtures/cassettes/896f6e7b4af1a7c7.json (the
+// interrogate.rs proposeLintFix cassette) away and run the e2e.
+// ---------------------------------------------------------------------------
+
+const MISSING_KEY = "896f6e7b4af1a7c7";
+
+// Verbatim shape of that repro's stderr (exit 0): the barnum worker prints
+// gemini.ts' miss message, processIssues logs the swallowed error and
+// narrates the skip, then the pipeline carries on to a clean final sweep.
+const SURVIVED_MISS_OUTPUT = [
+  "▸ triage: 2 issues found",
+  "▸ fixing lint at falcon-agent/src/interrogate.rs:3",
+  `worker: Error: no cassette for ${MISSING_KEY} (prompt hash). Re-record with GEMINI_MODE=record.`,
+  "handler /x/dist/handlers/proposeFix.js:proposeLintFix failed (exit 1)",
+  "[processIssues] propose-fix failed for falcon-agent/src/interrogate.rs: barnum exited with code 1",
+  `worker: Error: no cassette for ${MISSING_KEY} (prompt hash). Re-record with GEMINI_MODE=record.`,
+  "▸ skipped falcon-agent/src/interrogate.rs:3 — no fix proposed",
+  "▸ fixing poison at falcon-agent/src/prompt.rs",
+  "▸ committed 2914561 — fix(poison) falcon-agent/src/prompt.rs",
+  "▸ final sweep: clean — all fixes committed",
+].join("\n");
+
+const CLEAN_OUTPUT = [
+  "▸ triage: 2 issues found",
+  "▸ fixing lint at falcon-agent/src/interrogate.rs:3",
+  "▸ committed 1a2b3c4 — fix(lint) falcon-agent/src/interrogate.rs:3",
+  "▸ final sweep: clean — all fixes committed",
+].join("\n");
+
+const REPLAY_FAIL_PREFIX =
+  "E2E_REQUIRED=1 but the e2e did not replay cleanly: ";
+
+function missDump(cassetteDir: string, key: string): string {
+  const p = join(cassetteDir, `_miss_${key}.normalized.txt`);
+  writeFileSync(p, "model=m\nschema=ZodObject\n\n--- normalized prompt ---\n");
+  return p;
+}
+
+describe("e2e replay integrity: a clean replay", () => {
+  it("returns run — no miss message, no new dump", () => {
+    const { cassetteDir } = makeFixture();
+    const before = snapshotMissDumps(cassetteDir);
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: CLEAN_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("run");
+    expect(() =>
+      applyGuardOutcome(outcome, spyCtx(), REPLAY_FAIL_PREFIX),
+    ).not.toThrow();
+  });
+
+  it("ignores a stale _miss_ dump left by an earlier run", () => {
+    const { cassetteDir } = makeFixture();
+    const stale = missDump(cassetteDir, "0123abcd");
+    // Backdate it so "rewritten during the run" is unambiguous below.
+    utimesSync(stale, new Date(1_000_000), new Date(1_000_000));
+    const before = snapshotMissDumps(cassetteDir);
+
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: CLEAN_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("run");
+  });
+});
+
+describe("e2e replay integrity: a miss the pipeline survived (exit 0)", () => {
+  it("skips (never a silent pass) and names the key and the skipped issue", () => {
+    const { cassetteDir } = makeFixture();
+    const before = snapshotMissDumps(cassetteDir);
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: SURVIVED_MISS_OUTPUT,
+      required: false,
+    });
+    expect(outcome.kind).toBe("skip");
+    if (outcome.kind === "skip") {
+      expect(outcome.reason).toContain(MISSING_KEY);
+      expect(outcome.reason).toContain(
+        "falcon-agent/src/interrogate.rs:3 — no fix proposed",
+      );
+      expect(outcome.reason).toContain("GEMINI_MODE=record");
+    }
+    const ctx = spyCtx();
+    applyGuardOutcome(outcome, ctx, REPLAY_FAIL_PREFIX);
+    expect(ctx.skipped).toHaveLength(1);
+    expect(ctx.skipped[0]).toContain(MISSING_KEY);
+  });
+
+  it("fails under E2E_REQUIRED=1 with the missing key in the message", () => {
+    const { cassetteDir } = makeFixture();
+    const before = snapshotMissDumps(cassetteDir);
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: SURVIVED_MISS_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    const ctx = spyCtx();
+    expect(() =>
+      applyGuardOutcome(outcome, ctx, REPLAY_FAIL_PREFIX),
+    ).toThrowError(new RegExp(`did not replay cleanly: .*${MISSING_KEY}`));
+    expect(ctx.skipped).toHaveLength(0);
+  });
+
+  it("fails on a fresh _miss_ dump alone, naming the key and the dump path", () => {
+    const { cassetteDir } = makeFixture();
+    const before = snapshotMissDumps(cassetteDir);
+    // The run's output carries no miss message (e.g. a handler that logs
+    // its own summary instead): the dump GEMINI_DEBUG_PROMPTS writes is
+    // still evidence of the miss.
+    const dump = missDump(cassetteDir, MISSING_KEY);
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: CLEAN_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    if (outcome.kind === "fail") {
+      expect(outcome.reason).toContain(MISSING_KEY);
+      expect(outcome.reason).toContain(dump);
+    }
+  });
+
+  it("counts a dump rewritten during the run (the same key missed again)", () => {
+    const { cassetteDir } = makeFixture();
+    const dump = missDump(cassetteDir, MISSING_KEY);
+    utimesSync(dump, new Date(1_000_000), new Date(1_000_000));
+    const before = snapshotMissDumps(cassetteDir);
+    missDump(cassetteDir, MISSING_KEY); // rewritten: mtime is now
+
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: CLEAN_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    if (outcome.kind === "fail") expect(outcome.reason).toContain(MISSING_KEY);
+  });
+
+  it("names each missing key once, across output and dumps", () => {
+    const { cassetteDir } = makeFixture();
+    const before = snapshotMissDumps(cassetteDir);
+    missDump(cassetteDir, MISSING_KEY);
+    missDump(cassetteDir, "aaaa1111");
+    const outcome = checkReplayIntegrity({
+      cassetteDir,
+      before,
+      output: SURVIVED_MISS_OUTPUT,
+      required: true,
+    });
+    expect(outcome.kind).toBe("fail");
+    if (outcome.kind === "fail") {
+      expect(outcome.reason).toContain(`key(s) ${MISSING_KEY}, aaaa1111:`);
+    }
+    expect(cassetteMissKeysInOutput(SURVIVED_MISS_OUTPUT)).toEqual([
+      MISSING_KEY,
+    ]);
+  });
+});
+
+describe("e2e replay integrity: wired into tests/e2e.test.ts", () => {
+  it("gates the pipeline's success path, not only its crash path", () => {
+    // The original bug: miss detection lived only in the catch block, so a
+    // pipeline that exited 0 after skipping an issue was never inspected.
+    const e2eSource = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "e2e.test.ts"),
+      "utf8",
+    );
+    const pipelineCall = e2eSource.indexOf('"falcon-detective/dist/cli.js"');
+    const catchBlock = e2eSource.indexOf("} catch (e: any) {", pipelineCall);
+    const smokeTest = e2eSource.indexOf('"bird_themed_inputs_arent_special"');
+    expect(pipelineCall).toBeGreaterThan(0);
+    expect(catchBlock).toBeGreaterThan(pipelineCall);
+    const successGate = e2eSource.indexOf(
+      "checkReplayIntegrity(",
+      e2eSource.indexOf("throw e;", catchBlock),
+    );
+    expect(successGate).toBeGreaterThan(catchBlock);
+    expect(successGate).toBeLessThan(smokeTest);
+    // Miss dumps are on for the e2e so the gate has its second signal.
+    expect(e2eSource).toMatch(/GEMINI_DEBUG_PROMPTS:/);
   });
 });
