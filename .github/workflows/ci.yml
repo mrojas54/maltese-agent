@@ -34,6 +34,21 @@ jobs:
       - name: Verify read-aloud output with local audio
         run: python -B -m unittest discover -s scripts/rehearsal -p test_read_aloud.py -v
 
+  shellcheck:
+    name: ShellCheck (tracked *.sh)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # shellcheck ships on ubuntu-latest, so no install step. Lints every
+      # tracked shell script; a new script is covered without editing this.
+      # Silence a finding in the script itself (`# shellcheck disable=SCxxxx`
+      # plus a reason), as check-planted-defects.sh does, not here.
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          git ls-files -z '*.sh' | xargs -0 shellcheck
+
   rust:
     name: Rust (fmt + clippy + test)
     runs-on: ubuntu-latest
