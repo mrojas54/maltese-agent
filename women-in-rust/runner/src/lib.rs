@@ -125,7 +125,10 @@ async fn run(demo: Demo) -> ExitCode {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
 
     let outcome = match args.as_slice() {
-        ["list"] => Ok(list(&info)),
+        ["list"] => {
+            list(&info);
+            Ok(())
+        }
         ["hint", name] => find(&info, name).map(hint),
         ["run", name] => match find(&info, name) {
             Ok(ex) => run_one(&demo, &info, ex).await,
@@ -188,6 +191,7 @@ fn hint(ex: &Exercise) {
 }
 
 async fn run_one(demo: &Demo, info: &Info, ex: &Exercise) -> Result<(), String> {
+    println!("→ {}", ex.path());
     check(demo, &ex.name, ex, false)
         .await
         .map_err(|msg| needs_you(ex, &msg))?;
@@ -291,10 +295,19 @@ fn mark(ok: bool) -> &'static str {
 /// the wire probe. `quiet` captures cargo's output instead of streaming it.
 async fn check(demo: &Demo, bin: &str, ex: &Exercise, quiet: bool) -> Result<(), String> {
     if ex.test {
+        if !quiet {
+            println!("  → Building and running tests...");
+        }
         cargo(demo, &["test", "--bin", bin], quiet)?;
     }
     if ex.wire {
+        if !quiet {
+            println!("  → Building the MCP server...");
+        }
         cargo(demo, &["build", "--bin", bin], quiet)?;
+        if !quiet {
+            println!("  → Checking the MCP handshake and tools...");
+        }
         wire_probe(demo, bin, ex, quiet).await?;
     }
     Ok(())
