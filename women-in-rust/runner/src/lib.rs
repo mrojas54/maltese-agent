@@ -292,7 +292,7 @@ fn mark(ok: bool) -> &'static str {
 }
 
 /// One pass/fail check of a binary target: its tests, then, if it serves,
-/// the wire probe. `quiet` captures cargo's output instead of streaming it.
+/// the wire probe. `quiet` omits stage lines and captures Cargo output for CI.
 async fn check(demo: &Demo, bin: &str, ex: &Exercise, quiet: bool) -> Result<(), String> {
     if ex.test {
         if !quiet {
