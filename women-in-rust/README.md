@@ -26,5 +26,11 @@ git switch women-in-rust/demo03
 Switch to the branch for the demo you are on, then `cd women-in-rust/demoNN`
 and `cargo run -- next`.
 
+Interactive checks name the exercise and announce each stage before starting
+it: building and running tests, building the server, and checking the MCP
+handshake and tools. Only the stages that exercise needs appear. Compiler
+diagnostics and test output stream underneath; the pass marker appears after
+all its checks succeed. `cargo run -- verify` keeps its compact summary.
+
 The full-size version with the root jail, binary allowlist and timeouts is
 [`falcon-mcp`](../falcon-mcp/).
