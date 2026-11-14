@@ -186,7 +186,7 @@ spelling the underscore (the `PRONUNCIATIONS` table at the top of the script).
 The export is not committed: refresh it from the live deck before a final
 read-aloud, because the slide order has changed since the last build.
 
-The builder and its tests support Python 3.9 or newer.
+The builder and its tests are checked on Python 3.13.
 
 The API key reaches the script through `oprun`, which resolves a map of
 `VAR=op://…` references for one child process. The map lives at
@@ -222,7 +222,7 @@ need no API key and make no TTS calls. They check that relative and absolute
 output directories produce `full-talk.mp3`, including a nested path with
 spaces and an apostrophe. They also check note order, pronunciation changes,
 stage-direction filtering, and dry-run output. CI runs these checks on
-Python 3.9 and 3.13, including a direct `--help` startup check.
+Python 3.13, including a direct `--help` startup check.
 
 ## Audience exercises (demo00)
 
