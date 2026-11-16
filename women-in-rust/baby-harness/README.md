@@ -124,8 +124,10 @@ Say: "Everybody wants the keys. These keys were never real." Run: 4 of 4,
 the alarm line, and the honest read after it is refused too. "One touch and
 the session is over."
 
-Then: "That's about forty lines of checks. Now let's build the door they'd sit behind."
-Go to the demo00 slide and follow [`../demo00/LIVE-CODING.md`](../demo00/LIVE-CODING.md).
+Then: "That's about forty lines of checks. In a real agent they sit inside an
+MCP server, and building one is your homework: demo00, one guided step at a
+time." Go to the Case Closed slide. The talk ends here; demo00 is not typed on
+stage, and attendees follow [`../demo00/WALKTHROUGH.md`](../demo00/WALKTHROUGH.md) afterwards.
 
 ## If it goes wrong
 

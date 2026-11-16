@@ -5,6 +5,10 @@ the model sees, the tool, input validation, the `initialize` handshake, and
 the stdio transport. Each exercise is one file with a hole in it and its own
 tests. Fix the file, the tests pass, move on.
 
+**New to this? Start with [WALKTHROUGH.md](WALKTHROUGH.md).** It takes you
+through every exercise one step at a time: what you'll see, what to type, why
+it matters, and how to check it. About 30 to 45 minutes.
+
 If you have done [rustlings](https://github.com/rust-lang/rustlings), the loop
 is the same. If you have not, it is:
 
