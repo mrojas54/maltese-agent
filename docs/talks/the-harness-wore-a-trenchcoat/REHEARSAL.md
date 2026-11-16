@@ -227,7 +227,7 @@ Python 3.13, including a direct `--help` startup check.
 ## Audience exercises (demo00)
 
 If you give the room hands-on time, everyone does the same three steps:
-`cd women-in-rust/demo00 && cargo run -- next`. The first stop is `schema1`.
+`cd harness-talk/demo00 && cargo run -- next`. The first stop is `schema1`.
 Before the meetup, check that `cargo run -- verify` passes, because it checks
 the intended exercise/solution states. `intro1` passes as-is; the five remaining
 exercises fail until solved, and all six solutions pass. `cargo run -- hint <name>`

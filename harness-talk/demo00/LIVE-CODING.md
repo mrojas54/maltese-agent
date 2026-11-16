@@ -8,7 +8,7 @@ minutes with the runs and the talking.
 Build once before you go on stage, so each check takes seconds:
 
 ```bash
-cd women-in-rust/demo00
+cd harness-talk/demo00
 cargo build --bins && cargo run -- list
 ```
 

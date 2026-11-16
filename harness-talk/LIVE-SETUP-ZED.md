@@ -14,7 +14,7 @@ cd ~/path/to/maltese-agent
 git switch main
 git pull
 
-cd women-in-rust/baby-harness
+cd harness-talk/baby-harness
 cargo run                                  # expect: Attacks stopped: 0 of 4
 
 cd ../demo00
@@ -33,8 +33,8 @@ opens a folder from the terminal.
 ## 3. Open each project in its own window
 
 ```bash
-zed ~/path/to/maltese-agent/women-in-rust/baby-harness
-zed ~/path/to/maltese-agent/women-in-rust/demo00
+zed ~/path/to/maltese-agent/harness-talk/baby-harness
+zed ~/path/to/maltese-agent/harness-talk/demo00
 ```
 
 Use two windows, not one window on the whole repo. Each folder is its own
