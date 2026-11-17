@@ -15,7 +15,7 @@ concurrency:
 jobs:
   read-aloud:
     name: Read-aloud (Python ${{ matrix.python-version }} + FFmpeg)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -36,11 +36,11 @@ jobs:
 
   shellcheck:
     name: ShellCheck (tracked *.sh)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
-      # shellcheck ships on ubuntu-latest, so no install step. Lints every
+      # shellcheck ships on ubuntu-26.04, so no install step. Lints every
       # tracked shell script; a new script is covered without editing this.
       # Silence a finding in the script itself (`# shellcheck disable=SCxxxx`
       # plus a reason), as check-planted-defects.sh does, not here.
@@ -51,7 +51,7 @@ jobs:
 
   rust:
     name: Rust (fmt + clippy + test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -122,7 +122,7 @@ jobs:
 
   typescript:
     name: TypeScript (falcon-detective build + test)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -148,7 +148,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
           cache-dependency-path: falcon-detective/package-lock.json
 
@@ -220,7 +220,7 @@ jobs:
 
   tutorial-runner:
     name: Tutorial runner (harness-talk/runner)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -257,7 +257,7 @@ jobs:
     # Keep the women-in-rust/ prefix: the main ruleset requires the check
     # "Tutorial (women-in-rust/demo00 verify)" by this exact name.
     name: Tutorial (women-in-rust/${{ matrix.demo }} verify)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -299,7 +299,7 @@ jobs:
 
   baby-harness:
     name: Baby harness (harness-talk/baby-harness)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -332,13 +332,13 @@ jobs:
 
   trailmark:
     name: Trailmark (falcon-mcp links)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
       # Pinned: links.toml needs Trailmark 0.5+, and a new parser can change
-      # which node IDs exist. ubuntu-latest ships Python 3.12 (Trailmark's
-      # minimum) and pipx.
+      # which node IDs exist. ubuntu-26.04 ships Python 3.14 (Trailmark
+      # needs 3.12 or newer) and pipx.
       - name: Install Trailmark
         run: pipx install trailmark==0.6.0
 
