@@ -1,0 +1,13 @@
+[package]
+name = "baby-agent"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "One model, one file-reading tool, one agent loop"
+publish = false
+
+[workspace]
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde_json = "1"
