@@ -14,7 +14,7 @@ Then get a copy of the repo:
 
 ```bash
 git clone https://github.com/mrojas54/maltese-agent
-cd maltese-agent/women-in-rust/demo00
+cd maltese-agent/harness-talk/demo00
 cargo build --bins
 ```
 

@@ -15,7 +15,7 @@ cd ~/path/to/maltese-agent
 git switch main
 git pull
 
-cd women-in-rust/baby-harness
+cd harness-talk/baby-harness
 cargo run                                  # expect: Attacks stopped: 0 of 4
 ```
 
@@ -29,7 +29,7 @@ opens a folder from the terminal.
 ## 3. Open the project
 
 ```bash
-zed ~/path/to/maltese-agent/women-in-rust/baby-harness
+zed ~/path/to/maltese-agent/harness-talk/baby-harness
 ```
 
 Open this folder, not the whole repo. It is its own Cargo workspace, and

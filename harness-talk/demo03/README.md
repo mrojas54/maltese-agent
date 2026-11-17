@@ -8,7 +8,7 @@ reading the spelling: canonicalize the path, then check the answer still
 starts with the root.
 
 ```bash
-cd women-in-rust/demo03
+cd harness-talk/demo03
 cargo run -- next
 ```
 

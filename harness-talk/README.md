@@ -23,7 +23,7 @@ git switch women-in-rust/demo02
 git switch women-in-rust/demo03
 ```
 
-Switch to the branch for the demo you are on, then `cd women-in-rust/demoNN`
+Switch to the branch for the demo you are on, then `cd harness-talk/demoNN`
 and `cargo run -- next`.
 
 Interactive checks name the exercise and announce each stage before starting
