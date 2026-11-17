@@ -1,12 +1,10 @@
 # Build an MCP server in Rust: a guided walkthrough
 
-This is the homework from *The Harness Wore a Trenchcoat*. In the talk you
-watched a harness learn to refuse bad requests. Here you build the other half:
-a small MCP server, the program an agent talks to when it wants to use a tool.
+Follow-up to *The Harness Wore a Trenchcoat*. The talk built the checks. This
+builds the MCP server they sit in: the program an agent calls to use a tool.
 
-You fill in five small holes, one file at a time. Each step tells you what is
-wrong, what to type, why it matters, and how to check it. The whole thing takes
-about 30 to 45 minutes. You don't need to know MCP already.
+Five files, one fix each. Each step gives the error, the fix, the reason, and
+the check. About 30 to 45 minutes. No MCP background needed.
 
 ## Before you start
 
@@ -38,19 +36,18 @@ minute or two. After that, each check takes a few seconds.
    A fail shows you the compiler error or the test that failed.
 
 Stuck? `cargo run -- hint NAME` prints a hint, and `solutions/` has every
-answer, same layout. Try first; the struggle is where the learning is.
+answer, same layout.
 
-> `cargo run -- next` also works: it runs every exercise in order and stops at
-> the first one that fails. Use it to find your place. But after a fix, it
-> shows the pass and then goes straight on to the next file's errors, so use
-> `run NAME` to see your green.
+> `cargo run -- next` runs every exercise in order and stops at the first
+> failure. After a fix it prints the pass and then the next file's errors, so
+> use `run NAME` to check one file.
 
 ## Step 0: read the finished server (5 minutes)
 
 **File:** `exercises/00_intro/intro1.rs`. Nothing to fix.
 
-This is the server you are about to build, already working. Read it top to
-bottom once. It has four parts, and every rmcp server has the same four:
+The finished server. Read it once. It has four parts, and every rmcp server
+has the same four:
 
 | Part | What it is |
 | --- | --- |
@@ -59,10 +56,10 @@ bottom once. It has four parts, and every rmcp server has the same four:
 | The handshake | `get_info`, which tells the client who you are and what you can do. |
 | `main` | Serves it all over stdin and stdout. |
 
-The next five steps take this server apart and have you put each piece back.
+Steps 1 to 5 each remove one of these parts.
 
 ```bash
-cargo run -- run intro1    # passes already: this is what green looks like
+cargo run -- run intro1    # already passes
 ```
 
 ## Step 1: the struct is the schema
@@ -139,7 +136,7 @@ client gets it back as structured data, described by `GreetResult`'s schema.
 ```
 
 The schema says `name` is a string. It doesn't say the string means anything,
-so an empty name gets a cheerful greeting.
+so an empty name gets greeted.
 
 **What to change.** At the `TODO`, before the greeting:
 
@@ -187,10 +184,10 @@ fn get_info(&self) -> ServerInfo {
 what can you do?". `get_info` is your answer. `enable_tools()` says you have
 tools; a careful client won't ask for tools a server didn't advertise.
 
-The name is the gotcha. `env!("CARGO_PKG_NAME")` is filled in where you write
+The name is the part people get wrong. `env!("CARGO_PKG_NAME")` is filled in where you write
 it, at compile time. rmcp has a helper that calls `env!` too, but inside rmcp,
 so it gets rmcp's name. Written in your file, it gets yours. (falcon-mcp, the
-full server in this repo, still has this bug. Nobody's perfect.)
+full server in this repo, still has this bug.)
 
 **Check:** `cargo run -- run handshake1`
 
@@ -263,5 +260,4 @@ hang up.
 - **More exercises:** `../demo01` to `../demo03` add tools and then lock them
   down.
 
-Found a step confusing? Open an issue on the repo and say which step lost
-you. That's how this walkthrough gets better.
+If a step is unclear, open an issue on the repo and say which one.
