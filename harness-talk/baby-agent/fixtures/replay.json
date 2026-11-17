@@ -9,6 +9,7 @@
     }]
   },
   {
+    "expectedToolResult": {"result": "The meeting is at 19:00 in the library.\n"},
     "candidates": [{
       "finishReason": "STOP",
       "content": {"role": "model", "parts": [{"text": "The meeting is at 19:00 in the library."}]}

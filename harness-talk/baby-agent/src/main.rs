@@ -71,7 +71,17 @@ fn main() -> Result<()> {
         println!("Offline rehearsal: scripted model replies; the file read is real.");
         let replies: Vec<Value> = serde_json::from_str(include_str!("../fixtures/replay.json"))?;
         let mut replies = replies.into_iter();
-        run(PROMPT, |_| replies.next().ok_or("replay exhausted".into()))?
+        run(PROMPT, |request| {
+            let reply = replies.next().ok_or("replay exhausted")?;
+            if let Some(expected) = reply.get("expectedToolResult") {
+                if request["contents"][2]["parts"][0]["functionResponse"]["response"] != *expected {
+                    return Err(
+                        "replay requires the original note.txt; restore it or use live mode".into(),
+                    );
+                }
+            }
+            Ok(reply)
+        })?
     } else {
         let key = std::env::var("GEMINI_API_KEY")
             .map_err(|_| "set GEMINI_API_KEY for a live run, or use --replay")?;
