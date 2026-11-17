@@ -9,7 +9,7 @@ If you have done [rustlings](https://github.com/rust-lang/rustlings), the loop
 is the same. If you have not, it is:
 
 ```bash
-cd women-in-rust/demo00
+cd harness-talk/demo00
 cargo run -- next
 ```
 
@@ -83,7 +83,7 @@ cargo build --bin intro1
 {
   "mcpServers": {
     "demo00": {
-      "command": "/absolute/path/to/maltese-agent/women-in-rust/demo00/target/debug/intro1"
+      "command": "/absolute/path/to/maltese-agent/harness-talk/demo00/target/debug/intro1"
     }
   }
 }
@@ -94,7 +94,7 @@ Claude Desktop reads from `claude_desktop_config.json`. Claude Code takes the
 same thing on the command line:
 
 ```bash
-claude mcp add demo00 -- /absolute/path/to/maltese-agent/women-in-rust/demo00/target/debug/intro1
+claude mcp add demo00 -- /absolute/path/to/maltese-agent/harness-talk/demo00/target/debug/intro1
 ```
 
 ## How it is put together

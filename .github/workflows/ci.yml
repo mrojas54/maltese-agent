@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.13']
+        python-version: ['3.13']
     steps:
       - uses: actions/checkout@v7
 
@@ -77,7 +77,7 @@ jobs:
       # taiki-e/install-action (~1s), same rationale as the ast-grep install
       # below — `cargo install cargo-audit` would add ~3min of compile.
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2.90.0
+        uses: taiki-e/install-action@v2.90.3
         with:
           tool: cargo-audit
 
@@ -98,7 +98,7 @@ jobs:
       # ast-grep is required by fs_search_ast tests. Use the prebuilt binary
       # from taiki-e/install-action (~1s) rather than `cargo install` (~3min).
       - name: Install ast-grep
-        uses: taiki-e/install-action@v2.90.0
+        uses: taiki-e/install-action@v2.90.3
         with:
           tool: ast-grep
 
@@ -219,13 +219,13 @@ jobs:
           fi
 
   tutorial-runner:
-    name: Tutorial runner (women-in-rust/runner)
+    name: Tutorial runner (harness-talk/runner)
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     defaults:
       run:
-        working-directory: women-in-rust/runner
+        working-directory: harness-talk/runner
     steps:
       - uses: actions/checkout@v7
 
@@ -243,7 +243,7 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: women-in-rust/runner -> target
+          workspaces: harness-talk/runner -> target
 
       - name: cargo fmt --check
         run: cargo fmt -- --check
@@ -261,13 +261,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # One entry per demo under women-in-rust/. A new demo adds itself here.
+        # One entry per demo under harness-talk/. A new demo adds itself here.
         demo: [demo00, demo01, demo02, demo03]
     env:
       CARGO_TERM_COLOR: always
     defaults:
       run:
-        working-directory: women-in-rust/${{ matrix.demo }}
+        working-directory: harness-talk/${{ matrix.demo }}
     steps:
       - uses: actions/checkout@v7
 
@@ -285,7 +285,7 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: women-in-rust/${{ matrix.demo }} -> target
+          workspaces: harness-talk/${{ matrix.demo }} -> target
 
       - name: cargo fmt --check
         run: cargo fmt -- --check
@@ -298,13 +298,13 @@ jobs:
         run: cargo run -- verify
 
   baby-harness:
-    name: Baby harness (women-in-rust/baby-harness)
+    name: Baby harness (harness-talk/baby-harness)
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     defaults:
       run:
-        working-directory: women-in-rust/baby-harness
+        working-directory: harness-talk/baby-harness
     steps:
       - uses: actions/checkout@v7
 
