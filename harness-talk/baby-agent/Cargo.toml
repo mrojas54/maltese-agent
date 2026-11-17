@@ -15,6 +15,10 @@ path = "src/main.rs"
 name = "baby-agent-complete"
 path = "src/complete.rs"
 
+[[bin]]
+name = "baby-agent-stage"
+path = "src/stage.rs"
+
 [workspace]
 
 [dependencies]
