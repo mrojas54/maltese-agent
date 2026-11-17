@@ -17,11 +17,11 @@ or run a command. Somewhere, a real program has to do that work. I want to
 show you that code, because that's where we can put a check.
 
 "Before we put a trenchcoat on it, let's build a very small Rust agent. One
-model, one tool, and a loop. Our task is to read a note and tell us where and
-when to meet.
+model, one shell tool, and a loop. Our task is to read a note and tell us
+where and when to meet.
 
-"The model asks for the file. Our Rust code opens it and sends the contents
-back. Then the model answers. Let's build this thing."
+"The model asks to run a shell command. Our Rust code runs it and sends the
+output back. Then the model answers. Let's build this thing."
 
 ## At the terminal
 
@@ -32,21 +32,22 @@ in this directory. Run `cargo run --locked -- --replay`: it stops with
 Say: "The connection to the model is ready below. Here we'll write the tool
 and the loop." Follow [the live-coding script](LIVE-CODING.md), typing its
 four fragments into `run`. After the last fragment, save and run
-`cargo run --locked` with `GEMINI_API_KEY` set, or
+`cargo run --locked -- "Read note.txt. Where and when is the meeting?"`
+with `ANTHROPIC_API_KEY` set, or
 `cargo run --locked -- --replay` for offline rehearsal.
 
 For the offline mode, say: "These model replies are scripted for rehearsal.
-The file read and the loop are real."
+The shell command and the loop are real."
 
 After the exchange prints, point to these four places in `run`:
 
-1. The `read_file` description. "This tells the model what it can ask for."
+1. The `sh` tool description. "This tells the model what it can ask for."
 2. `ask(&request)`. "We send the conversation to the model. It can answer
    or request a tool."
-3. `std::fs::read_to_string(path)`. "Here is where text becomes an action.
-   Rust opens the file. This version opens whichever path the model supplies."
-4. The two `history.push` calls. "We keep the model's request, add the tool's
-   result, and ask again. That closes the loop."
+3. `Command::new("sh").arg("-c").arg(cmd)`. "Here is where text becomes an
+   action. Rust starts a shell with the command the model supplied."
+4. The two `msgs.push` calls. "We keep the assistant's request, add our
+   result with the matching tool ID, and ask again. That closes the loop."
 
 Then: "We've got an agent. Now let's look at what its tools should be
 allowed to do."

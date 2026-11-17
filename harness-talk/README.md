@@ -6,7 +6,7 @@ MCP Server*. The deck itself is the
 
 | Demo | What it is |
 | --- | --- |
-| [`baby-agent`](baby-agent/) | Build the opening agent live: `src/main.rs` starts unfinished. Follow [`LIVE-CODING.md`](baby-agent/LIVE-CODING.md), then run the same code with Gemini or offline replies. A completed backup is available explicitly. |
+| [`baby-agent`](baby-agent/) | Build the opening agent live: `src/main.rs` starts unfinished. Follow [`LIVE-CODING.md`](baby-agent/LIVE-CODING.md), then run the same code with Anthropic or offline replies. A completed backup is available explicitly. |
 | [`demo00`](demo00/) | A rustlings-style tutorial: six exercises that build a stdio MCP server from the schema up. The talk's homework: start with [`WALKTHROUGH.md`](demo00/WALKTHROUGH.md). |
 | [`demo01`](demo01/) | The same server with `fs_read` and `exec_run`: four exercises, every test passing, no boundaries yet. `cd demo01 && cargo run -- next`. |
 | [`demo02`](demo02/) | Guards: a `Sandbox` every file tool goes through, a `--read-only` switch, and a first (lexical) path check that is honest about not being enough. `cd demo02 && cargo run -- next`. |

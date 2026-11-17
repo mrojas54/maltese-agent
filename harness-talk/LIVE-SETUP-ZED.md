@@ -1,6 +1,6 @@
 # Setting up Zed for the live coding
 
-For *The Harness Wore a Trenchcoat*: build the opening `baby-agent`, then
+For *The Harness Wore a Trenchcoat*: build the opening Anthropic shell agent in `baby-agent`, then
 add the four checks in `baby-harness`. Both start unfinished in the places
 you edit. demo00 is the homework, in `demo00/WALKTHROUGH.md`. Do everything
 up to "The morning of" at home, on good wifi, on the laptop you will present from. Work

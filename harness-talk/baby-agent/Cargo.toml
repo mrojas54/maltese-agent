@@ -3,7 +3,7 @@ name = "baby-agent"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "One model, one file-reading tool, one agent loop"
+description = "One model, one shell tool, one agent loop"
 publish = false
 default-run = "baby-agent"
 

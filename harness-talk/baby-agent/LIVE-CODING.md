@@ -1,8 +1,9 @@
-# Build the opening agent live
+# Build the opening shell agent live
 
-Start with `src/main.rs`. Its `run` function has four comments and an error.
-The code below it already connects either Gemini or the offline replies to
-that function. You write the tool description, the file read, and the loop.
+One model, one `sh` tool, and a loop. Start at the unfinished `run` in
+`src/main.rs`. The code below it connects either Anthropic's Messages API
+or the offline replies to that function. You write the tool declaration,
+execute a shell command, and send its result back to the model.
 
 ## Fresh checkout and warmup
 
@@ -14,7 +15,7 @@ cargo run --locked -- --replay
 ```
 
 The last command must stop with `agent loop is not implemented yet`. It
-exits with status 1. There is no tool call or meeting answer yet. Building
+exits with status 1. No shell command or final answer runs yet. Building
 first downloads the dependencies without filling in the starting file.
 
 Have this script on your phone or another screen. Open `src/main.rs` on the
@@ -23,103 +24,110 @@ for the spoken introduction. Time the whole build aloud in rehearsal.
 
 ## Prepare the imports
 
-Change the first line to:
+Replace the first import with:
 
 ```rust
 use serde_json::{json, Value};
+use std::process::Command;
 ```
 
 Add this constant after the `Result` type:
 
 ```rust
-const MAX_TURNS: usize = 4;
+const MAX_TURNS: usize = 5;
 ```
 
 Replace the placeholder `run` with the following four fragments, in order.
 Together they form one function. Run it after the fourth fragment.
 
-## 1 Describe the tool and ask the model
+## 1 Describe sh and ask the model
 
-Say: "This describes what the model can ask for. We start with the user's
-request, send the conversation, and look at the model's reply."
+Say: "The tool is a shell command. The model supplies a string called cmd.
+We send the conversation and keep the assistant's complete reply."
 
 ```rust
 fn run(prompt: &str, mut ask: impl FnMut(&Value) -> Result<Value>) -> Result<String> {
     let mut request = json!({
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "tools": [{"functionDeclarations": [{
-            "name": "read_file", "description": "Read a local UTF-8 text file.",
-            "parameters": {"type": "OBJECT", "properties": {
-                "path": {"type": "STRING", "description": "Path to the file."}
-            }, "required": ["path"]}
-        }]}]
+        "model": std::env::var("ANTHROPIC_MODEL").unwrap_or("claude-sonnet-5-5".into()),
+        "max_tokens": 512,
+        "messages": [{"role": "user", "content": prompt}],
+        "tools": [{
+            "name": "sh", "description": "Run a shell command",
+            "input_schema": {
+                "type": "object", "properties": {"cmd": {"type": "string"}},
+                "required": ["cmd"]
+            }
+        }],
+        "tool_choice": {"type": "auto", "disable_parallel_tool_use": true}
     });
     for _ in 0..MAX_TURNS {
-        let reply = ask(&request)?;
-        let candidate = &reply["candidates"][0];
-        if candidate["finishReason"] != "STOP" {
-            return Err(format!("model did not finish: {}", candidate["finishReason"]).into());
+        let res = ask(&request)?;
+        if res["stop_reason"] != "end_turn" && res["stop_reason"] != "tool_use" {
+            return Err(format!("model stopped: {}", res["stop_reason"]).into());
         }
-        let content = &candidate["content"];
-        let parts = content["parts"]
+        let blocks = res["content"]
             .as_array()
-            .ok_or("model returned no parts")?;
-        let mut results = Vec::new();
-```
-
-## 2 Carry out the tool request
-
-Say: "The model supplies a tool name and arguments. Here is where text
-becomes an action: Rust opens the file. There is no path check yet."
-
-```rust
-        for call in parts.iter().filter_map(|part| part.get("functionCall")) {
-            let name = call["name"].as_str().ok_or("tool call has no name")?;
-            println!("model -> tool: {name} {}", call["args"]);
-            let output = match (name, call["args"]["path"].as_str()) {
-                ("read_file", Some(path)) => match std::fs::read_to_string(path) {
-                    Ok(text) => json!({"result": text}),
-                    Err(error) => json!({"error": error.to_string()}),
-                },
-                ("read_file", None) => json!({"error": "path must be a string"}),
-                _ => json!({"error": format!("unknown tool: {name}")}),
-            };
-            println!("tool -> model: {output}");
-            let mut result = json!({"name": name, "response": output});
-            if let Some(id) = call.get("id") {
-                result["id"] = id.clone();
-            }
-            results.push(json!({"functionResponse": result}));
+            .ok_or("model returned no content")?;
+        let msgs = request["messages"].as_array_mut().unwrap();
+        msgs.push(json!({"role": "assistant", "content": blocks}));
+        if blocks.iter().filter(|b| b["type"] == "tool_use").count() > 1 {
+            return Err("expected at most one tool call per turn".into());
         }
 ```
 
-## 3 Return a final answer
+`ANTHROPIC_MODEL` overrides the default model. Parallel tool use is disabled
+so this demo handles one tool request per response. Claude can still answer
+without using a tool. See the [API's single-call setting](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use#at-most-one-tool-call).
 
-Say: "If the model did not request a tool, its text is the answer."
+## 2 Return a final answer
+
+Say: "If there is no tool request, the model's text is the answer."
 
 ```rust
-        if results.is_empty() {
-            let text = parts
+        let Some(b) = blocks.iter().find(|b| b["type"] == "tool_use") else {
+            let text = blocks
                 .iter()
-                .filter(|part| part["thought"] != true)
-                .filter_map(|part| part["text"].as_str())
+                .filter(|b| b["type"] == "text")
+                .filter_map(|b| b["text"].as_str())
                 .collect::<Vec<_>>()
                 .join("\n");
             if text.is_empty() {
                 return Err("model returned no answer or tool call".into());
             }
             return Ok(text);
-        }
+        };
 ```
 
-## 4 Close the loop
+## 3 Run the shell command
 
-Say: "Keep the model's request, add our tool result, and ask again."
+Say: "Here is where text becomes an action. Rust starts sh with the command
+the model supplied. There are no command checks yet."
 
 ```rust
-        let history = request["contents"].as_array_mut().unwrap();
-        history.push(content.clone()); // Preserve the whole turn, including thought signatures.
-        history.push(json!({"role": "user", "parts": results}));
+        if b["name"] != "sh" {
+            return Err("unknown tool".into());
+        }
+        let cmd = b["input"]["cmd"].as_str().ok_or("cmd must be a string")?;
+        let id = b["id"].as_str().ok_or("tool call has no id")?;
+        eprintln!("\x1b[33m$ {cmd}\x1b[0m");
+        let out = Command::new("sh").arg("-c").arg(cmd).output()?;
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+```
+
+## 4 Return the tool result and ask again
+
+Say: "The result refers to the request's ID. We add it as the next user
+message, and the loop sends the conversation again."
+
+```rust
+        msgs.push(json!({"role": "user", "content": [{
+            "type": "tool_result", "tool_use_id": id, "content": text,
+            "is_error": !out.status.success()
+        }]}));
     }
     Err(format!("stopped after {MAX_TURNS} model turns without a final answer").into())
 }
@@ -133,31 +141,41 @@ Save, then run from this directory:
 cargo run --locked -- --replay
 ```
 
-Say: "These model replies are scripted for rehearsal. The file read and
-the loop are real."
+Say: "These model replies are scripted for rehearsal. The shell command
+and the loop are real."
 
-Expected exchange:
+Expected terminal exchange, with the command line in yellow:
 
 ```text
-Offline rehearsal: scripted model replies; the file read is real.
-model -> tool: read_file {"path":"note.txt"}
-tool -> model: {"result":"The meeting is at 19:00 in the library.\n"}
-agent: The meeting is at 19:00 in the library.
+Offline rehearsal: scripted model replies; the shell command is real.
+$ cat note.txt
+The meeting is at 19:00 in the library.
 ```
 
-For a live model, with `GEMINI_API_KEY` already set in your environment:
+The replay checks the real `cat note.txt` result before giving the loop its
+scripted final reply. A missing or changed note fails instead of displaying
+that answer.
+
+For the same task with a live model, with `ANTHROPIC_API_KEY` already set:
+
+```bash
+cargo run --locked -- "Read note.txt. Where and when is the meeting?"
+```
+
+The live default from the original shell example also works:
 
 ```bash
 cargo run --locked
 ```
 
-It uses the same function you just wrote. The model can choose whether to
-call the tool, so its live answer can vary. The program does not load `.env`
-files. It stops on provider errors and does not retry quota failures.
+That default prompt is `list files`. The live model chooses its command and
+answer. The program reads environment variables, does not load `.env` files,
+and stops on HTTP errors without retrying them.
 
 Then say: "We've got an agent. Now let's look at what its tools should be
 allowed to do." Switch to `../baby-harness/`, open `src/harness.rs`, and
-follow its four edits. That demo starts at zero of four attacks stopped.
+follow its four edits. Its fixed requests include both commands and file
+reads, and it starts at zero of four attacks stopped.
 
 ## Recovery and another practice run
 

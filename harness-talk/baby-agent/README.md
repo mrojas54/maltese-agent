@@ -1,13 +1,13 @@
-# Build a minimal Rust agent live
+# Build a minimal Rust shell agent live
 
-A fresh checkout leaves `run` in `src/main.rs` unfinished. Build one model,
-one file-reading tool, and a loop on stage, then move to the checks in
-`../baby-harness/`. HTTP and offline replay are connected below the function
-so the code you type is the agent itself.
+A fresh checkout leaves `run` in `src/main.rs` unfinished. Build the
+Anthropic shell agent on stage: declare `sh`, run the model's command, send
+its output back under the matching tool ID, and repeat until the model
+answers. HTTP and offline replay are connected below the function.
 
 Use [LIVE-CODING.md](LIVE-CODING.md) for the fresh-clone commands, the code
 to type in order, the expected exchange, and recovery. Use [INTRO.md](INTRO.md)
-for the spoken introduction and transition.
+for the spoken introduction and transition to `../baby-harness/`.
 
 ## Start the demo
 
@@ -19,32 +19,37 @@ cargo run --locked -- --replay
 ```
 
 The last command exits with `agent loop is not implemented yet`, with no
-tool call or final answer. That is the intended starting point. Open
+shell command or final answer. That is the intended starting point. Open
 `src/main.rs` and build `run` using the live-coding script.
 
-After the edit, the same command runs the loop with authored replies from
-`fixtures/replay.json`. The file read is real. The replay checks its result
-before displaying the scripted final answer; missing or edited `note.txt`
-causes an error. It needs no API key or model request.
+After the edit, the same command uses authored Anthropic replies from
+`fixtures/replay.json`. It runs a real `cat note.txt`, checks the result,
+then returns the scripted answer. A missing or edited note fails the replay.
+It needs no API key or model request.
 
-For a live model after the edit, with `GEMINI_API_KEY` already set:
+## Run with Anthropic
+
+After building the loop, with `ANTHROPIC_API_KEY` set in your environment:
 
 ```bash
 cargo run --locked
+cargo run --locked -- "Read note.txt. Where and when is the meeting?"
 ```
 
-The default prompt is `Read note.txt. Where and when is the meeting?`. Pass a
-different prompt as one quoted argument. The default model is
-`gemini-3.1-flash-lite`; override it with `GEMINI_MODEL`. The program reads
-environment variables and does not load `.env` files. Each request has a
-30-second timeout, the loop allows four turns, and provider errors stop the
-run without a retry.
+The default prompt is `list files`. `ANTHROPIC_MODEL` overrides the default
+`claude-sonnet-5-5`; see the [model lifecycle](https://platform.claude.com/docs/en/about-claude/model-deprecations)
+for supported model IDs. The program does not load `.env` files. HTTP
+requests have a 30-second timeout, the loop allows five model turns, and
+HTTP failures stop the run without a retry.
 
-The only direct dependencies are `reqwest` and `serde_json`. The completed
-file tool opens the supplied path with your operating-system permissions;
-the next harness demo introduces policy checks. Complete model turns retain
-provider metadata, and function results retain call IDs when supplied, as in
-the [Gemini content API](https://aistudio.google.com/api-reference/generate-content).
+The only direct dependencies are `reqwest` and `serde_json`. The tool runs
+`sh -c` with your operating-system permissions. The next harness demo adds
+checks to command and file tools.
+
+The request disables parallel tool use to keep one command per response.
+The full assistant content is kept, and the next user message contains the
+`tool_result` with its matching `tool_use_id`. Failed commands set
+`is_error: true`. See [Anthropic's tool-call format](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls).
 
 ## Completed backup
 
@@ -54,8 +59,8 @@ the [Gemini content API](https://aistudio.google.com/api-reference/generate-cont
 cargo run --locked --bin baby-agent-complete -- --replay
 ```
 
-This leaves the unfinished `src/main.rs` alone. The live-coding script also
-shows how to copy the backup over a practice edit and how to reset afterwards.
+This leaves the unfinished `src/main.rs` alone. The script also shows how
+to copy the backup over a practice edit and how to reset afterwards.
 
 ## Check the demo
 
@@ -67,8 +72,10 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
 ```
 
-The suite checks that the default entry is unfinished and that the completed
-backup handles the real file read, conversation history, tool errors, turn
-limits, malformed replies, and replay with valid, missing, and changed notes.
+The suite checks the unfinished default and the completed shell loop: real
+shell output reaches the next request, tool IDs match, failed commands are
+marked as errors, unexpected calls and truncated replies are rejected, and
+the replay rejects missing or changed notes. Tests and CI need no API key.
+
 The starter check is expected to fail while `src/main.rs` has your completed
 practice edit. The default `--replay` command checks the code you typed.
