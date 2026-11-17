@@ -1,7 +1,7 @@
 use std::process::Command;
 
 fn demo() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_baby-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_baby-agent-complete"));
     command
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env_remove("GEMINI_API_KEY");

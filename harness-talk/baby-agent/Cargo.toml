@@ -5,6 +5,15 @@ edition = "2021"
 license = "MIT"
 description = "One model, one file-reading tool, one agent loop"
 publish = false
+default-run = "baby-agent"
+
+[[bin]]
+name = "baby-agent"
+path = "src/main.rs"
+
+[[bin]]
+name = "baby-agent-complete"
+path = "src/complete.rs"
 
 [workspace]
 

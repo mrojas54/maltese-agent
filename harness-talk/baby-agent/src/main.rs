@@ -1,65 +1,15 @@
-use serde_json::{json, Value};
+use serde_json::Value;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-const MAX_TURNS: usize = 4;
 const PROMPT: &str = "Read note.txt. Where and when is the meeting?";
 
-fn run(prompt: &str, mut ask: impl FnMut(&Value) -> Result<Value>) -> Result<String> {
-    let mut request = json!({
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        "tools": [{"functionDeclarations": [{
-            "name": "read_file", "description": "Read a local UTF-8 text file.",
-            "parameters": {"type": "OBJECT", "properties": {
-                "path": {"type": "STRING", "description": "Path to the file."}
-            }, "required": ["path"]}
-        }]}]
-    });
-    for _ in 0..MAX_TURNS {
-        let reply = ask(&request)?;
-        let candidate = &reply["candidates"][0];
-        if candidate["finishReason"] != "STOP" {
-            return Err(format!("model did not finish: {}", candidate["finishReason"]).into());
-        }
-        let content = &candidate["content"];
-        let parts = content["parts"]
-            .as_array()
-            .ok_or("model returned no parts")?;
-        let mut results = Vec::new();
-        for call in parts.iter().filter_map(|part| part.get("functionCall")) {
-            let name = call["name"].as_str().ok_or("tool call has no name")?;
-            println!("model -> tool: {name} {}", call["args"]);
-            let output = match (name, call["args"]["path"].as_str()) {
-                ("read_file", Some(path)) => match std::fs::read_to_string(path) {
-                    Ok(text) => json!({"result": text}),
-                    Err(error) => json!({"error": error.to_string()}),
-                },
-                ("read_file", None) => json!({"error": "path must be a string"}),
-                _ => json!({"error": format!("unknown tool: {name}")}),
-            };
-            println!("tool -> model: {output}");
-            let mut result = json!({"name": name, "response": output});
-            if let Some(id) = call.get("id") {
-                result["id"] = id.clone();
-            }
-            results.push(json!({"functionResponse": result}));
-        }
-        if results.is_empty() {
-            let text = parts
-                .iter()
-                .filter(|part| part["thought"] != true)
-                .filter_map(|part| part["text"].as_str())
-                .collect::<Vec<_>>()
-                .join("\n");
-            if text.is_empty() {
-                return Err("model returned no answer or tool call".into());
-            }
-            return Ok(text);
-        }
-        let history = request["contents"].as_array_mut().unwrap();
-        history.push(content.clone()); // Preserve the whole turn, including thought signatures.
-        history.push(json!({"role": "user", "parts": results}));
-    }
-    Err(format!("stopped after {MAX_TURNS} model turns without a final answer").into())
+// Build this function live. HTTP and offline replay are wired up below.
+fn run(_prompt: &str, _ask: impl FnMut(&Value) -> Result<Value>) -> Result<String> {
+    // 1. Describe read_file and start the conversation.
+    // 2. Ask the model; return its final text or handle its tool requests.
+    // 3. Read the requested file and build a functionResponse.
+    // 4. Add the model turn and tool result to history, then ask again.
+    Err("agent loop is not implemented yet; follow LIVE-CODING.md".into())
 }
 
 fn main() -> Result<()> {
@@ -109,6 +59,3 @@ fn main() -> Result<()> {
     println!("agent: {answer}");
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;
