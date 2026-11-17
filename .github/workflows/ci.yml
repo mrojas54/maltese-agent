@@ -366,8 +366,9 @@ jobs:
       - name: cargo test
         run: cargo test --locked
 
-      - name: Offline rehearsal
-        run: cargo run --locked -- --replay
+      # cargo test also checks that the default entry is still unfinished.
+      - name: Completed backup offline rehearsal
+        run: cargo run --locked --bin baby-agent-complete -- --replay
 
   trailmark:
     name: Trailmark (falcon-mcp links)
