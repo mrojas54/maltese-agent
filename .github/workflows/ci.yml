@@ -8,6 +8,10 @@ on:
   pull_request:
     branches: [main]
 
+# Every job only reads the repo (checkout); none uses GITHUB_TOKEN to write.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
