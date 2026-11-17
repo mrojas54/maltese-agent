@@ -17,37 +17,36 @@ or run a command. Somewhere, a real program has to do that work. I want to
 show you that code, because that's where we can put a check.
 
 "Before we put a trenchcoat on it, let's build a very small Rust agent. One
-model, one shell tool, and a loop. Our task is to read a note and tell us
-where and when to meet.
+model, one shell tool, and a loop. Our task is to ask it what's in this
+folder.
 
 "The model asks to run a shell command. Our Rust code runs it and sends the
 output back. Then the model answers. Let's build this thing."
 
 ## At the terminal
 
-Have `src/main.rs` open at the unfinished `run`, with the terminal already
-in this directory. Run `cargo run --locked -- --replay`: it stops with
-`agent loop is not implemented yet`, with no tool call or meeting answer.
+Have the blank `src/main.rs` open and the terminal already in this directory.
+Run `cargo run --locked`: it stops with `agent loop is not implemented yet`,
+with no key or tool call needed. Replace the placeholder by typing all four
+chunks from [the live-coding script](LIVE-CODING.md).
 
-Say: "The connection to the model is ready below. Here we'll write the tool
-and the loop." Follow [the live-coding script](LIVE-CODING.md), typing its
-four fragments into `run`. After the last fragment, save and run
-`cargo run --locked -- "Read note.txt. Where and when is the meeting?"`
-with `ANTHROPIC_API_KEY` set, or
-`cargo run --locked -- --replay` for offline rehearsal.
+Say: "We'll type the whole thing: state and tool, the POST, the exit check,
+and the command plus its result."
 
-For the offline mode, say: "These model replies are scripted for rehearsal.
-The shell command and the loop are real."
+After the fourth chunk, save and run `cargo run --locked` with
+`ANTHROPIC_API_KEY` set. Its default prompt is `list files`.
 
-After the exchange prints, point to these four places in `run`:
+At each natural pause, point to that chunk:
 
-1. The `sh` tool description. "This tells the model what it can ask for."
-2. `ask(&request)`. "We send the conversation to the model. It can answer
-   or request a tool."
-3. `Command::new("sh").arg("-c").arg(cmd)`. "Here is where text becomes an
-   action. Rust starts a shell with the command the model supplied."
-4. The two `msgs.push` calls. "We keep the assistant's request, add our
-   result with the matching tool ID, and ask again. That closes the loop."
+1. `msgs` and `tools`. "The conversation and the tool definition."
+2. `client.post`. "Send both, then keep the assistant's reply."
+3. `let Some(b) = ... else`. "A tool request, or text and we're done."
+4. `Command::new("sh")` and the last `msgs.push`. "Run the command, add its
+   output with the same tool ID, and ask again."
+
+For the offline fallback, explicitly run
+`cargo run --locked --bin baby-agent-complete -- --replay`. Say: "These
+model replies are scripted. The shell command is real."
 
 Then: "We've got an agent. Now let's look at what its tools should be
 allowed to do."

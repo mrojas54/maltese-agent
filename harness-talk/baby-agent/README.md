@@ -1,35 +1,30 @@
-# Build a minimal Rust shell agent live
+# Type a minimal Rust shell agent live
 
-A fresh checkout leaves `run` in `src/main.rs` unfinished. Build the
-Anthropic shell agent on stage: declare `sh`, run the model's command, send
-its output back under the matching tool ID, and repeat until the model
-answers. HTTP and offline replay are connected below the function.
+A fresh checkout leaves `src/main.rs` as a blank `main` with four comments.
+Type the whole Anthropic shell agent in four chunks: state and tool, POST,
+find tool_use, and sh -c plus the result push. The HTTP request is part of
+the live build.
 
-Use [LIVE-CODING.md](LIVE-CODING.md) for the fresh-clone commands, the code
-to type in order, the expected exchange, and recovery. Use [INTRO.md](INTRO.md)
-for the spoken introduction and transition to `../baby-harness/`.
+Use [LIVE-CODING.md](LIVE-CODING.md) for the exact chunks, spoken cues,
+rehearsal targets, memory map, and recovery. Use [INTRO.md](INTRO.md) for
+the introduction and transition to `../baby-harness/`.
 
-## Start the demo
+## Fresh checkout
 
 ```bash
 git clone --branch codex/baby-agent-live-starter https://github.com/mrojas54/maltese-agent.git maltese-agent-live
 cd maltese-agent-live/harness-talk/baby-agent
 cargo build --locked --bins
-cargo run --locked -- --replay
+cargo run --locked
 ```
 
-The last command exits with `agent loop is not implemented yet`, with no
-shell command or final answer. That is the intended starting point. Open
-`src/main.rs` and build `run` using the live-coding script.
+The last command exits with `agent loop is not implemented yet`. It needs
+no key and runs no command. Replace the placeholder with the four chunks.
+The only direct dependencies are `reqwest` and `serde_json`.
 
-After the edit, the same command uses authored Anthropic replies from
-`fixtures/replay.json`. It runs a real `cat note.txt`, checks the result,
-then returns the scripted answer. A missing or edited note fails the replay.
-It needs no API key or model request.
+## Run the live program
 
-## Run with Anthropic
-
-After building the loop, with `ANTHROPIC_API_KEY` set in your environment:
+After typing it, with `ANTHROPIC_API_KEY` set in your environment:
 
 ```bash
 cargo run --locked
@@ -37,30 +32,42 @@ cargo run --locked -- "Read note.txt. Where and when is the meeting?"
 ```
 
 The default prompt is `list files`. `ANTHROPIC_MODEL` overrides the default
-`claude-sonnet-5-5`; see the [model lifecycle](https://platform.claude.com/docs/en/about-claude/model-deprecations)
-for supported model IDs. The program does not load `.env` files. HTTP
-requests have a 30-second timeout, the loop allows five model turns, and
-HTTP failures stop the run without a retry.
+`claude-sonnet-5-5`; see the [model lifecycle](https://platform.claude.com/docs/en/about-claude/model-deprecations).
+The live file reads environment variables and does not load `.env` files.
+It sends at most five model requests, times out each HTTP request after
+30 seconds, and stops on an HTTP error without retrying it.
 
-The only direct dependencies are `reqwest` and `serde_json`. The tool runs
-`sh -c` with your operating-system permissions. The next harness demo adds
-checks to command and file tools.
+The stage version runs the supplied string through `sh -c` and returns
+stdout in a `tool_result` with the matching `tool_use_id`. The request
+disables parallel tool use so it handles one command per response. The
+following harness demo introduces command and file checks.
 
-The request disables parallel tool use to keep one command per response.
-The full assistant content is kept, and the next user message contains the
-`tool_result` with its matching `tool_use_id`. Failed commands set
-`is_error: true`. See [Anthropic's tool-call format](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls).
+## Recovery and offline fallback
 
-## Completed backup
+`src/stage.rs` is the completed four-chunk file. It compiles as the
+`baby-agent-stage` binary, or can replace your typing with:
 
-`src/complete.rs` holds the finished version. Select it explicitly:
+```bash
+cp src/stage.rs src/main.rs
+cargo run --locked
+```
+
+For an offline fallback, use the separate completed replay implementation:
 
 ```bash
 cargo run --locked --bin baby-agent-complete -- --replay
 ```
 
-This leaves the unfinished `src/main.rs` alone. The script also shows how
-to copy the backup over a practice edit and how to reset afterwards.
+Its model replies are authored in `fixtures/replay.json`. The `cat note.txt`
+command is real, and its result is checked before the scripted final answer.
+A missing or edited note fails. This fallback needs no API key and leaves
+the live file alone.
+
+To discard practice edits and return to the blank starter:
+
+```bash
+git restore -- src/main.rs
+```
 
 ## Check the demo
 
@@ -70,12 +77,11 @@ From this directory, before practicing or after resetting:
 cargo fmt -- --check
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked
+cargo build --locked --bin baby-agent-stage
 ```
 
-The suite checks the unfinished default and the completed shell loop: real
-shell output reaches the next request, tool IDs match, failed commands are
-marked as errors, unexpected calls and truncated replies are rejected, and
-the replay rejects missing or changed notes. Tests and CI need no API key.
-
-The starter check is expected to fail while `src/main.rs` has your completed
-practice edit. The default `--replay` command checks the code you typed.
+The suite checks the blank default entry and the replay implementation,
+including real shell output reaching the next request, matching tool IDs,
+command errors, turn limits, and missing or changed notes. The stage
+checkpoint is compiled by the all-target checks and its explicit build.
+The starter check is expected to fail once you have typed the live program.

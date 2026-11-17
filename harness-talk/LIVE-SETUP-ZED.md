@@ -15,15 +15,16 @@ cd ~/path/to
 git clone --branch codex/baby-agent-live-starter https://github.com/mrojas54/maltese-agent.git maltese-agent-live
 cd maltese-agent-live/harness-talk/baby-agent
 cargo build --locked --bins                 # dependencies and backup, no edits
-cargo run --locked -- --replay               # expect: agent loop is not implemented yet
+cargo run --locked                          # expect: agent loop is not implemented yet
 
 cd ../baby-harness
 cargo run                                  # expect: Attacks stopped: 0 of 4
 ```
 
-The agent's first replay exits with status 1 and no tool call; that is the
-starting point. Follow `baby-agent/LIVE-CODING.md` for the code to type. Build
-both demos here first. After that, offline rehearsal needs no model request.
+The agent's first run exits with status 1 and needs no key; that is the
+blank starting point. Follow `baby-agent/LIVE-CODING.md` to type the whole
+program, including HTTP. Build both demos here first. The script also gives
+an explicit offline fallback that needs no model request.
 
 ## 2. Install the `zed` command
 
@@ -117,8 +118,8 @@ In the window:
 1. Close the project panel (`cmd-b`) so the code has the full width.
 2. Open the terminal panel at the bottom (`` ctrl-` ``). Drag it to about a
    third of the screen, which is room for the 7 harness lines.
-3. In the agent window, open the unfinished `run` in `src/main.rs` and fold
-   `main` below it. In the harness window, open `src/harness.rs`.
+3. In the agent window, open the blank `src/main.rs`. All four chunks go
+   into that file. In the harness window, open `src/harness.rs`.
 4. To make the code fill the screen while you explain it, use
    `shift-escape` (toggle zoom on the pane). Press it again to bring the
    terminal back.
