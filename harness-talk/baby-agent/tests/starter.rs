@@ -5,7 +5,6 @@ fn default_entry_point_is_unfinished_before_any_tool_call() {
     let output = Command::new(env!("CARGO_BIN_EXE_baby-agent"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .env_remove("ANTHROPIC_API_KEY")
-        .arg("--replay")
         .output()
         .unwrap();
 
