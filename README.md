@@ -41,7 +41,7 @@ the folder. The talk notes keep
 | `falcon-mcp/` | The harness. A Rust MCP server with 19 tools (files, cargo, git, a prompt-safety lint, and an optional `exec_run`), path checks that keep the file tools inside one folder, an allowlist of six programs, per-tool timeouts, and the tripwire. The subject of the talk. |
 | `falcon-agent/` | A small Rust web service that is **broken on purpose**: a poisoned example in its prompt, missing input and output checks, three planted lints, and a skipped test that would catch the bug. It is the workshop target. Do not fix it (see below). |
 | `falcon-detective/` | A TypeScript workflow, built on Barnum, that finds and fixes the problems in `falcon-agent` by calling Gemini for reasoning and `falcon-mcp` for tools. It replays from recorded cassettes, so you can run it without an API key. |
-| `women-in-rust/` | The homework. `demo00` is six small exercises that build a working MCP server from scratch; `demo01` to `demo03` add tools, then guards, then the path check that closes the symlink hole. |
+| `harness-talk/` | The homework. `demo00` is six small exercises that build a working MCP server from scratch; `demo01` to `demo03` add tools, then guards, then the path check that closes the symlink hole. |
 | `docs/talks/the-harness-wore-a-trenchcoat/` | The talk's companion notes: which slide maps to which file, the demo runbook, what the checks do and do not cover, and the rehearsal script. |
 
 The talk is presented from the
@@ -87,14 +87,14 @@ suite is the rehearsal.
 ## Do the homework
 
 ```bash
-cd women-in-rust/demo00
+cd harness-talk/demo00
 cargo run -- next
 ```
 
 It works like rustlings: `next` runs the exercises in order and stops at the
 first one that needs you. Open the file it names, read the comment at the
 top, fill in the gaps, run `next` again. Exercise 0 already works; the other
-five each have a hole in them. `women-in-rust/README.md` lists the later
+five each have a hole in them. `harness-talk/README.md` lists the later
 demos and the branch that holds each one.
 
 ## Run the full caper

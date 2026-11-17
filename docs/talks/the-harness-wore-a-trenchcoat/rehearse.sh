@@ -44,6 +44,6 @@ python3 "$REPO/docs/talks/the-harness-wore-a-trenchcoat/rehearse.py" "$BIN" "$JA
 printf '\nBacking tests (complete falcon-mcp suite)\n'
 cargo test --locked -p falcon-mcp --all-targets
 printf '\ndemo00 (audience exercises)\n'
-(cd women-in-rust/demo00 && cargo run --locked -q -- verify)
+(cd harness-talk/demo00 && cargo run --locked -q -- verify)
 printf '\nG-1 guardrail\n'
 bash scripts/check-planted-defects.sh
