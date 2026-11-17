@@ -289,7 +289,10 @@ export class Gemini {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey)
         throw new Error("GEMINI_API_KEY required for live/record mode");
-      this.ai = new GoogleGenAI({ apiKey });
+      // @google/genai 3.x defaults to API v1, where the preview models in
+      // models.ts (GEMINI_PRO) return 404. Pin v1beta until
+      // those IDs move to stable models.
+      this.ai = new GoogleGenAI({ apiKey, apiVersion: "v1beta" });
     }
   }
 
