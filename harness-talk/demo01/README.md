@@ -9,7 +9,7 @@ This is the crime scene from slide 1: `LLM -> raw shell`, dressed up as tool
 calls. demo02 through demo04 put the boundaries in.
 
 ```bash
-cd women-in-rust/demo01
+cd harness-talk/demo01
 cargo run -- next
 ```
 

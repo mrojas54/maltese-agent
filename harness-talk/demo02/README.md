@@ -10,7 +10,7 @@ is *lexical*: it reads how a path is spelled and never looks at the filesystem.
 demo03 is where that stops being enough.
 
 ```bash
-cd women-in-rust/demo02
+cd harness-talk/demo02
 cargo run -- next
 ```
 
