@@ -34,7 +34,7 @@ bait inside it, and `secret.txt` just outside it, then deletes it.
 ## On stage: four edits, about five minutes
 
 Open `src/harness.rs` in a large font. Run `cargo run` first: four red
-**GOT AWAY** lines. "This is Exhibit A, running. Let's fix it."
+**GOT AWAY** lines. "Right now all four get through."
 
 ### 1. Take the shell away (stops request 3)
 
@@ -47,8 +47,8 @@ let out = Command::new(program)
     .args(words)
 ```
 
-Say: "No shell. The first word is the program, the rest are its arguments.
-A semicolon is just a weird argument now." Run: 1 of 4 stopped. Cargo
+Say: "Step one: take the shell away. The first word is the program and the
+rest are its arguments, so a semicolon is just an argument now." Run: 1 of 4 stopped. Cargo
 complains about `--version;`, and nobody gets PWNED.
 
 ### 2. An allowlist (stops request 4)
@@ -67,8 +67,8 @@ if !ALLOWED.contains(&program) {
 }
 ```
 
-Say: "Without a shell, the model can still ask for sh by name. So: a guest
-list." Run: 2 of 4.
+Say: "Step two: the model can still ask for sh by name, so I'm adding an
+allowlist." Run: 2 of 4.
 
 ### 3. Resolve, then check the folder (stops request 5)
 
@@ -90,8 +90,8 @@ fn resolve(&self, path: &str) -> Result<PathBuf, String> {
 }
 ```
 
-Say: "Never check the spelling of a path. Follow every dot-dot and every
-symlink to the real file, then check it's inside the folder." Run: 3 of 4.
+Say: "Step three: don't check how a path is spelled. Resolve every dot-dot
+and symlink to the real file, then check it's inside the folder." Run: 3 of 4.
 
 ### 4. A tripwire (stops request 6)
 
@@ -120,12 +120,12 @@ if real.file_name() == Some(BAIT.as_ref()) {
 }
 ```
 
-Say: "Everybody wants the keys. These keys were never real." Run: 4 of 4,
-the alarm line, and the honest read after it is refused too. "One touch and
-the session is over."
+Say: "Step four: a tripwire on the bait file. Those keys were never real, and
+anything that reads them ends the session." Run: 4 of 4,
+the alarm line, and the honest read after it is refused too.
 
-Then: "That's about forty lines of checks." Switch back to the slides, to the
-MCP slide: "So where do checks like these live in a real agent?" The talk
+Then: "That's about forty lines of checks." Switch back to the slides: "In a
+real agent, these checks live in an MCP server." Go to the MCP slide. The talk
 ends after that slide; demo00 is not typed on stage, and attendees follow
 [`../demo00/WALKTHROUGH.md`](../demo00/WALKTHROUGH.md) afterwards.
 
