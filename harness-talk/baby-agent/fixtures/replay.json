@@ -1,0 +1,17 @@
+[
+  {
+    "candidates": [{
+      "finishReason": "STOP",
+      "content": {
+        "role": "model",
+        "parts": [{"functionCall": {"name": "read_file", "args": {"path": "note.txt"}}}]
+      }
+    }]
+  },
+  {
+    "candidates": [{
+      "finishReason": "STOP",
+      "content": {"role": "model", "parts": [{"text": "The meeting is at 19:00 in the library."}]}
+    }]
+  }
+]
