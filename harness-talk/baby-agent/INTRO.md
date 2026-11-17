@@ -25,9 +25,15 @@ back. Then the model answers. Let's build this thing."
 
 ## At the terminal
 
-Have `src/main.rs` open, with the terminal already in this directory. Run
-`cargo run --locked` with `GEMINI_API_KEY` set, or use
-`cargo run --locked -- --replay` for the offline rehearsal.
+Have `src/main.rs` open at the unfinished `run`, with the terminal already
+in this directory. Run `cargo run --locked -- --replay`: it stops with
+`agent loop is not implemented yet`, with no tool call or meeting answer.
+
+Say: "The connection to the model is ready below. Here we'll write the tool
+and the loop." Follow [the live-coding script](LIVE-CODING.md), typing its
+four fragments into `run`. After the last fragment, save and run
+`cargo run --locked` with `GEMINI_API_KEY` set, or
+`cargo run --locked -- --replay` for offline rehearsal.
 
 For the offline mode, say: "These model replies are scripted for rehearsal.
 The file read and the loop are real."
