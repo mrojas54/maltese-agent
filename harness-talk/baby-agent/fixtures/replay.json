@@ -1,18 +1,30 @@
 [
   {
-    "candidates": [{
-      "finishReason": "STOP",
-      "content": {
-        "role": "model",
-        "parts": [{"functionCall": {"name": "read_file", "args": {"path": "note.txt"}}}]
+    "stop_reason": "tool_use",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "read-1",
+        "name": "sh",
+        "input": {
+          "cmd": "cat note.txt"
+        }
       }
-    }]
+    ]
   },
   {
-    "expectedToolResult": {"result": "The meeting is at 19:00 in the library.\n"},
-    "candidates": [{
-      "finishReason": "STOP",
-      "content": {"role": "model", "parts": [{"text": "The meeting is at 19:00 in the library."}]}
-    }]
+    "expectedToolResult": {
+      "type": "tool_result",
+      "tool_use_id": "read-1",
+      "content": "The meeting is at 19:00 in the library.\n",
+      "is_error": false
+    },
+    "stop_reason": "end_turn",
+    "content": [
+      {
+        "type": "text",
+        "text": "The meeting is at 19:00 in the library."
+      }
+    ]
   }
 ]
