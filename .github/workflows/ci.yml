@@ -366,6 +366,9 @@ jobs:
       - name: cargo test
         run: cargo test --locked
 
+      - name: Build the whole-main stage checkpoint
+        run: cargo build --locked --bin baby-agent-stage
+
       # cargo test also checks that the default entry is still unfinished.
       - name: Offline shell rehearsal without credentials
         run: env -u ANTHROPIC_API_KEY -u ANTHROPIC_MODEL cargo run --locked --bin baby-agent-complete -- --replay
