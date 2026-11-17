@@ -101,7 +101,7 @@ demos and the branch that holds each one.
 
 The longer story is a workflow that repairs the broken service. It replays
 recorded Gemini responses, so no API key is needed. Node 22.12 or newer is
-required; CI uses Node 24.
+required; CI uses Node 26.
 
 ```bash
 # 1. Build the harness and the broken target
