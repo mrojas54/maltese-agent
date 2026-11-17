@@ -13,4 +13,5 @@ exclude = [
   "harness-talk/demo02",
   "harness-talk/demo03",
   "harness-talk/baby-harness",
+  "harness-talk/baby-agent",
 ]
