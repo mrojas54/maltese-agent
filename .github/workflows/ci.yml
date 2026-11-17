@@ -367,8 +367,8 @@ jobs:
         run: cargo test --locked
 
       # cargo test also checks that the default entry is still unfinished.
-      - name: Completed backup offline rehearsal
-        run: cargo run --locked --bin baby-agent-complete -- --replay
+      - name: Offline shell rehearsal without credentials
+        run: env -u ANTHROPIC_API_KEY -u ANTHROPIC_MODEL cargo run --locked --bin baby-agent-complete -- --replay
 
   trailmark:
     name: Trailmark (falcon-mcp links)
