@@ -151,13 +151,25 @@ fn rejects_malformed_unknown_and_multiple_calls_before_execution() {
 
 #[test]
 fn five_turn_limit_and_no_retry_after_provider_failure() {
+    let marker = Note::new("temporary");
+    std::fs::remove_file(&marker.0).unwrap();
+    let last_command = format!("printf ran > {}", marker.quoted());
     let mut turns = 0;
     let result = run("Keep going", |_| {
         turns += 1;
-        Ok(reply(json!([call("again", "printf ok")])))
+        let cmd = if turns == MAX_TURNS {
+            last_command.as_str()
+        } else {
+            "printf ok"
+        };
+        Ok(reply(json!([call("again", cmd)])))
     });
     assert!(result.is_err());
-    assert_eq!(turns, 5);
+    assert_eq!(turns, MAX_TURNS);
+    assert!(
+        !marker.0.exists(),
+        "executed a tool with no model turn left"
+    );
 
     let mut attempts = 0;
     let result = run("Hello", |_| {
