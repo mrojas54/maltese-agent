@@ -1,9 +1,9 @@
 # Setting up Zed for the live coding
 
-For Act 3 of *The Harness Wore a Trenchcoat*: you type the harness
-(`baby-harness`) live. demo00 is no longer typed on stage; it is the homework,
-in `demo00/WALKTHROUGH.md`. Do everything up to "The
-morning of" at home, on good wifi, on the laptop you will present from. Work
+For *The Harness Wore a Trenchcoat*: build the opening Anthropic shell agent in `baby-agent`, then
+add the four checks in `baby-harness`. Both start unfinished in the places
+you edit. demo00 is the homework, in `demo00/WALKTHROUGH.md`. Do everything
+up to "The morning of" at home, on good wifi, on the laptop you will present from. Work
 through it once, then do one full timed practice run.
 
 ## 1. Get the code and build it (about 10 minutes, mostly downloads)
@@ -11,15 +11,20 @@ through it once, then do one full timed practice run.
 In a normal terminal:
 
 ```bash
-cd ~/path/to/maltese-agent
-git switch main
-git pull
+cd ~/path/to
+git clone https://github.com/mrojas54/maltese-agent.git maltese-agent-live
+cd maltese-agent-live/harness-talk/baby-agent
+cargo build --locked --bins                 # dependencies and backup, no edits
+cargo run --locked                          # expect: agent loop is not implemented yet
 
-cd harness-talk/baby-harness
+cd ../baby-harness
 cargo run                                  # expect: Attacks stopped: 0 of 4
 ```
 
-It must build here first. After that, it works offline.
+The agent's first run exits with status 1 and needs no key; that is the
+blank starting point. Follow `baby-agent/LIVE-CODING.md` to type the whole
+program, including HTTP. Build both demos here first. The script also gives
+an explicit offline fallback that needs no model request.
 
 ## 2. Install the `zed` command
 
@@ -29,11 +34,13 @@ opens a folder from the terminal.
 ## 3. Open the project
 
 ```bash
-zed ~/path/to/maltese-agent/harness-talk/baby-harness
+zed ~/path/to/maltese-agent-live/harness-talk/baby-agent
+zed ~/path/to/maltese-agent-live/harness-talk/baby-harness
 ```
 
-Open this folder, not the whole repo. It is its own Cargo workspace, and
-rust-analyzer behaves best when the folder you open is the crate.
+Use one window for each crate. Start in baby-agent at `src/main.rs`; after
+building the loop, switch to the harness window at `src/harness.rs`. Each is
+its own Cargo workspace, so open the crate folder for rust-analyzer.
 
 The first time you open a `.rs` file, Zed downloads rust-analyzer. That is
 one more reason to do this at home. Wait until the spinner in the status bar
@@ -111,24 +118,28 @@ In the window:
 1. Close the project panel (`cmd-b`) so the code has the full width.
 2. Open the terminal panel at the bottom (`` ctrl-` ``). Drag it to about a
    third of the screen, which is room for the 7 harness lines.
-3. Open the starting file, `src/harness.rs`.
+3. In the agent window, open the blank `src/main.rs`. All four chunks go
+   into that file. In the harness window, open `src/harness.rs`.
 4. To make the code fill the screen while you explain it, use
    `shift-escape` (toggle zoom on the pane). Press it again to bring the
    terminal back.
 
 ## 7. Practice run, with a timer
 
-1. Run the reset task.
+1. Reset both demos. In the baby-agent terminal, run `git restore -- src/main.rs`.
+   This discards the practice edits in that file. In the baby-harness window,
+   run **harness: reset to Exhibit A**.
 2. Start a stopwatch at the cover slide. Go through the slides, and at the
-   live-code slide follow `baby-harness/README.md` from step 1 to 4, saying
-   the lines out loud. Stop the watch at the end of Case Closed.
+   opening demo follow `baby-agent/LIVE-CODING.md`. At the harness slide,
+   follow `baby-harness/README.md` from step 1 to 4. Say the lines out loud
+   and stop the watch at the end of Case Closed.
 3. Write down the time at the start of the typing, at its end, and overall.
-   Afterwards, run the reset task again.
+   Repeat both resets from step 1.
 
-Expect about 15 to 20 minutes of typing plus about 5 minutes of slides, so 20
-to 25 minutes in a 30-minute slot, which leaves room for questions. If you
-come in over 30, paste step 4 (the tripwire) from `src/steps/step4.rs`
-instead of typing it, which saves about 5 minutes.
+Measure the total with both live builds before deciding how much to type
+in the 30-minute slot. If it runs long, use the explicit agent backup or
+paste a harness checkpoint. The agent script and harness README list those
+recovery commands.
 
 ## The morning of
 
@@ -137,10 +148,10 @@ instead of typing it, which saves about 5 minutes.
 - Turn on Do Not Disturb, and quit Slack, mail and anything else that pops up
   notifications.
 - Plug in the power. A long `cargo` build on battery is slower.
-- Run the reset task, and then `harness: cargo run` once, so everything is
-  built and warm.
-- Keep the stage script (`baby-harness/README.md`) on your phone or a second
-  screen.
+- Reset both demos as in step 1 of the timed practice. In the harness window,
+  run `harness: cargo run` once so `cmd-r` repeats that task.
+- Keep `baby-agent/LIVE-CODING.md` and `baby-harness/README.md` on your phone
+  or a second screen.
 
 ## If something breaks on stage
 
