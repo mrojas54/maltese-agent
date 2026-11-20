@@ -334,6 +334,45 @@ jobs:
       - name: cargo test
         run: cargo test
 
+  baby-agent:
+    name: Baby agent (harness-talk/baby-agent)
+    runs-on: ubuntu-26.04
+    env:
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        working-directory: harness-talk/baby-agent
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned toolchain from rust-toolchain.toml
+        id: toolchain
+        working-directory: .
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: harness-talk/baby-agent -> target
+
+      - name: cargo fmt --check
+        run: cargo fmt -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --locked
+
+      - name: Offline rehearsal
+        run: cargo run --locked -- --replay
+
   trailmark:
     name: Trailmark (falcon-mcp links)
     runs-on: ubuntu-26.04
