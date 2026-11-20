@@ -126,13 +126,15 @@ In the window:
 
 ## 7. Practice run, with a timer
 
-1. Run the reset task.
+1. Reset both demos. In the baby-agent terminal, run `git restore -- src/main.rs`.
+   This discards the practice edits in that file. In the baby-harness window,
+   run **harness: reset to Exhibit A**.
 2. Start a stopwatch at the cover slide. Go through the slides, and at the
    opening demo follow `baby-agent/LIVE-CODING.md`. At the harness slide,
    follow `baby-harness/README.md` from step 1 to 4. Say the lines out loud
    and stop the watch at the end of Case Closed.
 3. Write down the time at the start of the typing, at its end, and overall.
-   Afterwards, run the reset task again.
+   Repeat both resets from step 1.
 
 Measure the total with both live builds before deciding how much to type
 in the 30-minute slot. If it runs long, use the explicit agent backup or
@@ -146,10 +148,8 @@ recovery commands.
 - Turn on Do Not Disturb, and quit Slack, mail and anything else that pops up
   notifications.
 - Plug in the power. A long `cargo` build on battery is slower.
-- Run the reset task, and then `harness: cargo run` once, so everything is
-  built and warm.
-- Reset the agent with `git restore -- src/main.rs` from its directory after
-  a practice run. This discards only that file's practice edits.
+- Reset both demos as in step 1 of the timed practice. In the harness window,
+  run `harness: cargo run` once so `cmd-r` repeats that task.
 - Keep `baby-agent/LIVE-CODING.md` and `baby-harness/README.md` on your phone
   or a second screen.
 

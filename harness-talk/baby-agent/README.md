@@ -34,13 +34,15 @@ cargo run --locked -- "Read note.txt. Where and when is the meeting?"
 The default prompt is `list files`. `ANTHROPIC_MODEL` overrides the default
 `claude-sonnet-5-5`; see the [model lifecycle](https://platform.claude.com/docs/en/about-claude/model-deprecations).
 The live file reads environment variables and does not load `.env` files.
-It sends at most five model requests, times out each HTTP request after
-30 seconds, and stops on an HTTP error without retrying it.
+It sends at most five model requests and times out each one after 30
+seconds. A truncated reply or an HTTP error ends the run. If the fifth
+reply requests a tool, the agent exits with an error before running it.
 
 The stage version runs the supplied string through `sh -c` and returns
-stdout in a `tool_result` with the matching `tool_use_id`. The request
-disables parallel tool use so it handles one command per response. The
-following harness demo introduces command and file checks.
+stdout in a `tool_result` with the matching `tool_use_id`. The shell
+runs without `ANTHROPIC_API_KEY`. The request disables parallel tool use
+so the agent handles one command per response. The following harness demo
+introduces command and file checks.
 
 ## Recovery and offline fallback
 
@@ -84,4 +86,5 @@ The suite checks the blank default entry and the replay implementation,
 including real shell output reaching the next request, matching tool IDs,
 command errors, turn limits, and missing or changed notes. The stage
 checkpoint is compiled by the all-target checks and its explicit build.
+A test checks that the four Rust blocks in the script reproduce that file.
 The starter check is expected to fail once you have typed the live program.

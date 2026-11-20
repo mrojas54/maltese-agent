@@ -26,8 +26,8 @@ it does not load `.env` files. Have the key set before going on stage.
 
 **Target:** 0:00 to 0:45.
 
-**Mental anchor:** Two imports, one environment variable, one CLI prompt,
-and two JSON arrays: `msgs` and `tools`.
+**Mental anchor:** Two imports, `main` returns a `Result`, then the API key,
+the prompt, `msgs`, and `tools`.
 
 **Say while typing:** "An agent is a message array and a tool definition.
 We don't need a framework or custom structs: just JSON, our user prompt,
@@ -60,12 +60,13 @@ present. The schema should describe that contract.
 
 **Target:** 0:45 to 1:30.
 
-**Mental anchor:** Client outside, `for _ in 0..5` inside, two headers,
-and five request fields: model, max_tokens, tools, messages, tool_choice.
+**Mental anchor:** Client, five turns, two headers, and five request fields
+(model, max_tokens, tools, messages, tool_choice). Check `stop_reason`
+before reading the response blocks.
 
-**Say while typing:** "Each turn, we POST the conversation and tool schema
-to the Messages API, parse its response as a JSON Value, and put the
-assistant's reply back into msgs. The loop is bounded at five turns."
+**Say while typing:** "On each turn, we POST the conversation and tool schema.
+A truncated reply ends the run with an error. A complete reply or a tool
+request goes into msgs."
 
 ```rust
     let client = reqwest::blocking::Client::new();
@@ -109,9 +110,9 @@ program before it tries to read response content.
 
 **Mental anchor:** `blocks.iter().find()` with `let Some(b) = ... else`.
 
-**Say while typing:** "Did the model ask for a tool, or is it done? This
-let-else finds a tool_use block. If there isn't one, print the text and
-break out of the loop."
+**Say while typing:** "This let-else looks for a tool call. If the model is
+done, we print the answer and return. If it needs a tool, we check that
+there's another turn left to return the result."
 
 ```rust
         let Some(b) = blocks.iter().find(|b| b["type"] == "tool_use") else {
@@ -131,19 +132,19 @@ break out of the loop."
         }
 ```
 
-The small inner loop prints text blocks even when another kind of block
-comes first in the response.
+The final branch prints the text blocks in order. A tool call on the
+fifth turn ends the run with an error before that command runs.
 
 ## Chunk 4 Run sh and push the observation
 
 **Target:** 2:00 to 2:45.
 
-**Mental anchor:** Extract cmd → `Command::new("sh")` → push `tool_result`
-with `b["id"]`.
+**Mental anchor:** Extract cmd → launch `sh -c` without the API key →
+push `tool_result` with `b["id"]`.
 
-**Say while typing:** "If it called sh, grab cmd, print it to stderr so we
-can see the command, and pass it straight to sh -c. Then send stdout back
-as a tool_result linked to the model's ID. That's the whole agent loop."
+**Say while typing:** "Print the command so we can see it. Remove the API
+key from the shell's environment and run sh -c. Put stdout in a tool result
+with the call ID so the model can match it to the request."
 
 ```rust
         let cmd = b["input"]["cmd"].as_str().ok_or("cmd must be a string")?;
@@ -169,10 +170,10 @@ exercises command errors and malformed model replies.
 
 ## The three second memory map
 
-- **State:** key, prompt, msgs, tools.
-- **Turn:** client.post → blocks → msgs.push(assistant).
-- **Branch:** find tool_use → let-else → text and break.
-- **Act:** sh -c → stdout → msgs.push(tool_result).
+- **State** key, prompt, msgs, tools.
+- **Turn** POST → check stop reason → add assistant blocks.
+- **Branch** find tool call → print the answer or check the turn limit.
+- **Act** sh without the API key → add stdout as the tool result.
 
 ## Run the file you typed
 
