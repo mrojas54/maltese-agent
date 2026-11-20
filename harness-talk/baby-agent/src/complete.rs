@@ -19,7 +19,7 @@ fn run(prompt: &str, mut ask: impl FnMut(&Value) -> Result<Value>) -> Result<Str
         }],
         "tool_choice": {"type": "auto", "disable_parallel_tool_use": true}
     });
-    for _ in 0..MAX_TURNS {
+    for turn in 1..=MAX_TURNS {
         let res = ask(&request)?;
         if res["stop_reason"] != "end_turn" && res["stop_reason"] != "tool_use" {
             return Err(format!("model stopped: {}", res["stop_reason"]).into());
@@ -49,8 +49,14 @@ fn run(prompt: &str, mut ask: impl FnMut(&Value) -> Result<Value>) -> Result<Str
         }
         let cmd = b["input"]["cmd"].as_str().ok_or("cmd must be a string")?;
         let id = b["id"].as_str().ok_or("tool call has no id")?;
+        if turn == MAX_TURNS {
+            break;
+        }
         eprintln!("\x1b[33m$ {cmd}\x1b[0m");
-        let out = Command::new("sh").arg("-c").arg(cmd).output()?;
+        let out = Command::new("sh")
+            .env_remove("ANTHROPIC_API_KEY")
+            .args(["-c", cmd])
+            .output()?;
         let text = format!(
             "{}{}",
             String::from_utf8_lossy(&out.stdout),
@@ -67,7 +73,9 @@ fn run(prompt: &str, mut ask: impl FnMut(&Value) -> Result<Value>) -> Result<Str
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() > 1 {
-        return Err("usage: cargo run -- [--replay | \"your prompt\"]".into());
+        return Err(
+            "usage: cargo run --bin baby-agent-complete -- [--replay | \"your prompt\"]".into(),
+        );
     }
     let answer = if args.first().is_some_and(|arg| arg == "--replay") {
         println!("Offline rehearsal: scripted model replies; the shell command is real.");
