@@ -12,7 +12,7 @@ In a normal terminal:
 
 ```bash
 cd ~/path/to
-git clone --branch codex/baby-agent-live-starter https://github.com/mrojas54/maltese-agent.git maltese-agent-live
+git clone https://github.com/mrojas54/maltese-agent.git maltese-agent-live
 cd maltese-agent-live/harness-talk/baby-agent
 cargo build --locked --bins                 # dependencies and backup, no edits
 cargo run --locked                          # expect: agent loop is not implemented yet

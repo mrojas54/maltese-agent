@@ -8,7 +8,7 @@ below are rehearsal targets. Time the whole sequence aloud.
 ## Start with a blank main
 
 ```bash
-git clone --branch codex/baby-agent-live-starter https://github.com/mrojas54/maltese-agent.git maltese-agent-live
+git clone https://github.com/mrojas54/maltese-agent.git maltese-agent-live
 cd maltese-agent-live/harness-talk/baby-agent
 cargo build --locked --bins
 cargo run --locked
